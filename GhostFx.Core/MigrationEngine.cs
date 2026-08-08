@@ -270,8 +270,9 @@ public class MigrationEngine
         var sb = new System.Text.StringBuilder();
         foreach (var post in posts.OrderByDescending(p => p.Date))
         {
+            string fileName = Path.GetFileName(post.FileName);
             sb.AppendLine($"- name: \"{post.Title.Replace("\"", "\\\"")}\"");
-            sb.AppendLine($"  href: {post.FileName}");
+            sb.AppendLine($"  href: {fileName}");
         }
 
         File.WriteAllText(tocPath, sb.ToString());
@@ -319,5 +320,30 @@ public class MigrationEngine
             }
         }
         File.WriteAllText(tagsTocPath, tocSb.ToString());
+
+        // Generate root tags.md index page with .md relative links
+        string rootDir = Path.GetDirectoryName(Path.GetFullPath(config.OutputDir)) ?? ".";
+        string outputDirName = Path.GetFileName(Path.GetFullPath(config.OutputDir));
+        string mainTagsPath = Path.Combine(rootDir, "tags.md");
+
+        var mainTagsSb = new System.Text.StringBuilder();
+        mainTagsSb.AppendLine("---");
+        mainTagsSb.AppendLine("uid: tags-index");
+        mainTagsSb.AppendLine("title: \"Browse by Tag\"");
+        mainTagsSb.AppendLine("---");
+        mainTagsSb.AppendLine();
+        mainTagsSb.AppendLine("# Browse Content by Tag");
+        mainTagsSb.AppendLine();
+
+        foreach (var tag in allTags.OrderBy(t => t.Name))
+        {
+            var tagPosts = posts.Where(p => p.Tags.Any(t => string.Equals(t, tag.Name, StringComparison.OrdinalIgnoreCase))).ToList();
+            if (tagPosts.Count == 0) continue;
+
+            string relPath = $"{outputDirName}/tags/{tag.Slug}.md";
+            mainTagsSb.AppendLine($"- [{tag.Name} ({tagPosts.Count})]({relPath})");
+        }
+
+        File.WriteAllText(mainTagsPath, mainTagsSb.ToString());
     }
 }
