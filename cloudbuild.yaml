@@ -18,17 +18,11 @@ steps:
   entrypoint: 'dotnet'
   args: ['test', '-c', 'Release', '--no-build', 'GhostFx.slnx']
 
-# Pack GhostFx Core Library
-- name: 'mcr.microsoft.com/dotnet/sdk:10.0'
-  id: Pack GhostFx Core
-  entrypoint: 'dotnet'
-  args: ['pack', '-c', 'Release', '--no-build', 'GhostFx.Core/GhostFx.Core.csproj', '-o', 'output/']
-
 # Pack GhostFx Global CLI Tool
 - name: 'mcr.microsoft.com/dotnet/sdk:10.0'
   id: Pack GhostFx CLI Tool
   entrypoint: 'dotnet'
-  args: ['pack', '-c', 'Release', '--no-build', 'GhostFx.Cli/GhostFx.Cli.csproj', '-o', 'output/']
+  args: ['pack', '-c', 'Release', 'GhostFx.Cli/GhostFx.Cli.csproj', '-o', 'output/']
 
 # Push NuGet Packages (if API Key provided)
 - name: 'mcr.microsoft.com/dotnet/sdk:10.0'

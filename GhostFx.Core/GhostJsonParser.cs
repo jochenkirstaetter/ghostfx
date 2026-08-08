@@ -8,7 +8,7 @@ namespace GhostFx.Core;
 
 public class GhostJsonParser
 {
-    public (List<GhostPost> Posts, List<GhostTag> Tags) ParseJsonExport(string jsonContent)
+    public (List<GhostPost> Posts, List<GhostTag> Tags, string? Title, string? Description, List<GhostNavItem> NavItems) ParseJsonExport(string jsonContent)
     {
         if (string.IsNullOrWhiteSpace(jsonContent))
             throw new ArgumentException("JSON content cannot be null or empty.");
@@ -41,6 +41,21 @@ public class GhostJsonParser
             }
         }
 
-        return (data.Posts, data.Tags);
+        string? title = data.Settings?.FirstOrDefault(s => string.Equals(s.Key, "title", StringComparison.OrdinalIgnoreCase))?.Value;
+        string? description = data.Settings?.FirstOrDefault(s => string.Equals(s.Key, "description", StringComparison.OrdinalIgnoreCase))?.Value;
+
+        List<GhostNavItem> navItems = [];
+        string? navJson = data.Settings?.FirstOrDefault(s => string.Equals(s.Key, "navigation", StringComparison.OrdinalIgnoreCase))?.Value;
+        if (!string.IsNullOrWhiteSpace(navJson))
+        {
+            try
+            {
+                var parsedNav = JsonSerializer.Deserialize<List<GhostNavItem>>(navJson, options);
+                if (parsedNav != null) navItems = parsedNav;
+            }
+            catch { }
+        }
+
+        return (data.Posts, data.Tags, title, description, navItems);
     }
 }

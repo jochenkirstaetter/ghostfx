@@ -66,7 +66,7 @@ public class GhostJsonParserTests
     public void ParseJsonExport_ParsesPostsAndTagsCorrectly()
     {
         var parser = new GhostJsonParser();
-        var (posts, tags) = parser.ParseJsonExport(_sampleJson);
+        var (posts, tags, title, description, navItems) = parser.ParseJsonExport(_sampleJson);
 
         Assert.Equal(2, posts.Count);
         Assert.Equal(2, tags.Count);
@@ -81,6 +81,38 @@ public class GhostJsonParserTests
 
         var draftPost = posts.First(p => p.Id == "post-2");
         Assert.Equal("draft", draftPost.Status);
+    }
+
+    [Fact]
+    public void ParseJsonExport_ParsesSettingsCorrectly()
+    {
+        string jsonWithSettings = """
+        {
+          "db": [
+            {
+              "data": {
+                "posts": [],
+                "tags": [],
+                "posts_tags": [],
+                "settings": [
+                  { "key": "title", "value": "My Ghost Site" },
+                  { "key": "description", "value": "A awesome blog" },
+                  { "key": "navigation", "value": "[{\"label\":\"About\",\"url\":\"/about/\"}]" }
+                ]
+              }
+            }
+          ]
+        }
+        """;
+
+        var parser = new GhostJsonParser();
+        var (posts, tags, title, description, navItems) = parser.ParseJsonExport(jsonWithSettings);
+
+        Assert.Equal("My Ghost Site", title);
+        Assert.Equal("A awesome blog", description);
+        Assert.Single(navItems);
+        Assert.Equal("About", navItems[0].Label);
+        Assert.Equal("/about/", navItems[0].Url);
     }
 
     [Fact]

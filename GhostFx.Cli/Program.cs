@@ -266,10 +266,16 @@ public class Program
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine($"\n[SUCCESS] {result.Message}");
                 Console.ResetColor();
-                Console.WriteLine($"  Processed Posts: {result.ProcessedPosts}");
-                Console.WriteLine($"  Processed Drafts: {result.ProcessedDrafts}");
-                Console.WriteLine($"  Processed Tags:   {result.ProcessedTags}");
-                Console.WriteLine($"  Generated Files:  {result.GeneratedFiles.Count}");
+                Console.WriteLine($"  Processed Posts:     {result.ProcessedPosts}");
+                Console.WriteLine($"  Processed Pages:     {result.ProcessedPages}");
+                Console.WriteLine($"  Processed Drafts:    {result.ProcessedDrafts}");
+                if (result.ProcessedScheduled > 0)
+                {
+                    Console.WriteLine($"  Processed Scheduled: {result.ProcessedScheduled}");
+                }
+                Console.WriteLine($"  Processed Tags:      {result.ProcessedTags}");
+                Console.WriteLine($"  Generated Files:     {result.GeneratedFiles.Count}");
+                Console.WriteLine($"  Duration:            {result.ElapsedDuration.TotalSeconds:F2}s");
             }
             else
             {

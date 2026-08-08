@@ -49,6 +49,8 @@ public class BlogPostMetadata
     public string FileName { get; set; } = string.Empty;
     public List<string> Tags { get; set; } = [];
     public bool IsDraft { get; set; }
+    public bool IsScheduled { get; set; }
+    public string Type { get; set; } = "post";
 }
 
 public class GhostExport
@@ -73,6 +75,18 @@ public class GhostData
 
     [JsonPropertyName("posts_tags")]
     public List<GhostPostTagMap> PostsTags { get; set; } = [];
+
+    [JsonPropertyName("settings")]
+    public List<GhostSetting> Settings { get; set; } = [];
+}
+
+public class GhostSetting
+{
+    [JsonPropertyName("key")]
+    public string Key { get; set; } = string.Empty;
+
+    [JsonPropertyName("value")]
+    public string Value { get; set; } = string.Empty;
 }
 
 public class GhostPost
@@ -106,6 +120,9 @@ public class GhostPost
 
     [JsonPropertyName("status")]
     public string Status { get; set; } = "published";
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "post";
 
     [JsonPropertyName("meta_title")]
     public string MetaTitle { get; set; } = string.Empty;
@@ -159,16 +176,46 @@ public class GhostApiPostsResponse
     public List<GhostPost> Posts { get; set; } = [];
 }
 
+public class GhostApiPagesResponse
+{
+    [JsonPropertyName("pages")]
+    public List<GhostPost> Pages { get; set; } = [];
+}
+
 public class MigrationResult
 {
     public bool Success { get; set; }
     public string Message { get; set; } = string.Empty;
     public int ProcessedPosts { get; set; }
     public int ProcessedDrafts { get; set; }
+    public int ProcessedPages { get; set; }
+    public int ProcessedScheduled { get; set; }
     public int ProcessedTags { get; set; }
+    public TimeSpan ElapsedDuration { get; set; }
     public List<string> GeneratedFiles { get; set; } = [];
     public string HeaderCodeInjection { get; set; } = string.Empty;
     public string FooterCodeInjection { get; set; } = string.Empty;
     public string ThemeDownloadWarning { get; set; } = string.Empty;
     public string DetectedGhostVersion { get; set; } = string.Empty;
+}
+
+public class IconLink
+{
+    [JsonPropertyName("icon")]
+    public string Icon { get; set; } = string.Empty;
+
+    [JsonPropertyName("href")]
+    public string Href { get; set; } = string.Empty;
+
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = string.Empty;
+}
+
+public class GhostNavItem
+{
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = string.Empty;
+
+    [JsonPropertyName("url")]
+    public string Url { get; set; } = string.Empty;
 }

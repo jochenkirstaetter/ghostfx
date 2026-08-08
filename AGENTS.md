@@ -70,6 +70,6 @@ dotnet run --project GhostFx.Cli/GhostFx.Cli.csproj -- --help
   "siteTitle": "My Migrated Ghost Blog",
   "includeDrafts": false,
   "downloadTheme": false,
-  "themeOutputPath": "templates/ghost-theme.zip"
+  "themeOutputPath": "ghostfx.zip"
 }
 ```

@@ -7,7 +7,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>ghostfx</ToolCommandName>
     <PackageId>GhostFx</PackageId>
-    <Version>1.0.0</Version>
+    <Version>0.1.0</Version>
     <Title>GhostFx CLI Tool</Title>
     <Description>Migrate Ghost blog exports and live sites to Git-versioned Markdown configured for Docfx static site generation.</Description>
     <PackageTags>ghost;docfx;markdown;static-site-generator;blog;migration;cli;dotnet</PackageTags>

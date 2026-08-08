@@ -141,6 +141,9 @@ public static class MediaDownloader
         foreach (var post in posts)
         {
             bool isDraft = string.Equals(post.Status, "draft", StringComparison.OrdinalIgnoreCase);
+            bool isScheduled = string.Equals(post.Status, "scheduled", StringComparison.OrdinalIgnoreCase);
+            bool isPage = string.Equals(post.Type, "page", StringComparison.OrdinalIgnoreCase);
+            bool inSubfolder = isDraft || isScheduled || isPage;
 
             foreach (var kvp in urlToLocalPathMap)
             {
@@ -154,8 +157,8 @@ public static class MediaDownloader
                 }
 
                 string relativePublishedPath = $"media/{info.RelativePath.Replace('\\', '/').TrimStart('/')}";
-                string relativeDraftPath = $"../media/{info.RelativePath.Replace('\\', '/').TrimStart('/')}";
-                string targetRelPath = isDraft ? relativeDraftPath : relativePublishedPath;
+                string relativeSubfolderPath = $"../media/{info.RelativePath.Replace('\\', '/').TrimStart('/')}";
+                string targetRelPath = inSubfolder ? relativeSubfolderPath : relativePublishedPath;
 
                 if (!string.IsNullOrWhiteSpace(post.Html))
                 {

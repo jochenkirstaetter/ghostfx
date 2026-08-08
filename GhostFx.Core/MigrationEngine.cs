@@ -25,24 +25,33 @@ public class MigrationEngine
         Func<string, string, Task<bool>>? onManualThemeRequested = null)
     {
         var result = new MigrationResult();
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
         try
         {
             List<GhostPost> allPosts = [];
             List<GhostTag> allTags = [];
+            string? siteDescription = null;
+            List<GhostNavItem> navItems = [];
 
             if (!string.IsNullOrWhiteSpace(jsonContentOverride))
             {
-                var (posts, tags) = _jsonParser.ParseJsonExport(jsonContentOverride);
+                var (posts, tags, jsonTitle, jsonDesc, jsonNav) = _jsonParser.ParseJsonExport(jsonContentOverride);
                 allPosts = posts;
                 allTags = tags;
+                if (jsonNav.Count > 0) navItems = jsonNav;
+                if (!string.IsNullOrWhiteSpace(jsonTitle)) config.SiteTitle = jsonTitle;
+                if (!string.IsNullOrWhiteSpace(jsonDesc)) siteDescription = jsonDesc;
             }
             else if (!string.IsNullOrWhiteSpace(config.InputJsonPath) && File.Exists(config.InputJsonPath))
             {
                 string json = await File.ReadAllTextAsync(config.InputJsonPath);
-                var (posts, tags) = _jsonParser.ParseJsonExport(json);
+                var (posts, tags, jsonTitle, jsonDesc, jsonNav) = _jsonParser.ParseJsonExport(json);
                 allPosts = posts;
                 allTags = tags;
+                if (jsonNav.Count > 0) navItems = jsonNav;
+                if (!string.IsNullOrWhiteSpace(jsonTitle)) config.SiteTitle = jsonTitle;
+                if (!string.IsNullOrWhiteSpace(jsonDesc)) siteDescription = jsonDesc;
             }
             else if (!string.IsNullOrWhiteSpace(config.GhostUrl) && !string.IsNullOrWhiteSpace(config.AdminApiKey))
             {
@@ -54,6 +63,18 @@ public class MigrationEngine
                 allPosts = posts;
                 result.DetectedGhostVersion = version;
                 allTags = allPosts.SelectMany(p => p.Tags).GroupBy(t => t.Id).Select(g => g.First()).ToList();
+
+                var (apiTitle, apiDesc, _, _, _, apiNav) = await GhostAdminClient.FetchSiteBrandInfoAsync(config.GhostUrl, config.AdminApiKey);
+                if (apiNav.Count > 0) navItems = apiNav;
+                if (!string.IsNullOrWhiteSpace(apiTitle)) config.SiteTitle = apiTitle;
+                if (!string.IsNullOrWhiteSpace(apiDesc)) siteDescription = apiDesc;
+
+                // Download brand assets (favicon, logo, cover)
+                string siteRootDir = Path.GetDirectoryName(Path.GetFullPath(config.OutputDir)) ?? ".";
+                var (favFile, logoFile, coverFile) = await GhostAdminClient.DownloadSiteBrandAssetsAsync(config.GhostUrl, config.AdminApiKey, siteRootDir);
+                if (!string.IsNullOrEmpty(favFile) && !result.GeneratedFiles.Contains(favFile)) result.GeneratedFiles.Add(favFile);
+                if (!string.IsNullOrEmpty(logoFile) && !result.GeneratedFiles.Contains(logoFile)) result.GeneratedFiles.Add(logoFile);
+                if (!string.IsNullOrEmpty(coverFile) && !result.GeneratedFiles.Contains(coverFile)) result.GeneratedFiles.Add(coverFile);
 
                 if (allPosts.Count > 0)
                 {
@@ -111,10 +132,12 @@ public class MigrationEngine
             Directory.CreateDirectory(config.OutputDir);
 
             var postsToProcess = allPosts
-                .Where(p => p.Status == "published" || (config.IncludeDrafts && p.Status == "draft"))
+                .Where(p => p.Status == "published" || (config.IncludeDrafts && (p.Status == "draft" || p.Status == "scheduled")))
                 .ToList();
 
             List<BlogPostMetadata> publishedMetaList = [];
+            List<BlogPostMetadata> pageMetaList = [];
+            List<BlogPostMetadata> scheduledMetaList = [];
             List<BlogPostMetadata> draftMetaList = [];
 
             int totalPostsCount = postsToProcess.Count;
@@ -124,15 +147,20 @@ public class MigrationEngine
                 onProgress?.Invoke(i + 1, totalPostsCount, string.IsNullOrWhiteSpace(post.Title) ? post.Slug : post.Title);
 
                 bool isDraft = string.Equals(post.Status, "draft", StringComparison.OrdinalIgnoreCase);
+                bool isScheduled = string.Equals(post.Status, "scheduled", StringComparison.OrdinalIgnoreCase);
+                bool isPage = string.Equals(post.Type, "page", StringComparison.OrdinalIgnoreCase);
+
                 DateTime postDate = post.PublishedAt ?? post.CreatedAt ?? DateTime.UtcNow;
                 string dateStr = postDate.ToString("yyyy-MM-dd");
 
                 var tagNames = post.Tags.Select(t => t.Name).ToList();
 
+                string titleSuffix = isDraft ? " (Draft)" : (isScheduled ? " (Scheduled)" : "");
+
                 var frontMatter = new FrontMatter
                 {
                     Uid = post.Slug,
-                    Title = post.Title + (isDraft ? " (Draft)" : ""),
+                    Title = post.Title + titleSuffix,
                     Slug = post.Slug,
                     Date = dateStr,
                     Tags = tagNames,
@@ -149,7 +177,8 @@ public class MigrationEngine
                     : (!string.IsNullOrWhiteSpace(post.CustomExcerpt) ? $"<p>{post.CustomExcerpt}</p>" : "");
                 string fullDoc = _converter.BuildFullMarkdownDocument(frontMatter, htmlContent);
 
-                string targetSubDir = isDraft ? Path.Combine(config.OutputDir, "drafts") : config.OutputDir;
+                string subDirName = isPage ? "pages" : (isScheduled ? "scheduled" : (isDraft ? "drafts" : ""));
+                string targetSubDir = !string.IsNullOrEmpty(subDirName) ? Path.Combine(config.OutputDir, subDirName) : config.OutputDir;
                 Directory.CreateDirectory(targetSubDir);
 
                 string fileName = $"{post.Slug}.md";
@@ -158,17 +187,31 @@ public class MigrationEngine
                 await File.WriteAllTextAsync(filePath, fullDoc);
                 result.GeneratedFiles.Add(filePath);
 
+                string relativePathInToc = !string.IsNullOrEmpty(subDirName) ? $"{subDirName}/{fileName}" : fileName;
+
                 var meta = new BlogPostMetadata
                 {
                     Title = post.Title,
                     Slug = post.Slug,
                     Date = postDate,
-                    FileName = isDraft ? $"drafts/{fileName}" : fileName,
+                    FileName = relativePathInToc,
                     Tags = tagNames,
-                    IsDraft = isDraft
+                    IsDraft = isDraft,
+                    IsScheduled = isScheduled,
+                    Type = post.Type
                 };
 
-                if (isDraft)
+                if (isPage)
+                {
+                    pageMetaList.Add(meta);
+                    result.ProcessedPages++;
+                }
+                else if (isScheduled)
+                {
+                    scheduledMetaList.Add(meta);
+                    result.ProcessedScheduled++;
+                }
+                else if (isDraft)
                 {
                     draftMetaList.Add(meta);
                     result.ProcessedDrafts++;
@@ -180,15 +223,37 @@ public class MigrationEngine
                 }
             }
 
+            // Generate Root Table of Contents (toc.yml for top navbar)
+            string rootDirForToc = Path.GetDirectoryName(Path.GetFullPath(config.OutputDir)) ?? ".";
+            string rootTocPath = Path.Combine(rootDirForToc, "toc.yml");
+            GenerateRootToc(rootTocPath, navItems, pageMetaList, publishedMetaList, config.OutputDir);
+            if (!result.GeneratedFiles.Contains(rootTocPath)) result.GeneratedFiles.Add(rootTocPath);
+
             // Generate Front Page (index.md)
             string indexPath = Path.Combine(Path.GetDirectoryName(config.OutputDir) ?? ".", config.IndexFile);
-            GenerateFrontPage(indexPath, publishedMetaList, config.SiteTitle, config.OutputDir);
+            GenerateFrontPage(indexPath, publishedMetaList, config.SiteTitle, siteDescription, config.OutputDir);
             result.GeneratedFiles.Add(indexPath);
 
             // Generate main Table of Contents (toc.yml)
             string tocPath = Path.Combine(config.OutputDir, "toc.yml");
             GenerateToc(tocPath, publishedMetaList);
             result.GeneratedFiles.Add(tocPath);
+
+            // Handle pages TOC
+            if (pageMetaList.Count > 0)
+            {
+                string pagesTocPath = Path.Combine(config.OutputDir, "pages", "toc.yml");
+                GenerateToc(pagesTocPath, pageMetaList);
+                result.GeneratedFiles.Add(pagesTocPath);
+            }
+
+            // Handle scheduled TOC
+            if (scheduledMetaList.Count > 0)
+            {
+                string scheduledTocPath = Path.Combine(config.OutputDir, "scheduled", "toc.yml");
+                GenerateToc(scheduledTocPath, scheduledMetaList);
+                result.GeneratedFiles.Add(scheduledTocPath);
+            }
 
             // Handle drafts TOC
             if (draftMetaList.Count > 0)
@@ -205,7 +270,7 @@ public class MigrationEngine
 
             // Generate Docfx configuration file if omitted/not existing
             string rootDir = Path.GetDirectoryName(Path.GetFullPath(config.OutputDir)) ?? ".";
-            string customTemplatePath = "templates/ghost-theme";
+            string customTemplatePath = "template/ghostfx";
             string docfxPath = await DocfxGenerator.GenerateDocfxJsonIfNotExistsAsync(rootDir, config, customTemplatePath);
             if (!result.GeneratedFiles.Contains(docfxPath))
             {
@@ -221,12 +286,16 @@ public class MigrationEngine
                 ConvertGhostThemeToDocfxTemplate(themeZipPath, templateDir);
             }
 
+            stopwatch.Stop();
+            result.ElapsedDuration = stopwatch.Elapsed;
             result.Success = true;
-            result.Message = $"Migration completed successfully for {result.ProcessedPosts} posts and {result.ProcessedDrafts} drafts.";
+            result.Message = $"Migration completed successfully for {result.ProcessedPosts} posts, {result.ProcessedPages} pages, {result.ProcessedDrafts} drafts, and {result.ProcessedScheduled} scheduled items.";
             return result;
         }
         catch (Exception ex)
         {
+            stopwatch.Stop();
+            result.ElapsedDuration = stopwatch.Elapsed;
             result.Success = false;
             result.Message = $"Migration failed: {ex.Message}";
             return result;
@@ -256,13 +325,21 @@ public class MigrationEngine
         }
     }
 
-    private static void GenerateFrontPage(string indexPath, List<BlogPostMetadata> posts, string siteTitle, string outputDir)
+    private static void GenerateFrontPage(string indexPath, List<BlogPostMetadata> posts, string siteTitle, string? siteDescription, string outputDir)
     {
         var sb = new System.Text.StringBuilder();
         sb.AppendLine($"# {siteTitle}");
         sb.AppendLine();
-        sb.AppendLine("Welcome to our documentation and articles blog repository.");
-        sb.AppendLine();
+        if (!string.IsNullOrWhiteSpace(siteDescription))
+        {
+            sb.AppendLine(siteDescription);
+            sb.AppendLine();
+        }
+        else
+        {
+            sb.AppendLine("Welcome to our documentation and articles blog repository.");
+            sb.AppendLine();
+        }
         sb.AppendLine("## Recent Articles");
         sb.AppendLine();
 
@@ -286,6 +363,84 @@ public class MigrationEngine
         }
 
         File.WriteAllText(tocPath, sb.ToString());
+    }
+
+    private static void GenerateRootToc(string rootTocPath, List<GhostNavItem> navItems, List<BlogPostMetadata> pages, List<BlogPostMetadata> posts, string outputDir)
+    {
+        var sb = new System.Text.StringBuilder();
+
+        if (navItems != null && navItems.Count > 0)
+        {
+            foreach (var nav in navItems)
+            {
+                if (string.IsNullOrWhiteSpace(nav.Label)) continue;
+
+                string label = nav.Label;
+                string url = nav.Url?.Trim() ?? "";
+
+                string href = ResolveNavHref(url, pages, posts, outputDir);
+                sb.AppendLine($"- name: \"{label.Replace("\"", "\\\"")}\"");
+                sb.AppendLine($"  href: {href}");
+            }
+        }
+        else
+        {
+            sb.AppendLine("- name: Home");
+            sb.AppendLine("  href: index.md");
+            sb.AppendLine("- name: Articles");
+            sb.AppendLine($"  href: {outputDir}/toc.yml");
+            if (pages.Count > 0)
+            {
+                sb.AppendLine("- name: Pages");
+                sb.AppendLine($"  href: {outputDir}/pages/toc.yml");
+            }
+        }
+
+        File.WriteAllText(rootTocPath, sb.ToString());
+    }
+
+    private static string ResolveNavHref(string url, List<BlogPostMetadata> pages, List<BlogPostMetadata> posts, string outputDir)
+    {
+        if (string.IsNullOrWhiteSpace(url) || url == "/" || url.Equals("home", StringComparison.OrdinalIgnoreCase))
+        {
+            return "index.md";
+        }
+
+        string path = url;
+        if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var uri = new Uri(url);
+                path = uri.AbsolutePath;
+            }
+            catch
+            {
+                return url;
+            }
+        }
+
+        string slug = path.Trim('/').Split('/').LastOrDefault() ?? "";
+        if (string.IsNullOrEmpty(slug)) return "index.md";
+
+        if (slug.Equals("blog", StringComparison.OrdinalIgnoreCase) || slug.Equals("articles", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{outputDir}/toc.yml";
+        }
+
+        var matchingPage = pages.FirstOrDefault(p => string.Equals(p.Slug, slug, StringComparison.OrdinalIgnoreCase));
+        if (matchingPage != null)
+        {
+            return $"{outputDir}/{matchingPage.FileName}";
+        }
+
+        var matchingPost = posts.FirstOrDefault(p => string.Equals(p.Slug, slug, StringComparison.OrdinalIgnoreCase));
+        if (matchingPost != null)
+        {
+            return $"{outputDir}/{matchingPost.FileName}";
+        }
+
+        return $"{outputDir}/pages/{slug}.md";
     }
 
     private static void GenerateTagPages(string tagsDir, List<BlogPostMetadata> posts, List<GhostTag> allTags)

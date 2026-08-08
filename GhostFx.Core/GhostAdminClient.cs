@@ -150,14 +150,231 @@ public static class GhostAdminClient
         return (headerCode, footerCode);
     }
 
+    public static async Task<List<IconLink>> FetchSocialLinksAsync(string ghostUrl, string adminApiKey, HttpClient? customClient = null)
+    {
+        using var client = customClient ?? new HttpClient();
+        List<IconLink> links = [];
+
+        try
+        {
+            var (response, _) = await SendWithFallbackAsync(client, ghostUrl, "settings/", adminApiKey);
+            if (response.IsSuccessStatusCode)
+            {
+                string jsonString = await response.Content.ReadAsStringAsync();
+                var root = JsonNode.Parse(jsonString);
+                var settingsArray = root?["settings"]?.AsArray();
+
+                if (settingsArray != null)
+                {
+                    foreach (var setting in settingsArray)
+                    {
+                        string? key = setting?["key"]?.ToString();
+                        string? val = setting?["value"]?.ToString();
+                        if (string.IsNullOrWhiteSpace(val)) continue;
+
+                        if (key == "twitter")
+                        {
+                            string handle = val.TrimStart('@');
+                            string href = handle.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? handle : $"https://twitter.com/{handle}";
+                            links.Add(new IconLink { Icon = "twitter", Href = href, Title = "Twitter / X" });
+                        }
+                        else if (key == "facebook")
+                        {
+                            string href = val.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? val : $"https://facebook.com/{val}";
+                            links.Add(new IconLink { Icon = "facebook", Href = href, Title = "Facebook" });
+                        }
+                    }
+                }
+            }
+        }
+        catch { }
+
+        if (links.Count == 0)
+        {
+            links.Add(new IconLink { Icon = "github", Href = "https://github.com/jochenkirstaetter/ghostfx", Title = "GitHub" });
+        }
+
+        return links;
+    }
+
+    public static async Task<(string? Title, string? Description, string? IconUrl, string? LogoUrl, string? CoverUrl, List<GhostNavItem> NavItems)> FetchSiteBrandInfoAsync(string ghostUrl, string adminApiKey, HttpClient? customClient = null)
+    {
+        using var client = customClient ?? new HttpClient();
+        List<GhostNavItem> navItems = [];
+
+        try
+        {
+            var (response, _) = await SendWithFallbackAsync(client, ghostUrl, "settings/", adminApiKey);
+            if (response.IsSuccessStatusCode)
+            {
+                string jsonString = await response.Content.ReadAsStringAsync();
+                var root = JsonNode.Parse(jsonString);
+                var settingsArray = root?["settings"]?.AsArray();
+
+                string? title = null;
+                string? description = null;
+                string? icon = null;
+                string? logo = null;
+                string? cover = null;
+
+                if (settingsArray != null)
+                {
+                    foreach (var setting in settingsArray)
+                    {
+                        string? key = setting?["key"]?.ToString();
+                        string? val = setting?["value"]?.ToString();
+                        if (key == "title") title = val;
+                        if (key == "description") description = val;
+                        if (key == "icon") icon = val;
+                        if (key == "logo") logo = val;
+                        if (key == "cover_image") cover = val;
+                        if (key == "navigation" && !string.IsNullOrWhiteSpace(val))
+                        {
+                            try
+                            {
+                                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                                var parsedNav = JsonSerializer.Deserialize<List<GhostNavItem>>(val, options);
+                                if (parsedNav != null) navItems = parsedNav;
+                            }
+                            catch { }
+                        }
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(title) || !string.IsNullOrWhiteSpace(description) || !string.IsNullOrWhiteSpace(icon) || !string.IsNullOrWhiteSpace(logo) || !string.IsNullOrWhiteSpace(cover) || navItems.Count > 0)
+                {
+                    return (title, description, icon, logo, cover, navItems);
+                }
+            }
+        }
+        catch { }
+
+        try
+        {
+            var (response, _) = await SendWithFallbackAsync(client, ghostUrl, "site/", adminApiKey);
+            if (response.IsSuccessStatusCode)
+            {
+                string jsonString = await response.Content.ReadAsStringAsync();
+                var root = JsonNode.Parse(jsonString);
+                var siteObj = root?["site"];
+                string? title = siteObj?["title"]?.ToString();
+                string? description = siteObj?["description"]?.ToString();
+                string? icon = siteObj?["icon"]?.ToString();
+                string? logo = siteObj?["logo"]?.ToString();
+                string? cover = siteObj?["cover_image"]?.ToString();
+                var navArray = siteObj?["navigation"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(navArray))
+                {
+                    try
+                    {
+                        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                        var parsedNav = JsonSerializer.Deserialize<List<GhostNavItem>>(navArray, options);
+                        if (parsedNav != null) navItems = parsedNav;
+                    }
+                    catch { }
+                }
+                return (title, description, icon, logo, cover, navItems);
+            }
+        }
+        catch { }
+
+        return (null, null, null, null, null, navItems);
+    }
+
+    public static async Task<(string? FaviconFile, string? LogoFile, string? CoverFile)> DownloadSiteBrandAssetsAsync(string ghostUrl, string adminApiKey, string outputDir, HttpClient? customClient = null)
+    {
+        using var client = customClient ?? new HttpClient();
+        string cleanGhostUrl = ghostUrl.TrimEnd('/');
+        string? faviconSaved = null;
+        string? logoSaved = null;
+        string? coverSaved = null;
+
+        var (_, _, iconUrl, logoUrl, coverUrl, _) = await FetchSiteBrandInfoAsync(ghostUrl, adminApiKey, client);
+
+        string targetFaviconUrl = !string.IsNullOrWhiteSpace(iconUrl) ? iconUrl : $"{cleanGhostUrl}/favicon.ico";
+        if (!targetFaviconUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+            !targetFaviconUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            targetFaviconUrl = $"{cleanGhostUrl}/{targetFaviconUrl.TrimStart('/')}";
+        }
+
+        try
+        {
+            var response = await client.GetAsync(targetFaviconUrl);
+            if (response.IsSuccessStatusCode)
+            {
+                string ext = Path.GetExtension(targetFaviconUrl);
+                if (string.IsNullOrWhiteSpace(ext) || ext.Length > 5) ext = ".ico";
+                string faviconFile = Path.Combine(outputDir, "favicon" + ext);
+                await using var fs = new FileStream(faviconFile, FileMode.Create, FileAccess.Write, FileShare.None);
+                await response.Content.CopyToAsync(fs);
+                faviconSaved = faviconFile;
+            }
+        }
+        catch { }
+
+        if (!string.IsNullOrWhiteSpace(logoUrl))
+        {
+            string targetLogoUrl = logoUrl;
+            if (!targetLogoUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                !targetLogoUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                targetLogoUrl = $"{cleanGhostUrl}/{targetLogoUrl.TrimStart('/')}";
+            }
+
+            try
+            {
+                var response = await client.GetAsync(targetLogoUrl);
+                if (response.IsSuccessStatusCode)
+                {
+                    string ext = Path.GetExtension(targetLogoUrl);
+                    if (string.IsNullOrWhiteSpace(ext) || ext.Length > 5) ext = ".png";
+                    string logoFile = Path.Combine(outputDir, "logo" + ext);
+                    await using var fs = new FileStream(logoFile, FileMode.Create, FileAccess.Write, FileShare.None);
+                    await response.Content.CopyToAsync(fs);
+                    logoSaved = logoFile;
+                }
+            }
+            catch { }
+        }
+
+        if (!string.IsNullOrWhiteSpace(coverUrl))
+        {
+            string targetCoverUrl = coverUrl;
+            if (!targetCoverUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                !targetCoverUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                targetCoverUrl = $"{cleanGhostUrl}/{targetCoverUrl.TrimStart('/')}";
+            }
+
+            try
+            {
+                var response = await client.GetAsync(targetCoverUrl);
+                if (response.IsSuccessStatusCode)
+                {
+                    string ext = Path.GetExtension(targetCoverUrl);
+                    if (string.IsNullOrWhiteSpace(ext) || ext.Length > 5) ext = ".png";
+                    string coverFile = Path.Combine(outputDir, "cover" + ext);
+                    await using var fs = new FileStream(coverFile, FileMode.Create, FileAccess.Write, FileShare.None);
+                    await response.Content.CopyToAsync(fs);
+                    coverSaved = coverFile;
+                }
+            }
+            catch { }
+        }
+
+        return (faviconSaved, logoSaved, coverSaved);
+    }
+
     public static async Task<(List<GhostPost> Posts, string DetectedVersion)> FetchPostsFromApiAsync(string ghostUrl, string adminApiKey, bool includeDrafts = true, HttpClient? customClient = null)
     {
-        string filterParam = includeDrafts ? "status:[published,draft]" : "status:published";
-        string endpoint = $"posts/?limit=all&formats=html,mobiledoc&include=tags,authors&filter={filterParam}";
+        string filterParam = includeDrafts ? "status:[published,draft,scheduled]" : "status:published";
+        string postsEndpoint = $"posts/?limit=all&formats=html,mobiledoc&include=tags,authors&filter={filterParam}";
+        string pagesEndpoint = $"pages/?limit=all&formats=html,mobiledoc&include=tags,authors&filter={filterParam}";
 
         using var client = customClient ?? new HttpClient();
 
-        var (response, version) = await SendWithFallbackAsync(client, ghostUrl, endpoint, adminApiKey);
+        var (response, version) = await SendWithFallbackAsync(client, ghostUrl, postsEndpoint, adminApiKey);
         if (!response.IsSuccessStatusCode)
         {
             throw new HttpRequestException($"Failed to fetch posts from Ghost API ({response.StatusCode})");
@@ -166,8 +383,32 @@ public static class GhostAdminClient
         string jsonString = await response.Content.ReadAsStringAsync();
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         var result = JsonSerializer.Deserialize<GhostApiPostsResponse>(jsonString, options);
+        List<GhostPost> allItems = result?.Posts ?? [];
+        foreach (var item in allItems)
+        {
+            item.Type = "post";
+        }
 
-        return (result?.Posts ?? [], version);
+        try
+        {
+            var (pagesResponse, _) = await SendWithFallbackAsync(client, ghostUrl, pagesEndpoint, adminApiKey);
+            if (pagesResponse.IsSuccessStatusCode)
+            {
+                string pagesJson = await pagesResponse.Content.ReadAsStringAsync();
+                var pagesResult = JsonSerializer.Deserialize<GhostApiPagesResponse>(pagesJson, options);
+                if (pagesResult?.Pages != null)
+                {
+                    foreach (var page in pagesResult.Pages)
+                    {
+                        page.Type = "page";
+                        allItems.Add(page);
+                    }
+                }
+            }
+        }
+        catch { }
+
+        return (allItems, version);
     }
 
     public static async Task DownloadActiveThemeAsync(string ghostUrl, string adminApiKey, string outputPath, HttpClient? customClient = null)

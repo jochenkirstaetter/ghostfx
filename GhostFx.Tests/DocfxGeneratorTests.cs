@@ -115,7 +115,7 @@ public class DocfxGeneratorTests : IDisposable
 
         ZipFile.CreateFromDirectory(extractSourceDir, themeZipPath);
 
-        string targetTemplateDir = Path.Combine(_tempDirectory, "templates", "ghost-theme");
+        string targetTemplateDir = Path.Combine(_tempDirectory, "template", "ghostfx");
         await DocfxGenerator.ConvertGhostThemeToDocfxTemplateAsync(themeZipPath, targetTemplateDir, "<script>header</script>", "<script>footer</script>");
 
         // Verify modern template public/ directory structure

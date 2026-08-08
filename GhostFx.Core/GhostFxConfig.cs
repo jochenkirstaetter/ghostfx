@@ -29,5 +29,5 @@ public class GhostFxConfig
     public bool DownloadTheme { get; set; } = false;
 
     [JsonPropertyName("themeOutputPath")]
-    public string ThemeOutputPath { get; set; } = "templates/ghost-theme.zip";
+    public string ThemeOutputPath { get; set; } = "ghostfx.zip";
 }
