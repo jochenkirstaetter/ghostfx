@@ -7,6 +7,7 @@ using System.Net.Http.Headers;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.IdentityModel.Tokens;
 
@@ -310,10 +311,10 @@ public static class GhostAdminClient
                 if (htmlResponse.IsSuccessStatusCode)
                 {
                     string html = await htmlResponse.Content.ReadAsStringAsync();
-                    var match = Regex.Match(html, @"<link\s+[^>]*rel=["'](?:shortcut\s+)?icon["'][^>]*href=["']([^"']+)["']", RegexOptions.IgnoreCase);
+                    var match = Regex.Match(html, """<link\s+[^>]*rel=["'](?:shortcut\s+)?icon["'][^>]*href=["']([^"']+)["']""", RegexOptions.IgnoreCase);
                     if (!match.Success)
                     {
-                        match = Regex.Match(html, @"<link\s+[^>]*href=["']([^"']+)["'][^>]*rel=["'](?:shortcut\s+)?icon["']", RegexOptions.IgnoreCase);
+                        match = Regex.Match(html, """<link\s+[^>]*href=["']([^"']+)["'][^>]*rel=["'](?:shortcut\s+)?icon["']""", RegexOptions.IgnoreCase);
                     }
                     if (match.Success)
                     {

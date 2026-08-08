@@ -202,7 +202,7 @@ public class MigrationEngine
                     Tags = tagNames,
                     IsDraft = isDraft,
                     IsScheduled = isScheduled,
-                    Type = post.Type
+                    Type = post.Type ?? (isPage ? "page" : "post")
                 };
 
                 if (isPage)
