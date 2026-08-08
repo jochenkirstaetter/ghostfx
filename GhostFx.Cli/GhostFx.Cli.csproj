@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>ghostfx</ToolCommandName>
+    <PackageId>GhostFx</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>GhostFx Team</Authors>
+    <Description>Migrate Ghost blog exports and live sites to Git-versioned Markdown configured for Docfx static site generation.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GhostFx.Core\GhostFx.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,35 @@
+{
+  "name": "GhostFx (.NET 10)",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:1-9.0-noble",
+  "features": {
+    "ghcr.io/devcontainers/features/dotnet:2": {
+      "version": "10.0",
+      "additionalVersions": "9.0"
+    }
+  },
+  "postCreateCommand": "dotnet dev-certs https --trust && dotnet tool restore && dotnet restore GhostFx.slnx && echo 'GhostFx .NET 10 Development Container Ready!'",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.csdevkit",
+        "ms-dotnettools.vscode-dotnet-runtime"
+      ],
+      "settings": {
+        "dotnet.defaultSolution": "GhostFx.slnx"
+      }
+    }
+  },
+  "portsAttributes": {
+    "5000": {
+      "onAutoForward": "notify"
+    },
+    "5001": {
+      "protocol": "https"
+    }
+  },
+  "forwardPorts": [
+    5000,
+    5001
+  ]
+}

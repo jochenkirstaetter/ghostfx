@@ -1,0 +1,6 @@
+{
+  "name": "GhostFx Migration Tool",
+  "description": "Migrate Ghost blog content to Markdown and Docfx static site generator with C# .NET SDK, CLI, and test suite.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

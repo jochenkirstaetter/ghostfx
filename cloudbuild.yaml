@@ -1,0 +1,54 @@
+# Cloud Build pipeline for GhostFx solution (.NET 10)
+steps:
+# Restore Solution Dependencies
+- name: 'mcr.microsoft.com/dotnet/sdk:10.0'
+  id: Restore GhostFx Solution
+  entrypoint: 'dotnet'
+  args: ['restore', 'GhostFx.slnx']
+
+# Build Solution in Release mode
+- name: 'mcr.microsoft.com/dotnet/sdk:10.0'
+  id: Build GhostFx Solution
+  entrypoint: 'dotnet'
+  args: ['build', '-c', 'Release', '--no-restore', 'GhostFx.slnx']
+
+# Run xUnit Unit Tests
+- name: 'mcr.microsoft.com/dotnet/sdk:10.0'
+  id: Run GhostFx Unit Tests
+  entrypoint: 'dotnet'
+  args: ['test', '-c', 'Release', '--no-build', 'GhostFx.slnx']
+
+# Pack GhostFx Core Library
+- name: 'mcr.microsoft.com/dotnet/sdk:10.0'
+  id: Pack GhostFx Core
+  entrypoint: 'dotnet'
+  args: ['pack', '-c', 'Release', '--no-build', 'GhostFx.Core/GhostFx.Core.csproj', '-o', 'output/']
+
+# Pack GhostFx Global CLI Tool
+- name: 'mcr.microsoft.com/dotnet/sdk:10.0'
+  id: Pack GhostFx CLI Tool
+  entrypoint: 'dotnet'
+  args: ['pack', '-c', 'Release', '--no-build', 'GhostFx.Cli/GhostFx.Cli.csproj', '-o', 'output/']
+
+# Push NuGet Packages (if API Key provided)
+- name: 'mcr.microsoft.com/dotnet/sdk:10.0'
+  id: Push NuGet Packages
+  entrypoint: 'bash'
+  args:
+  - -c
+  - |
+    if [ "${_NUGET_API_KEY}" != "YOUR_NUGET_API_KEY" ] && [ -n "${_NUGET_API_KEY}" ]; then
+      dotnet nuget push 'output/*.nupkg' --skip-duplicate -s https://api.nuget.org/v3/index.json -k ${_NUGET_API_KEY}
+    else
+      echo "No valid _NUGET_API_KEY provided. Skipping NuGet push step."
+    fi
+
+options:
+  substitutionOption: 'ALLOW_LOOSE'
+  env:
+  - 'DOTNET_NOLOGO=true' 
+  - 'DOTNET_CLI_TELEMETRY_OPTOUT=true'
+  - 'DOTNET_SKIP_FIRST_TIME_EXPERIENCE=true'
+
+substitutions:
+  _NUGET_API_KEY: 'YOUR_NUGET_API_KEY'

@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="GhostFx.Cli/GhostFx.Cli.csproj" />
+  <Project Path="GhostFx.Core/GhostFx.Core.csproj" />
+  <Project Path="GhostFx.Tests/GhostFx.Tests.csproj" />
+</Solution>

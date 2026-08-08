@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <radialGradient id="bgGlow" cx="50%" cy="40%" r="65%">
+      <stop offset="0%" stop-color="#141824"/>
+      <stop offset="70%" stop-color="#0a0c14"/>
+      <stop offset="100%" stop-color="#050608"/>
+    </radialGradient>
+    
+    <!-- Ghost Body Gradient -->
+    <linearGradient id="ghostBodyGrad" x1="20%" y1="10%" x2="80%" y2="90%">
+      <stop offset="0%" stop-color="#f3e8ff"/>
+      <stop offset="30%" stop-color="#c084fc"/>
+      <stop offset="70%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#22d3ee"/>
+    </linearGradient>
+
+    <!-- Code & Ring Gradient -->
+    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c084fc"/>
+      <stop offset="50%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#818cf8"/>
+    </linearGradient>
+
+    <!-- Text Gradient -->
+    <linearGradient id="brandTextGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="65%" stop-color="#c084fc"/>
+      <stop offset="100%" stop-color="#f472b6"/>
+    </linearGradient>
+
+    <!-- Glow Filters -->
+    <filter id="neonGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="10" result="blur1"/>
+      <feGaussianBlur stdDeviation="20" result="blur2"/>
+      <feMerge>
+        <feMergeNode in="blur2"/>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Canvas Background -->
+  <rect width="800" height="800" rx="40" fill="url(#bgGlow)"/>
+
+  <!-- Outer Tech Circle / Ring -->
+  <g opacity="0.55" stroke="url(#ringGrad)" fill="none">
+    <circle cx="400" cy="350" r="195" stroke-width="3" stroke-dasharray="8 6 24 6 12 8" filter="url(#softGlow)"/>
+    <circle cx="400" cy="350" r="220" stroke-width="1.5" stroke-dasharray="40 15 80 15" opacity="0.4"/>
+  </g>
+
+  <!-- Code Brackets < > & Markdown Symbols -->
+  <g fill="none" stroke="url(#ringGrad)" stroke-linecap="round" stroke-linejoin="round" filter="url(#softGlow)">
+    <!-- Code Brackets < > -->
+    <path d="M 265 300 L 205 350 L 265 400" stroke-width="12"/>
+    <path d="M 535 300 L 595 350 L 535 400" stroke-width="12"/>
+
+    <!-- Hashtag # -->
+    <path d="M 285 220 L 295 260 M 305 220 L 315 260 M 280 232 L 320 232 M 285 248 L 325 248" stroke-width="4.5"/>
+
+    <!-- Asterisk * -->
+    <path d="M 300 290 L 300 310 M 291 295 L 309 305 M 291 305 L 309 295" stroke-width="4.5"/>
+
+    <!-- Brackets [ ] -->
+    <path d="M 380 470 L 370 470 L 370 500 L 380 500 M 420 470 L 430 470 L 430 500 L 420 500" stroke-width="5"/>
+
+    <!-- Curly Braces { } -->
+    <path d="M 460 410 C 470 410 470 420 475 420 C 470 420 470 430 460 430" stroke-width="4.5"/>
+  </g>
+
+  <!-- Ghost Silhouette (Main Glow Body) -->
+  <g filter="url(#neonGlow)">
+    <path d="M 400 170 
+             C 290 170 260 250 260 340 
+             C 260 440 230 480 270 510 
+             C 295 530 330 480 360 480 
+             C 380 480 390 510 415 510 
+             C 440 510 455 480 475 480 
+             C 500 480 520 520 545 495 
+             C 565 470 540 400 540 340 
+             C 540 250 510 170 400 170 Z" 
+          fill="url(#ghostBodyGrad)" opacity="0.95"/>
+    
+    <!-- Ghost Eyes -->
+    <ellipse cx="360" cy="300" rx="15" ry="21" fill="#0a0c14"/>
+    <ellipse cx="440" cy="300" rx="15" ry="21" fill="#0a0c14"/>
+    <circle cx="364" cy="294" r="6" fill="#ffffff"/>
+    <circle cx="444" cy="294" r="6" fill="#ffffff"/>
+
+    <!-- Glowing Tail Nodes -->
+    <circle cx="270" cy="510" r="9" fill="#38bdf8"/>
+    <circle cx="360" cy="480" r="7" fill="#38bdf8"/>
+  </g>
+
+  <!-- GhostFx Typography -->
+  <g filter="url(#softGlow)">
+    <text x="400" y="660" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="82" letter-spacing="2" fill="url(#brandTextGrad)">GhostFx<tspan fill="#38bdf8">.</tspan></text>
+  </g>
+</svg>
