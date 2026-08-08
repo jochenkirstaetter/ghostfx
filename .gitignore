@@ -107,3 +107,6 @@ __screenshots__/
 ehthumbs.db
 Icon?
 Thumbs.db
+
+# Testing stuff.
+ghostfx.json
