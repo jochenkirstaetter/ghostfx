@@ -68,65 +68,67 @@ public class MigrationEngine
                 if (apiNav.Count > 0) navItems = apiNav;
                 if (!string.IsNullOrWhiteSpace(apiTitle)) config.SiteTitle = apiTitle;
                 if (!string.IsNullOrWhiteSpace(apiDesc)) siteDescription = apiDesc;
-
-                // Download brand assets (favicon, logo, cover)
-                string siteRootDir = Path.GetDirectoryName(Path.GetFullPath(config.OutputDir)) ?? ".";
-                var (favFile, logoFile, coverFile) = await GhostAdminClient.DownloadSiteBrandAssetsAsync(config.GhostUrl, config.AdminApiKey, siteRootDir);
-                if (!string.IsNullOrEmpty(favFile) && !result.GeneratedFiles.Contains(favFile)) result.GeneratedFiles.Add(favFile);
-                if (!string.IsNullOrEmpty(logoFile) && !result.GeneratedFiles.Contains(logoFile)) result.GeneratedFiles.Add(logoFile);
-                if (!string.IsNullOrEmpty(coverFile) && !result.GeneratedFiles.Contains(coverFile)) result.GeneratedFiles.Add(coverFile);
-
-                if (allPosts.Count > 0)
-                {
-                    string ghostBaseUrl = !string.IsNullOrWhiteSpace(config.GhostUrl) ? config.GhostUrl : "https://localhost";
-                    var mediaFiles = await MediaDownloader.ProcessAndDownloadMediaAsync(allPosts, ghostBaseUrl, config.OutputDir, onProgress);
-                    result.GeneratedFiles.AddRange(mediaFiles);
-                }
-
-                if (config.DownloadTheme)
-                {
-                    if (File.Exists(config.ThemeOutputPath))
-                    {
-                        if (!result.GeneratedFiles.Contains(config.ThemeOutputPath))
-                        {
-                            result.GeneratedFiles.Add(config.ThemeOutputPath);
-                        }
-                    }
-                    else
-                    {
-                        try
-                        {
-                            await GhostAdminClient.DownloadActiveThemeAsync(config.GhostUrl, config.AdminApiKey, config.ThemeOutputPath);
-                            result.GeneratedFiles.Add(config.ThemeOutputPath);
-                        }
-                        catch (Exception ex)
-                        {
-                            bool manualProvided = false;
-                            if (onManualThemeRequested != null)
-                            {
-                                manualProvided = await onManualThemeRequested(config.ThemeOutputPath, result.DetectedGhostVersion);
-                            }
-
-                            if (manualProvided && File.Exists(config.ThemeOutputPath))
-                            {
-                                if (!result.GeneratedFiles.Contains(config.ThemeOutputPath))
-                                {
-                                    result.GeneratedFiles.Add(config.ThemeOutputPath);
-                                }
-                            }
-                            else
-                            {
-                                result.ThemeDownloadWarning = $"Active theme API download unsupported by Ghost host ({ex.Message}). Using default DocFX modern theme template.";
-                            }
-                        }
-                    }
-                }
             }
             else
             {
                 result.Success = false;
                 result.Message = "Missing credentials or input file. Provide inputJsonPath or GhostUrl + AdminApiKey.";
                 return result;
+            }
+
+            if (!string.IsNullOrWhiteSpace(config.GhostUrl))
+            {
+                string siteRootDir = Path.GetDirectoryName(Path.GetFullPath(config.OutputDir)) ?? ".";
+                var (favFile, logoFile, coverFile) = await GhostAdminClient.DownloadSiteBrandAssetsAsync(config.GhostUrl, config.AdminApiKey ?? "", siteRootDir);
+                if (!string.IsNullOrEmpty(favFile) && !result.GeneratedFiles.Contains(favFile)) result.GeneratedFiles.Add(favFile);
+                if (!string.IsNullOrEmpty(logoFile) && !result.GeneratedFiles.Contains(logoFile)) result.GeneratedFiles.Add(logoFile);
+                if (!string.IsNullOrEmpty(coverFile) && !result.GeneratedFiles.Contains(coverFile)) result.GeneratedFiles.Add(coverFile);
+            }
+
+            if (allPosts.Count > 0)
+            {
+                string ghostBaseUrl = !string.IsNullOrWhiteSpace(config.GhostUrl) ? config.GhostUrl : "https://localhost";
+                var mediaFiles = await MediaDownloader.ProcessAndDownloadMediaAsync(allPosts, ghostBaseUrl, config.OutputDir, onProgress);
+                result.GeneratedFiles.AddRange(mediaFiles);
+            }
+
+            if (config.DownloadTheme)
+            {
+                if (File.Exists(config.ThemeOutputPath))
+                {
+                    if (!result.GeneratedFiles.Contains(config.ThemeOutputPath))
+                    {
+                        result.GeneratedFiles.Add(config.ThemeOutputPath);
+                    }
+                }
+                else
+                {
+                    try
+                    {
+                        await GhostAdminClient.DownloadActiveThemeAsync(config.GhostUrl, config.AdminApiKey ?? "", config.ThemeOutputPath);
+                        result.GeneratedFiles.Add(config.ThemeOutputPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        bool manualProvided = false;
+                        if (onManualThemeRequested != null)
+                        {
+                            manualProvided = await onManualThemeRequested(config.ThemeOutputPath, result.DetectedGhostVersion);
+                        }
+
+                        if (manualProvided && File.Exists(config.ThemeOutputPath))
+                        {
+                            if (!result.GeneratedFiles.Contains(config.ThemeOutputPath))
+                            {
+                                result.GeneratedFiles.Add(config.ThemeOutputPath);
+                            }
+                        }
+                        else
+                        {
+                            result.ThemeDownloadWarning = $"Active theme API download unsupported by Ghost host ({ex.Message}). Using default DocFX modern theme template.";
+                        }
+                    }
+                }
             }
 
             Directory.CreateDirectory(config.OutputDir);
@@ -163,6 +165,8 @@ public class MigrationEngine
                     Title = post.Title + titleSuffix,
                     Slug = post.Slug,
                     Date = dateStr,
+                    Status = post.Status ?? (isDraft ? "draft" : (isScheduled ? "scheduled" : "published")),
+                    Type = post.Type ?? (isPage ? "page" : "post"),
                     Tags = tagNames,
                     Description = !string.IsNullOrWhiteSpace(post.CustomExcerpt) ? post.CustomExcerpt : post.MetaDescription,
                     MetaTitle = !string.IsNullOrWhiteSpace(post.MetaTitle) ? post.MetaTitle : post.Title,
@@ -177,7 +181,7 @@ public class MigrationEngine
                     : (!string.IsNullOrWhiteSpace(post.CustomExcerpt) ? $"<p>{post.CustomExcerpt}</p>" : "");
                 string fullDoc = _converter.BuildFullMarkdownDocument(frontMatter, htmlContent);
 
-                string subDirName = isPage ? "pages" : (isScheduled ? "scheduled" : (isDraft ? "drafts" : ""));
+                string subDirName = (isDraft || isScheduled) ? "drafts" : "";
                 string targetSubDir = !string.IsNullOrEmpty(subDirName) ? Path.Combine(config.OutputDir, subDirName) : config.OutputDir;
                 Directory.CreateDirectory(targetSubDir);
 
@@ -208,7 +212,7 @@ public class MigrationEngine
                 }
                 else if (isScheduled)
                 {
-                    scheduledMetaList.Add(meta);
+                    draftMetaList.Add(meta);
                     result.ProcessedScheduled++;
                 }
                 else if (isDraft)
@@ -239,23 +243,7 @@ public class MigrationEngine
             GenerateToc(tocPath, publishedMetaList);
             result.GeneratedFiles.Add(tocPath);
 
-            // Handle pages TOC
-            if (pageMetaList.Count > 0)
-            {
-                string pagesTocPath = Path.Combine(config.OutputDir, "pages", "toc.yml");
-                GenerateToc(pagesTocPath, pageMetaList);
-                result.GeneratedFiles.Add(pagesTocPath);
-            }
-
-            // Handle scheduled TOC
-            if (scheduledMetaList.Count > 0)
-            {
-                string scheduledTocPath = Path.Combine(config.OutputDir, "scheduled", "toc.yml");
-                GenerateToc(scheduledTocPath, scheduledMetaList);
-                result.GeneratedFiles.Add(scheduledTocPath);
-            }
-
-            // Handle drafts TOC
+            // Handle drafts & scheduled TOC
             if (draftMetaList.Count > 0)
             {
                 string draftTocPath = Path.Combine(config.OutputDir, "drafts", "toc.yml");
@@ -379,8 +367,19 @@ public class MigrationEngine
                 string url = nav.Url?.Trim() ?? "";
 
                 string href = ResolveNavHref(url, pages, posts, outputDir);
-                sb.AppendLine($"- name: \"{label.Replace("\"", "\\\"")}\"");
+                string safeLabel = label.Contains(':') || label.Contains('#') ? $"\"{label.Replace("\"", "\\\"")}\"" : label;
+                sb.AppendLine($"- name: {safeLabel}");
                 sb.AppendLine($"  href: {href}");
+            }
+        }
+        else if (pages != null && pages.Count > 0)
+        {
+            foreach (var page in pages)
+            {
+                string cleanLabel = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(page.Slug.Replace("-", " ").Replace("_", " "));
+                string safeLabel = cleanLabel.Contains(':') || cleanLabel.Contains('#') ? $"\"{cleanLabel.Replace("\"", "\\\"")}\"" : cleanLabel;
+                sb.AppendLine($"- name: {safeLabel}");
+                sb.AppendLine($"  href: {outputDir}/{page.FileName}");
             }
         }
         else
@@ -389,11 +388,6 @@ public class MigrationEngine
             sb.AppendLine("  href: index.md");
             sb.AppendLine("- name: Articles");
             sb.AppendLine($"  href: {outputDir}/toc.yml");
-            if (pages.Count > 0)
-            {
-                sb.AppendLine("- name: Pages");
-                sb.AppendLine($"  href: {outputDir}/pages/toc.yml");
-            }
         }
 
         File.WriteAllText(rootTocPath, sb.ToString());
@@ -440,7 +434,7 @@ public class MigrationEngine
             return $"{outputDir}/{matchingPost.FileName}";
         }
 
-        return $"{outputDir}/pages/{slug}.md";
+        return $"{outputDir}/{slug}.md";
     }
 
     private static void GenerateTagPages(string tagsDir, List<BlogPostMetadata> posts, List<GhostTag> allTags)

@@ -142,8 +142,7 @@ public static class MediaDownloader
         {
             bool isDraft = string.Equals(post.Status, "draft", StringComparison.OrdinalIgnoreCase);
             bool isScheduled = string.Equals(post.Status, "scheduled", StringComparison.OrdinalIgnoreCase);
-            bool isPage = string.Equals(post.Type, "page", StringComparison.OrdinalIgnoreCase);
-            bool inSubfolder = isDraft || isScheduled || isPage;
+            bool inSubfolder = isDraft || isScheduled;
 
             foreach (var kvp in urlToLocalPathMap)
             {

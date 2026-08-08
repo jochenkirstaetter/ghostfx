@@ -19,6 +19,12 @@ public class FrontMatter
     [YamlMember(Alias = "date")]
     public string Date { get; set; } = string.Empty;
 
+    [YamlMember(Alias = "status")]
+    public string Status { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "type")]
+    public string Type { get; set; } = string.Empty;
+
     [YamlMember(Alias = "description")]
     public string Description { get; set; } = string.Empty;
 

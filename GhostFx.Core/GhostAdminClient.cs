@@ -289,29 +289,64 @@ public static class GhostAdminClient
         string? logoSaved = null;
         string? coverSaved = null;
 
+        if (!client.DefaultRequestHeaders.Contains("User-Agent"))
+        {
+            client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+        }
+
         var (_, _, iconUrl, logoUrl, coverUrl, _) = await FetchSiteBrandInfoAsync(ghostUrl, adminApiKey, client);
 
-        string targetFaviconUrl = !string.IsNullOrWhiteSpace(iconUrl) ? iconUrl : $"{cleanGhostUrl}/favicon.ico";
-        if (!targetFaviconUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
-            !targetFaviconUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        List<string> candidateFaviconUrls = [];
+        if (!string.IsNullOrWhiteSpace(iconUrl))
         {
-            targetFaviconUrl = $"{cleanGhostUrl}/{targetFaviconUrl.TrimStart('/')}";
+            string url = iconUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? iconUrl : $"{cleanGhostUrl}/{iconUrl.TrimStart('/')}";
+            candidateFaviconUrls.Add(url);
+        }
+        else
+        {
+            try
+            {
+                var htmlResponse = await client.GetAsync(cleanGhostUrl);
+                if (htmlResponse.IsSuccessStatusCode)
+                {
+                    string html = await htmlResponse.Content.ReadAsStringAsync();
+                    var match = Regex.Match(html, @"<link\s+[^>]*rel=["'](?:shortcut\s+)?icon["'][^>]*href=["']([^"']+)["']", RegexOptions.IgnoreCase);
+                    if (!match.Success)
+                    {
+                        match = Regex.Match(html, @"<link\s+[^>]*href=["']([^"']+)["'][^>]*rel=["'](?:shortcut\s+)?icon["']", RegexOptions.IgnoreCase);
+                    }
+                    if (match.Success)
+                    {
+                        string href = match.Groups[1].Value.Trim();
+                        string url = href.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? href : $"{cleanGhostUrl}/{href.TrimStart('/')}";
+                        candidateFaviconUrls.Add(url);
+                    }
+                }
+            }
+            catch { }
         }
 
-        try
+        candidateFaviconUrls.Add($"{cleanGhostUrl}/favicon.png");
+        candidateFaviconUrls.Add($"{cleanGhostUrl}/favicon.ico");
+
+        foreach (var candidateUrl in candidateFaviconUrls)
         {
-            var response = await client.GetAsync(targetFaviconUrl);
-            if (response.IsSuccessStatusCode)
+            try
             {
-                string ext = Path.GetExtension(targetFaviconUrl);
-                if (string.IsNullOrWhiteSpace(ext) || ext.Length > 5) ext = ".ico";
-                string faviconFile = Path.Combine(outputDir, "favicon" + ext);
-                await using var fs = new FileStream(faviconFile, FileMode.Create, FileAccess.Write, FileShare.None);
-                await response.Content.CopyToAsync(fs);
-                faviconSaved = faviconFile;
+                var response = await client.GetAsync(candidateUrl);
+                if (response.IsSuccessStatusCode)
+                {
+                    string ext = Path.GetExtension(candidateUrl);
+                    if (string.IsNullOrWhiteSpace(ext) || ext.Length > 5) ext = ".png";
+                    string faviconFile = Path.Combine(outputDir, "favicon" + ext);
+                    await using var fs = new FileStream(faviconFile, FileMode.Create, FileAccess.Write, FileShare.None);
+                    await response.Content.CopyToAsync(fs);
+                    faviconSaved = faviconFile;
+                    break;
+                }
             }
+            catch { }
         }
-        catch { }
 
         if (!string.IsNullOrWhiteSpace(logoUrl))
         {
