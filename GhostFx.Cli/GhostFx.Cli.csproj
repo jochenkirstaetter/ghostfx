@@ -3,14 +3,22 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     
+    <!-- Package & Global Tool Metadata -->
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>ghostfx</ToolCommandName>
     <PackageId>GhostFx</PackageId>
     <Version>1.0.0</Version>
-    <Authors>GhostFx Team</Authors>
+    <Title>GhostFx CLI Tool</Title>
     <Description>Migrate Ghost blog exports and live sites to Git-versioned Markdown configured for Docfx static site generation.</Description>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>ghost;docfx;markdown;static-site-generator;blog;migration;cli;dotnet</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>ghostfx_logo.png</PackageIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\assets\ghostfx_logo.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\GhostFx.Core\GhostFx.Core.csproj" />

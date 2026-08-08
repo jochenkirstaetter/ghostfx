@@ -1,5 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <!-- Package Metadata -->
+    <PackageId>GhostFx.Core</PackageId>
+    <Version>1.0.0</Version>
+    <Title>GhostFx Core Library</Title>
+    <Description>Core engine for migrating Ghost blogs and exports to Git-versioned Markdown configured for Docfx static site generation.</Description>
+    <PackageTags>ghost;docfx;markdown;static-site-generator;blog;migration;dotnet</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>ghostfx_logo.png</PackageIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\assets\ghostfx_logo.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="ReverseMarkdown" />
     <PackageReference Include="YamlDotNet" />
