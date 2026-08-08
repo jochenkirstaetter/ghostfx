@@ -55,6 +55,13 @@ public class MigrationEngine
                 result.DetectedGhostVersion = version;
                 allTags = allPosts.SelectMany(p => p.Tags).GroupBy(t => t.Id).Select(g => g.First()).ToList();
 
+                if (allPosts.Count > 0)
+                {
+                    string ghostBaseUrl = !string.IsNullOrWhiteSpace(config.GhostUrl) ? config.GhostUrl : "https://localhost";
+                    var mediaFiles = await MediaDownloader.ProcessAndDownloadMediaAsync(allPosts, ghostBaseUrl, config.OutputDir, onProgress);
+                    result.GeneratedFiles.AddRange(mediaFiles);
+                }
+
                 if (config.DownloadTheme)
                 {
                     if (File.Exists(config.ThemeOutputPath))
@@ -137,7 +144,10 @@ public class MigrationEngine
                     OgDescription = !string.IsNullOrWhiteSpace(post.OgDescription) ? post.OgDescription : post.CustomExcerpt
                 };
 
-                string fullDoc = _converter.BuildFullMarkdownDocument(frontMatter, post.Html);
+                string htmlContent = !string.IsNullOrWhiteSpace(post.Html)
+                    ? post.Html
+                    : (!string.IsNullOrWhiteSpace(post.CustomExcerpt) ? $"<p>{post.CustomExcerpt}</p>" : "");
+                string fullDoc = _converter.BuildFullMarkdownDocument(frontMatter, htmlContent);
 
                 string targetSubDir = isDraft ? Path.Combine(config.OutputDir, "drafts") : config.OutputDir;
                 Directory.CreateDirectory(targetSubDir);
@@ -322,8 +332,10 @@ public class MigrationEngine
         File.WriteAllText(tagsTocPath, tocSb.ToString());
 
         // Generate root tags.md index page with .md relative links
-        string rootDir = Path.GetDirectoryName(Path.GetFullPath(config.OutputDir)) ?? ".";
-        string outputDirName = Path.GetFileName(Path.GetFullPath(config.OutputDir));
+        string fullTagsDir = Path.GetFullPath(tagsDir);
+        string fullOutputDir = Path.GetDirectoryName(fullTagsDir) ?? tagsDir;
+        string outputDirName = Path.GetFileName(fullOutputDir);
+        string rootDir = Path.GetDirectoryName(fullOutputDir) ?? ".";
         string mainTagsPath = Path.Combine(rootDir, "tags.md");
 
         var mainTagsSb = new System.Text.StringBuilder();

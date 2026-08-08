@@ -59,8 +59,12 @@ public static class DocfxGenerator
                         {
                             "images/**",
                             "media/**",
+                            "**/images/**",
+                            "**/media/**",
                             string.IsNullOrEmpty(relOutputDir) ? "images/**" : $"{relOutputDir}/images/**",
-                            string.IsNullOrEmpty(relOutputDir) ? "media/**" : $"{relOutputDir}/media/**"
+                            string.IsNullOrEmpty(relOutputDir) ? "media/**" : $"{relOutputDir}/media/**",
+                            string.IsNullOrEmpty(relOutputDir) ? "**/images/**" : $"{relOutputDir}/**/images/**",
+                            string.IsNullOrEmpty(relOutputDir) ? "**/media/**" : $"{relOutputDir}/**/media/**"
                         }
                     }
                 },

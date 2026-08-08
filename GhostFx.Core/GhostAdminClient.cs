@@ -153,7 +153,7 @@ public static class GhostAdminClient
     public static async Task<(List<GhostPost> Posts, string DetectedVersion)> FetchPostsFromApiAsync(string ghostUrl, string adminApiKey, bool includeDrafts = true, HttpClient? customClient = null)
     {
         string filterParam = includeDrafts ? "status:[published,draft]" : "status:published";
-        string endpoint = $"posts/?limit=all&include=tags,authors&filter={filterParam}";
+        string endpoint = $"posts/?limit=all&formats=html,mobiledoc&include=tags,authors&filter={filterParam}";
 
         using var client = customClient ?? new HttpClient();
 

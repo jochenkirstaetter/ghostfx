@@ -89,6 +89,12 @@ public class GhostPost
     [JsonPropertyName("html")]
     public string Html { get; set; } = string.Empty;
 
+    [JsonPropertyName("mobiledoc")]
+    public string Mobiledoc { get; set; } = string.Empty;
+
+    [JsonPropertyName("lexical")]
+    public string Lexical { get; set; } = string.Empty;
+
     [JsonPropertyName("custom_excerpt")]
     public string CustomExcerpt { get; set; } = string.Empty;
 
