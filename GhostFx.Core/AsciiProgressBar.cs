@@ -40,18 +40,26 @@ public static class AsciiProgressBar
         }
         else
         {
-            string line = $"{bar}{displayItem}";
-            int pad = 80;
+            int maxLen = 80;
             try
             {
-                if (Console.WindowWidth > 1) pad = Console.WindowWidth - 1;
+                if (Console.WindowWidth > 1)
+                {
+                    maxLen = Console.WindowWidth - 1;
+                }
             }
             catch
             {
                 // Fallback if window width is unavailable
             }
 
-            Console.Write($"\r{line.PadRight(Math.Min(pad, 120))}");
+            string line = $"{bar}{displayItem}";
+            if (line.Length > maxLen)
+            {
+                line = line[..maxLen];
+            }
+
+            Console.Write($"\r{line.PadRight(maxLen)}");
             if (current >= total)
             {
                 Console.WriteLine();

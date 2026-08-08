@@ -133,6 +133,9 @@ public class GhostTag
 
     [JsonPropertyName("slug")]
     public string Slug { get; set; } = string.Empty;
+
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = string.Empty;
 }
 
 public class GhostPostTagMap
@@ -160,4 +163,6 @@ public class MigrationResult
     public List<string> GeneratedFiles { get; set; } = [];
     public string HeaderCodeInjection { get; set; } = string.Empty;
     public string FooterCodeInjection { get; set; } = string.Empty;
+    public string ThemeDownloadWarning { get; set; } = string.Empty;
+    public string DetectedGhostVersion { get; set; } = string.Empty;
 }

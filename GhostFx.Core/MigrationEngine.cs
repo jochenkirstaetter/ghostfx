@@ -1,11 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
-using System.Text.Json;
 using System.Threading.Tasks;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
 
 namespace GhostFx.Core;
 
@@ -20,7 +18,11 @@ public class MigrationEngine
         _jsonParser = new GhostJsonParser();
     }
 
-    public async Task<MigrationResult> ExecuteAsync(GhostFxConfig config, string? jsonContentOverride = null, Action<int, int, string>? onProgress = null)
+    public async Task<MigrationResult> ExecuteAsync(
+        GhostFxConfig config,
+        string? jsonContentOverride = null,
+        Action<int, int, string>? onProgress = null,
+        Func<string, string, Task<bool>>? onManualThemeRequested = null)
     {
         var result = new MigrationResult();
 
@@ -48,13 +50,48 @@ public class MigrationEngine
                 result.HeaderCodeInjection = head;
                 result.FooterCodeInjection = foot;
 
-                allPosts = await GhostAdminClient.FetchPostsFromApiAsync(config.GhostUrl, config.AdminApiKey, config.IncludeDrafts);
+                var (posts, version) = await GhostAdminClient.FetchPostsFromApiAsync(config.GhostUrl, config.AdminApiKey, config.IncludeDrafts);
+                allPosts = posts;
+                result.DetectedGhostVersion = version;
                 allTags = allPosts.SelectMany(p => p.Tags).GroupBy(t => t.Id).Select(g => g.First()).ToList();
 
                 if (config.DownloadTheme)
                 {
-                    await GhostAdminClient.DownloadActiveThemeAsync(config.GhostUrl, config.AdminApiKey, config.ThemeOutputPath);
-                    result.GeneratedFiles.Add(config.ThemeOutputPath);
+                    if (File.Exists(config.ThemeOutputPath))
+                    {
+                        if (!result.GeneratedFiles.Contains(config.ThemeOutputPath))
+                        {
+                            result.GeneratedFiles.Add(config.ThemeOutputPath);
+                        }
+                    }
+                    else
+                    {
+                        try
+                        {
+                            await GhostAdminClient.DownloadActiveThemeAsync(config.GhostUrl, config.AdminApiKey, config.ThemeOutputPath);
+                            result.GeneratedFiles.Add(config.ThemeOutputPath);
+                        }
+                        catch (Exception ex)
+                        {
+                            bool manualProvided = false;
+                            if (onManualThemeRequested != null)
+                            {
+                                manualProvided = await onManualThemeRequested(config.ThemeOutputPath, result.DetectedGhostVersion);
+                            }
+
+                            if (manualProvided && File.Exists(config.ThemeOutputPath))
+                            {
+                                if (!result.GeneratedFiles.Contains(config.ThemeOutputPath))
+                                {
+                                    result.GeneratedFiles.Add(config.ThemeOutputPath);
+                                }
+                            }
+                            else
+                            {
+                                result.ThemeDownloadWarning = $"Active theme API download unsupported by Ghost host ({ex.Message}). Using default DocFX modern theme template.";
+                            }
+                        }
+                    }
                 }
             }
             else
@@ -171,124 +208,116 @@ public class MigrationEngine
             {
                 onProgress?.Invoke(totalPostsCount + 1, totalPostsCount + 1, "Converting active Ghost theme to DocFx template override");
                 string templateDir = Path.Combine(rootDir, customTemplatePath);
-                await DocfxGenerator.ConvertGhostThemeToDocfxTemplateAsync(themeZipPath, templateDir, result.HeaderCodeInjection, result.FooterCodeInjection);
+                ConvertGhostThemeToDocfxTemplate(themeZipPath, templateDir);
             }
 
             result.Success = true;
-            result.Message = $"Migration completed successfully! Processed {result.ProcessedPosts} posts and {result.ProcessedDrafts} drafts.";
+            result.Message = $"Migration completed successfully for {result.ProcessedPosts} posts and {result.ProcessedDrafts} drafts.";
+            return result;
         }
         catch (Exception ex)
         {
             result.Success = false;
             result.Message = $"Migration failed: {ex.Message}";
+            return result;
+        }
+    }
+
+    private static void ConvertGhostThemeToDocfxTemplate(string zipPath, string targetTemplateDir)
+    {
+        try
+        {
+            Directory.CreateDirectory(targetTemplateDir);
+            using var archive = ZipFile.OpenRead(zipPath);
+            foreach (var entry in archive.Entries)
+            {
+                if (entry.FullName.EndsWith(".hbs", StringComparison.OrdinalIgnoreCase) ||
+                    entry.FullName.EndsWith(".css", StringComparison.OrdinalIgnoreCase) ||
+                    entry.FullName.EndsWith(".js", StringComparison.OrdinalIgnoreCase))
+                {
+                    string destinationPath = Path.Combine(targetTemplateDir, entry.Name);
+                    entry.ExtractToFile(destinationPath, overwrite: true);
+                }
+            }
+        }
+        catch
+        {
+            // Ignore theme extraction failure if zip is corrupted
+        }
+    }
+
+    private static void GenerateFrontPage(string indexPath, List<BlogPostMetadata> posts, string siteTitle, string outputDir)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"# {siteTitle}");
+        sb.AppendLine();
+        sb.AppendLine("Welcome to our documentation and articles blog repository.");
+        sb.AppendLine();
+        sb.AppendLine("## Recent Articles");
+        sb.AppendLine();
+
+        foreach (var post in posts.OrderByDescending(p => p.Date).Take(10))
+        {
+            string link = Path.Combine(outputDir, post.FileName).Replace('\\', '/');
+            sb.AppendLine($"- [{post.Title}]({link}) - *{post.Date:yyyy-MM-dd}*");
         }
 
-        return result;
+        File.WriteAllText(indexPath, sb.ToString());
     }
 
-    private void GenerateFrontPage(string indexFilePath, List<BlogPostMetadata> metaList, string siteTitle, string outputDir)
+    private static void GenerateToc(string tocPath, List<BlogPostMetadata> posts)
     {
-        string relativeDir = Path.GetFileName(outputDir);
-        var recentPosts = metaList.OrderByDescending(p => p.Date).Take(5).ToList();
-
-        var postsListMarkdown = recentPosts.Count > 0
-            ? string.Join("\n", recentPosts.Select(p => $"- [{p.Title}]({relativeDir}/{p.Slug}.html) — *{p.Date:yyyy-MM-dd}*"))
-            : "_No posts available yet._";
-
-        string indexContent = $"""
-        ---
-        uid: home
-        title: "{siteTitle}"
-        ---
-
-        # Welcome to {siteTitle}
-
-        This is a static blog migrated from Ghost and generated using Docfx.
-
-        ## Latest Articles
-
-        {postsListMarkdown}
-
-        ---
-        [Explore all articles in the archive]({relativeDir}/toc.yml) | [Browse by Tag](tags.md)
-        """;
-
-        var dir = Path.GetDirectoryName(indexFilePath);
-        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-        File.WriteAllText(indexFilePath, indexContent);
-    }
-
-    private void GenerateToc(string tocPath, List<BlogPostMetadata> metaList)
-    {
-        var tocEntries = metaList.OrderByDescending(p => p.Date).Select(p => new
+        var sb = new System.Text.StringBuilder();
+        foreach (var post in posts.OrderByDescending(p => p.Date))
         {
-            name = p.Title,
-            href = Path.GetFileName(p.FileName)
-        }).ToList();
-
-        var serializer = new SerializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .Build();
-
-        string yaml = serializer.Serialize(tocEntries);
-        var dir = Path.GetDirectoryName(tocPath);
-        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-        File.WriteAllText(tocPath, yaml);
-    }
-
-    private void GenerateTagPages(string tagsOutputDir, List<BlogPostMetadata> metaList, List<GhostTag> allTags)
-    {
-        Directory.CreateDirectory(tagsOutputDir);
-
-        var postsByTag = metaList
-            .SelectMany(post => post.Tags.Select(tag => new { Tag = tag, Post = post }))
-            .GroupBy(x => x.Tag)
-            .ToDictionary(g => g.Key, g => g.Select(x => x.Post).OrderByDescending(p => p.Date).ToList());
-
-        foreach (var tagGroup in postsByTag)
-        {
-            string tagName = tagGroup.Key;
-            var matchingPosts = tagGroup.Value;
-            string tagSlug = allTags.FirstOrDefault(t => t.Name == tagName)?.Slug ?? tagName.ToLowerInvariant().Replace(" ", "-");
-
-            var postsListMarkdown = string.Join("\n", matchingPosts.Select(p =>
-                $"- [{p.Title}](../{p.Slug}.html) — *{p.Date:yyyy-MM-dd}*"
-            ));
-
-            string tagFileContent = $"""
-            ---
-            uid: tag-{tagSlug}
-            title: "Articles tagged: {tagName}"
-            ---
-
-            # Articles Tagged with: {tagName}
-
-            {postsListMarkdown}
-
-            ---
-            [Back to all Tags](../tags.md)
-            """;
-
-            File.WriteAllText(Path.Combine(tagsOutputDir, $"{tagSlug}.md"), tagFileContent);
+            sb.AppendLine($"- name: \"{post.Title.Replace("\"", "\\\"")}\"");
+            sb.AppendLine($"  href: {post.FileName}");
         }
 
-        var masterTagsMarkdown = string.Join("\n", postsByTag.OrderByDescending(t => t.Value.Count).Select(t =>
+        File.WriteAllText(tocPath, sb.ToString());
+    }
+
+    private static void GenerateTagPages(string tagsDir, List<BlogPostMetadata> posts, List<GhostTag> allTags)
+    {
+        Directory.CreateDirectory(tagsDir);
+
+        foreach (var tag in allTags)
         {
-            string tagSlug = allTags.FirstOrDefault(g => g.Name == t.Key)?.Slug ?? t.Key.ToLowerInvariant().Replace(" ", "-");
-            return $"- [{t.Key} ({t.Value.Count})](articles/tags/{tagSlug}.html)";
-        }));
+            var tagPosts = posts.Where(p => p.Tags.Any(t => string.Equals(t, tag.Name, StringComparison.OrdinalIgnoreCase))).ToList();
+            if (tagPosts.Count == 0) continue;
 
-        string masterTagsContent = $"""
-        ---
-        uid: tags-index
-        title: "Browse by Tag"
-        ---
+            string tagFilePath = Path.Combine(tagsDir, $"{tag.Slug}.md");
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"# Tag: {tag.Name}");
+            sb.AppendLine();
+            if (!string.IsNullOrWhiteSpace(tag.Description))
+            {
+                sb.AppendLine(tag.Description);
+                sb.AppendLine();
+            }
 
-        # Browse Content by Tag
+            sb.AppendLine("## Articles");
+            sb.AppendLine();
+            foreach (var post in tagPosts.OrderByDescending(p => p.Date))
+            {
+                sb.AppendLine($"- [{post.Title}](../{post.FileName}) - *{post.Date:yyyy-MM-dd}*");
+            }
 
-        {(string.IsNullOrWhiteSpace(masterTagsMarkdown) ? "_No tags defined._" : masterTagsMarkdown)}
-        """;
+            File.WriteAllText(tagFilePath, sb.ToString());
+        }
 
-        File.WriteAllText("tags.md", masterTagsContent);
+        // Generate tags/toc.yml
+        string tagsTocPath = Path.Combine(tagsDir, "toc.yml");
+        var tocSb = new System.Text.StringBuilder();
+        foreach (var tag in allTags.OrderBy(t => t.Name))
+        {
+            string tagFilePath = Path.Combine(tagsDir, $"{tag.Slug}.md");
+            if (File.Exists(tagFilePath))
+            {
+                tocSb.AppendLine($"- name: \"{tag.Name.Replace("\"", "\\\"")}\"");
+                tocSb.AppendLine($"  href: {tag.Slug}.md");
+            }
+        }
+        File.WriteAllText(tagsTocPath, tocSb.ToString());
     }
 }

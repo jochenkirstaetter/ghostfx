@@ -14,7 +14,20 @@ namespace GhostFx.Core;
 
 public static class GhostAdminClient
 {
-    public static string GenerateGhostJwt(string adminApiKey)
+    private static readonly (string Prefix, string Audience, string AcceptVersion, string VersionName)[] ApiRouteCandidates =
+    [
+        ("/ghost/api/admin/", "/admin/", "v6.0", "v6"),
+        ("/ghost/api/v6/admin/", "/v6/admin/", "v6.0", "v6"),
+        ("/ghost/api/v5/admin/", "/v5/admin/", "v5.0", "v5"),
+        ("/ghost/api/v4/admin/", "/v4/admin/", "v4.0", "v4"),
+        ("/ghost/api/v3/admin/", "/v3/admin/", "v3.0", "v3"),
+        ("/ghost/api/admin/", "/v3/admin/", "v3.0", "v3"),
+        ("/ghost/api/admin/", "/v4/admin/", "v4.0", "v4"),
+        ("/ghost/api/admin/", "/v5/admin/", "v5.0", "v5"),
+        ("/ghost/api/admin/", "/v6/admin/", "v6.0", "v6")
+    ];
+
+    public static string GenerateGhostJwt(string adminApiKey, string audience = "/admin/")
     {
         if (string.IsNullOrWhiteSpace(adminApiKey))
             throw new ArgumentException("Admin API key cannot be null or empty.");
@@ -48,25 +61,64 @@ public static class GhostAdminClient
         {
             { "iat", DateTimeOffset.UtcNow.ToUnixTimeSeconds() },
             { "exp", DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeSeconds() },
-            { "aud", "/admin/" }
+            { "aud", audience }
         };
 
         var token = new JwtSecurityToken(header, payload);
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    public static async Task<(string HeaderCode, string FooterCode)> GetCodeInjectionsAsync(string ghostUrl, string adminApiKey, HttpClient? customClient = null)
+    private static async Task<(HttpResponseMessage Response, string DetectedVersion)> SendWithFallbackAsync(HttpClient client, string ghostUrl, string relativeEndpoint, string adminApiKey)
     {
-        string jwt = GenerateGhostJwt(adminApiKey);
-        string requestUrl = $"{ghostUrl.TrimEnd('/')}/ghost/api/admin/settings/";
-
-        using var client = customClient ?? new HttpClient();
-        if (customClient == null)
+        string cleanBase = ghostUrl.TrimEnd('/');
+        if (cleanBase.EndsWith("/ghost"))
         {
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Ghost", jwt);
+            cleanBase = cleanBase[..^6];
+        }
+        else if (cleanBase.EndsWith("/ghost/api"))
+        {
+            cleanBase = cleanBase[..^10];
         }
 
-        var response = await client.GetAsync(requestUrl);
+        HttpResponseMessage? lastResponse = null;
+        string lastVersion = "v5";
+
+        foreach (var (prefix, audience, acceptVersion, versionName) in ApiRouteCandidates)
+        {
+            string url = $"{cleanBase}{prefix}{relativeEndpoint.TrimStart('/')}";
+            string jwt = GenerateGhostJwt(adminApiKey, audience);
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Ghost", jwt);
+            if (!string.IsNullOrEmpty(acceptVersion))
+            {
+                request.Headers.TryAddWithoutValidation("Accept-Version", acceptVersion);
+            }
+
+            var response = await client.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                return (response, versionName);
+            }
+
+            if (response.StatusCode != System.Net.HttpStatusCode.NotFound &&
+                response.StatusCode != System.Net.HttpStatusCode.Unauthorized)
+            {
+                return (response, versionName);
+            }
+
+            lastResponse = response;
+            lastVersion = versionName;
+        }
+
+        return (lastResponse ?? new HttpResponseMessage(System.Net.HttpStatusCode.NotFound), lastVersion);
+    }
+
+    public static async Task<(string HeaderCode, string FooterCode)> GetCodeInjectionsAsync(string ghostUrl, string adminApiKey, HttpClient? customClient = null)
+    {
+        using var client = customClient ?? new HttpClient();
+
+        var (response, _) = await SendWithFallbackAsync(client, ghostUrl, "settings/", adminApiKey);
         if (!response.IsSuccessStatusCode)
         {
             return (string.Empty, string.Empty);
@@ -98,19 +150,14 @@ public static class GhostAdminClient
         return (headerCode, footerCode);
     }
 
-    public static async Task<List<GhostPost>> FetchPostsFromApiAsync(string ghostUrl, string adminApiKey, bool includeDrafts = true, HttpClient? customClient = null)
+    public static async Task<(List<GhostPost> Posts, string DetectedVersion)> FetchPostsFromApiAsync(string ghostUrl, string adminApiKey, bool includeDrafts = true, HttpClient? customClient = null)
     {
-        string jwt = GenerateGhostJwt(adminApiKey);
-        string statusFilter = includeDrafts ? "all" : "published";
-        string requestUrl = $"{ghostUrl.TrimEnd('/')}/ghost/api/admin/posts/?limit=all&include=tags,authors&filter=status:[published,draft]";
+        string filterParam = includeDrafts ? "status:[published,draft]" : "status:published";
+        string endpoint = $"posts/?limit=all&include=tags,authors&filter={filterParam}";
 
         using var client = customClient ?? new HttpClient();
-        if (customClient == null)
-        {
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Ghost", jwt);
-        }
 
-        var response = await client.GetAsync(requestUrl);
+        var (response, version) = await SendWithFallbackAsync(client, ghostUrl, endpoint, adminApiKey);
         if (!response.IsSuccessStatusCode)
         {
             throw new HttpRequestException($"Failed to fetch posts from Ghost API ({response.StatusCode})");
@@ -120,21 +167,14 @@ public static class GhostAdminClient
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         var result = JsonSerializer.Deserialize<GhostApiPostsResponse>(jsonString, options);
 
-        return result?.Posts ?? [];
+        return (result?.Posts ?? [], version);
     }
 
     public static async Task DownloadActiveThemeAsync(string ghostUrl, string adminApiKey, string outputPath, HttpClient? customClient = null)
     {
-        string jwt = GenerateGhostJwt(adminApiKey);
-        string requestUrl = $"{ghostUrl.TrimEnd('/')}/ghost/api/admin/themes/active/download/";
-
         using var client = customClient ?? new HttpClient();
-        if (customClient == null)
-        {
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Ghost", jwt);
-        }
 
-        var response = await client.GetAsync(requestUrl);
+        var (response, _) = await SendWithFallbackAsync(client, ghostUrl, "themes/active/download/", adminApiKey);
         if (!response.IsSuccessStatusCode)
         {
             throw new HttpRequestException($"Failed to download active theme from Ghost ({response.StatusCode})");
