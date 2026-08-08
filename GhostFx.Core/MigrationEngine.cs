@@ -500,10 +500,6 @@ public class MigrationEngine
         mainTagsSb.AppendLine("# Browse Content by Tag");
         mainTagsSb.AppendLine();
 
-        var postsByTag = posts
-            .SelectMany(p => p.Tags.Select(t => (Tag: t, Post: p)))
-            .ToLookup(x => x.Tag, x => x.Post, StringComparer.OrdinalIgnoreCase);
-
         foreach (var tag in allTags.OrderBy(t => t.Name))
         {
             var tagPosts = postsByTag[tag.Name].ToList();
