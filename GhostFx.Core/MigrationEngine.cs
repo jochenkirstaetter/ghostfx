@@ -441,9 +441,13 @@ public class MigrationEngine
     {
         Directory.CreateDirectory(tagsDir);
 
+        var postsByTag = posts
+            .SelectMany(p => p.Tags.Select(t => (Tag: t, Post: p)))
+            .ToLookup(x => x.Tag, x => x.Post, StringComparer.OrdinalIgnoreCase);
+
         foreach (var tag in allTags)
         {
-            var tagPosts = posts.Where(p => p.Tags.Any(t => string.Equals(t, tag.Name, StringComparison.OrdinalIgnoreCase))).ToList();
+            var tagPosts = postsByTag[tag.Name].ToList();
             if (tagPosts.Count == 0) continue;
 
             string tagFilePath = Path.Combine(tagsDir, $"{tag.Slug}.md");
@@ -496,9 +500,13 @@ public class MigrationEngine
         mainTagsSb.AppendLine("# Browse Content by Tag");
         mainTagsSb.AppendLine();
 
+        var postsByTag = posts
+            .SelectMany(p => p.Tags.Select(t => (Tag: t, Post: p)))
+            .ToLookup(x => x.Tag, x => x.Post, StringComparer.OrdinalIgnoreCase);
+
         foreach (var tag in allTags.OrderBy(t => t.Name))
         {
-            var tagPosts = posts.Where(p => p.Tags.Any(t => string.Equals(t, tag.Name, StringComparison.OrdinalIgnoreCase))).ToList();
+            var tagPosts = postsByTag[tag.Name].ToList();
             if (tagPosts.Count == 0) continue;
 
             string relPath = $"{outputDirName}/tags/{tag.Slug}.md";

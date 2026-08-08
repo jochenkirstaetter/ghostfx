@@ -5,7 +5,7 @@ using YamlDotNet.Serialization;
 
 namespace GhostFx.Core;
 
-public class FrontMatter
+public sealed class FrontMatter
 {
     [YamlMember(Alias = "uid")]
     public string Uid { get; set; } = string.Empty;
@@ -47,7 +47,7 @@ public class FrontMatter
     public string OgDescription { get; set; } = string.Empty;
 }
 
-public class BlogPostMetadata
+public sealed class BlogPostMetadata
 {
     public string Title { get; set; } = string.Empty;
     public string Slug { get; set; } = string.Empty;
