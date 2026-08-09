@@ -20,6 +20,10 @@ public static class DocfxGenerator
         await EnsureDocfxTemplateOverridesExistAsync(rootDir, customTemplatePath, iconLinks);
 
         string docfxPath = Path.Combine(rootDir, "docfx.json");
+        if (File.Exists(docfxPath))
+        {
+            return docfxPath;
+        }
 
         string fullOutputDir = Path.GetFullPath(config.OutputDir);
         string fullRootDir = Path.GetFullPath(rootDir);

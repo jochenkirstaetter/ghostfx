@@ -370,7 +370,7 @@ public static class GhostAdminClient
             }
         }
 
-        return (title, description, icon, logo, cover, navItems);
+        return (title, description, icon, logo, cover, navItems, locale);
     }
 
     public static async Task<(string? FaviconFile, string? LogoFile, string? CoverFile)> DownloadSiteBrandAssetsAsync(

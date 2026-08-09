@@ -36,6 +36,7 @@ public class MigrationEngine
             string? siteLogo = null;
             string? siteCover = null;
             List<GhostNavItem> navItems = [];
+            string? siteLocale = null;
 
             if (!string.IsNullOrWhiteSpace(jsonContentOverride))
             {
