@@ -10,6 +10,16 @@ public class GhostFxConfig
     [JsonPropertyName("adminApiKey")]
     public string AdminApiKey { get; set; } = string.Empty;
 
+    [JsonPropertyName("contentApiKey")]
+    public string ContentApiKey { get; set; } = string.Empty;
+
+    [JsonPropertyName("apiKey")]
+    public string ApiKey
+    {
+        get => AdminApiKey;
+        set => AdminApiKey = value;
+    }
+
     private string _ghostExportJson = string.Empty;
 
     [JsonPropertyName("ghostExportJson")]

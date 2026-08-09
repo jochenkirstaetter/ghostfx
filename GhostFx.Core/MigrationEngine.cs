@@ -37,10 +37,12 @@ public class MigrationEngine
             string? siteCover = null;
             List<GhostNavItem> navItems = [];
             string? siteLocale = null;
+            string? twitter = null;
+            string? facebook = null;
 
             if (!string.IsNullOrWhiteSpace(jsonContentOverride))
             {
-                var (posts, tags, jsonTitle, jsonDesc, jsonIcon, jsonLogo, jsonCover, jsonNav, jsonLocale) = _jsonParser.ParseJsonExport(jsonContentOverride);
+                var (posts, tags, jsonTitle, jsonDesc, jsonIcon, jsonLogo, jsonCover, jsonNav, jsonLocale, jsonTwitter, jsonFacebook) = _jsonParser.ParseJsonExport(jsonContentOverride);
                 allPosts = posts;
                 allTags = tags;
                 if (jsonNav.Count > 0) navItems = jsonNav;
@@ -50,11 +52,13 @@ public class MigrationEngine
                 if (!string.IsNullOrWhiteSpace(jsonLogo)) siteLogo = jsonLogo;
                 if (!string.IsNullOrWhiteSpace(jsonCover)) siteCover = jsonCover;
                 if (!string.IsNullOrWhiteSpace(jsonLocale)) siteLocale = jsonLocale;
+                if (!string.IsNullOrWhiteSpace(jsonTwitter)) twitter = jsonTwitter;
+                if (!string.IsNullOrWhiteSpace(jsonFacebook)) facebook = jsonFacebook;
             }
             else if (!string.IsNullOrWhiteSpace(config.GhostExportJson) && File.Exists(config.GhostExportJson))
             {
                 string json = await File.ReadAllTextAsync(config.GhostExportJson);
-                var (posts, tags, jsonTitle, jsonDesc, jsonIcon, jsonLogo, jsonCover, jsonNav, jsonLocale) = _jsonParser.ParseJsonExport(json);
+                var (posts, tags, jsonTitle, jsonDesc, jsonIcon, jsonLogo, jsonCover, jsonNav, jsonLocale, jsonTwitter, jsonFacebook) = _jsonParser.ParseJsonExport(json);
                 allPosts = posts;
                 allTags = tags;
                 if (jsonNav.Count > 0) navItems = jsonNav;
@@ -64,12 +68,17 @@ public class MigrationEngine
                 if (!string.IsNullOrWhiteSpace(jsonLogo)) siteLogo = jsonLogo;
                 if (!string.IsNullOrWhiteSpace(jsonCover)) siteCover = jsonCover;
                 if (!string.IsNullOrWhiteSpace(jsonLocale)) siteLocale = jsonLocale;
-
-                if (!string.IsNullOrWhiteSpace(config.GhostUrl) && (navItems.Count == 0 || string.IsNullOrWhiteSpace(config.SiteTitle) || string.IsNullOrWhiteSpace(siteIcon) || string.IsNullOrWhiteSpace(siteCover)))
+                if (!string.IsNullOrWhiteSpace(jsonTwitter)) twitter = jsonTwitter;
+                if (!string.IsNullOrWhiteSpace(jsonFacebook)) facebook = jsonFacebook;
+ 
+                if (!string.IsNullOrWhiteSpace(config.GhostUrl) && (navItems.Count == 0 || string.IsNullOrWhiteSpace(config.SiteTitle) || string.IsNullOrWhiteSpace(siteIcon) || string.IsNullOrWhiteSpace(siteCover) || string.IsNullOrWhiteSpace(twitter) || string.IsNullOrWhiteSpace(facebook)))
                 {
                     try
                     {
-                        var (apiTitle, apiDesc, apiIcon, apiLogo, apiCover, apiNav, apiLocale) = await GhostAdminClient.FetchSiteBrandInfoAsync(config.GhostUrl, config.AdminApiKey ?? "");
+                        var (apiTitle, apiDesc, apiIcon, apiLogo, apiCover, apiNav, apiLocale, apiTwitter, apiFacebook) =
+                            !string.IsNullOrWhiteSpace(config.ContentApiKey)
+                                ? await GhostAdminClient.FetchSiteSettingsViaContentApiAsync(config.GhostUrl, config.ContentApiKey)
+                                : await GhostAdminClient.FetchSiteBrandInfoAsync(config.GhostUrl, config.AdminApiKey ?? "");
                         if (navItems.Count == 0 && apiNav.Count > 0) navItems = apiNav;
                         if (string.IsNullOrWhiteSpace(config.SiteTitle) && !string.IsNullOrWhiteSpace(apiTitle)) config.SiteTitle = apiTitle;
                         if (string.IsNullOrWhiteSpace(siteDescription) && !string.IsNullOrWhiteSpace(apiDesc)) siteDescription = apiDesc;
@@ -77,6 +86,8 @@ public class MigrationEngine
                         if (string.IsNullOrWhiteSpace(siteLogo) && !string.IsNullOrWhiteSpace(apiLogo)) siteLogo = apiLogo;
                         if (string.IsNullOrWhiteSpace(siteCover) && !string.IsNullOrWhiteSpace(apiCover)) siteCover = apiCover;
                         if (string.IsNullOrWhiteSpace(siteLocale) && !string.IsNullOrWhiteSpace(apiLocale)) siteLocale = apiLocale;
+                        if (string.IsNullOrWhiteSpace(twitter) && !string.IsNullOrWhiteSpace(apiTwitter)) twitter = apiTwitter;
+                        if (string.IsNullOrWhiteSpace(facebook) && !string.IsNullOrWhiteSpace(apiFacebook)) facebook = apiFacebook;
                     }
                     catch { }
                 }
@@ -92,7 +103,10 @@ public class MigrationEngine
                 result.DetectedGhostVersion = version;
                 allTags = allPosts.SelectMany(p => p.Tags).GroupBy(t => t.Id).Select(g => g.First()).ToList();
 
-                var (apiTitle, apiDesc, apiIcon, apiLogo, apiCover, apiNav, apiLocale) = await GhostAdminClient.FetchSiteBrandInfoAsync(config.GhostUrl, config.AdminApiKey);
+                var (apiTitle, apiDesc, apiIcon, apiLogo, apiCover, apiNav, apiLocale, apiTwitter, apiFacebook) =
+                    !string.IsNullOrWhiteSpace(config.ContentApiKey)
+                        ? await GhostAdminClient.FetchSiteSettingsViaContentApiAsync(config.GhostUrl, config.ContentApiKey)
+                        : await GhostAdminClient.FetchSiteBrandInfoAsync(config.GhostUrl, config.AdminApiKey);
                 if (apiNav.Count > 0) navItems = apiNav;
                 if (!string.IsNullOrWhiteSpace(apiTitle)) config.SiteTitle = apiTitle;
                 if (!string.IsNullOrWhiteSpace(apiDesc)) siteDescription = apiDesc;
@@ -100,6 +114,8 @@ public class MigrationEngine
                 if (!string.IsNullOrWhiteSpace(apiLogo)) siteLogo = apiLogo;
                 if (!string.IsNullOrWhiteSpace(apiCover)) siteCover = apiCover;
                 if (!string.IsNullOrWhiteSpace(apiLocale)) siteLocale = apiLocale;
+                if (!string.IsNullOrWhiteSpace(apiTwitter)) twitter = apiTwitter;
+                if (!string.IsNullOrWhiteSpace(apiFacebook)) facebook = apiFacebook;
             }
             else
             {
@@ -328,7 +344,25 @@ public class MigrationEngine
 
             // Generate Docfx configuration file inside outputDir
             string customTemplatePath = "ghostfx";
-            string docfxPath = await DocfxGenerator.GenerateDocfxJsonIfNotExistsAsync(config.OutputDir, config, customTemplatePath, siteLocale ?? "en");
+            List<IconLink> iconLinks = [
+                new IconLink { Icon = "github", Href = "https://github.com/jochenkirstaetter/ghostfx", Title = "GitHub" }
+            ];
+
+            if (!string.IsNullOrWhiteSpace(twitter))
+            {
+                string handle = twitter.TrimStart('@').Trim();
+                string href = handle.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? handle : $"https://x.com/{handle}";
+                iconLinks.Add(new IconLink { Icon = "twitter", Href = href, Title = "Twitter / X" });
+            }
+
+            if (!string.IsNullOrWhiteSpace(facebook))
+            {
+                string handle = facebook.Trim();
+                string href = handle.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? handle : $"https://facebook.com/{handle}";
+                iconLinks.Add(new IconLink { Icon = "facebook", Href = href, Title = "Facebook" });
+            }
+
+            string docfxPath = await DocfxGenerator.GenerateDocfxJsonIfNotExistsAsync(config.OutputDir, config, customTemplatePath, siteLocale ?? "en", iconLinks);
             if (!result.GeneratedFiles.Contains(docfxPath))
             {
                 result.GeneratedFiles.Add(docfxPath);

@@ -418,7 +418,7 @@ public static class DocfxGenerator
                 string mainContent = await File.ReadAllTextAsync(mainJsPath);
                 if (!mainContent.Contains("import './ghost.js';"))
                 {
-                    mainContent = "import './ghost.js';\n" + mainContent;
+                    mainContent = "import './ghost.js';\n\n" + mainContent;
                     await File.WriteAllTextAsync(mainJsPath, mainContent, System.Text.Encoding.UTF8);
                 }
             }
@@ -674,7 +674,50 @@ public static class DocfxGenerator
         ];
 
         string jsPath = Path.Combine(publicDir, "main.js");
-        if (!File.Exists(jsPath))
+        if (File.Exists(jsPath))
+        {
+            string mainContent = await File.ReadAllTextAsync(jsPath);
+            var match = Regex.Match(mainContent, @"iconLinks:\s*(\[[\s\S]*?\])", RegexOptions.IgnoreCase);
+            if (match.Success)
+            {
+                string jsonArray = match.Groups[1].Value;
+                try
+                {
+                    var parseOptions = new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true,
+                        AllowTrailingCommas = true,
+                        ReadCommentHandling = JsonCommentHandling.Skip
+                    };
+                    var existingLinks = JsonSerializer.Deserialize<List<IconLink>>(jsonArray, parseOptions);
+                    if (existingLinks != null)
+                    {
+                        links = MergeIconLinks(existingLinks, links);
+                    }
+                }
+                catch { }
+            }
+
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            string jsonLinks = JsonSerializer.Serialize(links, options);
+            // indent the JSON array lines to look neat in JS
+            jsonLinks = string.Join("\n", jsonLinks.Split('\n').Select((line, idx) => idx == 0 ? line : "  " + line));
+
+            var regex = new Regex(@"iconLinks:\s*\[[\s\S]*?\]", RegexOptions.IgnoreCase);
+            if (regex.IsMatch(mainContent))
+            {
+                mainContent = regex.Replace(mainContent, $"iconLinks: {jsonLinks}");
+            }
+
+            bool hasGhostJs = File.Exists(Path.Combine(publicDir, "ghost.js"));
+            if (hasGhostJs && !mainContent.Contains("import './ghost.js';"))
+            {
+                mainContent = "import './ghost.js';\n\n" + mainContent.TrimStart();
+            }
+
+            await File.WriteAllTextAsync(jsPath, mainContent, System.Text.Encoding.UTF8);
+        }
+        else
         {
             var options = new JsonSerializerOptions { WriteIndented = true };
             string jsonLinks = JsonSerializer.Serialize(links, options);
@@ -687,20 +730,23 @@ public static class DocfxGenerator
               iconLinks: {{jsonLinks}}
             }
             """;
-            await File.WriteAllTextAsync(jsPath, defaultJs);
+            await File.WriteAllTextAsync(jsPath, defaultJs, System.Text.Encoding.UTF8);
         }
-        else
+    }
+
+    private static List<IconLink> MergeIconLinks(List<IconLink> existingLinks, List<IconLink> newLinks)
+    {
+        var merged = new List<IconLink>(newLinks);
+        var newIcons = newLinks.Select(l => l.Icon.ToLowerInvariant()).ToHashSet();
+
+        foreach (var link in existingLinks)
         {
-            bool hasGhostJs = File.Exists(Path.Combine(publicDir, "ghost.js"));
-            if (hasGhostJs)
+            if (!newIcons.Contains(link.Icon.ToLowerInvariant()))
             {
-                string mainContent = await File.ReadAllTextAsync(jsPath);
-                if (!mainContent.Contains("import './ghost.js';"))
-                {
-                    mainContent = "import './ghost.js';\n" + mainContent;
-                    await File.WriteAllTextAsync(jsPath, mainContent, System.Text.Encoding.UTF8);
-                }
+                merged.Add(link);
             }
         }
+
+        return merged;
     }
 }

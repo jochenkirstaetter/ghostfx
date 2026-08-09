@@ -8,7 +8,7 @@ namespace GhostFx.Core;
 
 public class GhostJsonParser
 {
-    public (List<GhostPost> Posts, List<GhostTag> Tags, string? Title, string? Description, string? Icon, string? Logo, string? CoverImage, List<GhostNavItem> NavItems, string? Locale) ParseJsonExport(string jsonContent)
+    public (List<GhostPost> Posts, List<GhostTag> Tags, string? Title, string? Description, string? Icon, string? Logo, string? CoverImage, List<GhostNavItem> NavItems, string? Locale, string? Twitter, string? Facebook) ParseJsonExport(string jsonContent)
     {
         if (string.IsNullOrWhiteSpace(jsonContent))
             throw new ArgumentException("JSON content cannot be null or empty.");
@@ -47,6 +47,8 @@ public class GhostJsonParser
         string? logo = data.Settings?.FirstOrDefault(s => string.Equals(s.Key, "logo", StringComparison.OrdinalIgnoreCase) || string.Equals(s.Key, "site_logo", StringComparison.OrdinalIgnoreCase))?.Value;
         string? cover = data.Settings?.FirstOrDefault(s => string.Equals(s.Key, "cover_image", StringComparison.OrdinalIgnoreCase) || string.Equals(s.Key, "cover", StringComparison.OrdinalIgnoreCase) || string.Equals(s.Key, "cover_path", StringComparison.OrdinalIgnoreCase))?.Value;
         string? locale = data.Settings?.FirstOrDefault(s => string.Equals(s.Key, "locale", StringComparison.OrdinalIgnoreCase) || string.Equals(s.Key, "lang", StringComparison.OrdinalIgnoreCase))?.Value;
+        string? twitter = data.Settings?.FirstOrDefault(s => string.Equals(s.Key, "twitter", StringComparison.OrdinalIgnoreCase))?.Value;
+        string? facebook = data.Settings?.FirstOrDefault(s => string.Equals(s.Key, "facebook", StringComparison.OrdinalIgnoreCase))?.Value;
 
         List<GhostNavItem> navItems = [];
         string? navJson = data.Settings?.FirstOrDefault(s => string.Equals(s.Key, "navigation", StringComparison.OrdinalIgnoreCase))?.Value;
@@ -60,6 +62,6 @@ public class GhostJsonParser
             catch { }
         }
 
-        return (data.Posts, data.Tags, title, description, icon, logo, cover, navItems, locale);
+        return (data.Posts, data.Tags, title, description, icon, logo, cover, navItems, locale, twitter, facebook);
     }
 }

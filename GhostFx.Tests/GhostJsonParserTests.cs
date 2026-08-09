@@ -66,7 +66,7 @@ public class GhostJsonParserTests
     public void ParseJsonExport_ParsesPostsAndTagsCorrectly()
     {
         var parser = new GhostJsonParser();
-        var (posts, tags, title, description, icon, logo, cover, navItems, locale) = parser.ParseJsonExport(_sampleJson);
+        var (posts, tags, title, description, icon, logo, cover, navItems, locale, twitter, facebook) = parser.ParseJsonExport(_sampleJson);
 
         Assert.Equal(2, posts.Count);
         Assert.Equal(2, tags.Count);
@@ -97,7 +97,9 @@ public class GhostJsonParserTests
                 "settings": [
                   { "key": "title", "value": "My Ghost Site" },
                   { "key": "description", "value": "A awesome blog" },
-                  { "key": "navigation", "value": "[{\"label\":\"About\",\"url\":\"/about/\"}]" }
+                  { "key": "navigation", "value": "[{\"label\":\"About\",\"url\":\"/about/\"}]" },
+                  { "key": "twitter", "value": "@jkirstaetter" },
+                  { "key": "facebook", "value": "jochen.kirstaetter" }
                 ]
               }
             }
@@ -106,13 +108,15 @@ public class GhostJsonParserTests
         """;
 
         var parser = new GhostJsonParser();
-        var (posts, tags, title, description, icon, logo, cover, navItems, locale) = parser.ParseJsonExport(jsonWithSettings);
+        var (posts, tags, title, description, icon, logo, cover, navItems, locale, twitter, facebook) = parser.ParseJsonExport(jsonWithSettings);
 
         Assert.Equal("My Ghost Site", title);
         Assert.Equal("A awesome blog", description);
         Assert.Single(navItems);
         Assert.Equal("About", navItems[0].Label);
         Assert.Equal("/about/", navItems[0].Url);
+        Assert.Equal("@jkirstaetter", twitter);
+        Assert.Equal("jochen.kirstaetter", facebook);
     }
 
     [Fact]
@@ -136,7 +140,7 @@ public class GhostJsonParserTests
         """;
 
         var parser = new GhostJsonParser();
-        var (_, _, _, _, _, _, _, _, locale) = parser.ParseJsonExport(jsonWithLocale);
+        var (_, _, _, _, _, _, _, _, locale, _, _) = parser.ParseJsonExport(jsonWithLocale);
 
         Assert.Equal("de", locale);
     }

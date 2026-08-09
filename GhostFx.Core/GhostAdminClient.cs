@@ -202,7 +202,7 @@ public static class GhostAdminClient
         return links;
     }
 
-    public static async Task<(string? Title, string? Description, string? IconUrl, string? LogoUrl, string? CoverUrl, List<GhostNavItem> NavItems, string? Locale)> FetchSiteBrandInfoAsync(string ghostUrl, string adminApiKey, HttpClient? customClient = null)
+    public static async Task<(string? Title, string? Description, string? IconUrl, string? LogoUrl, string? CoverUrl, List<GhostNavItem> NavItems, string? Locale, string? Twitter, string? Facebook)> FetchSiteBrandInfoAsync(string ghostUrl, string adminApiKey, HttpClient? customClient = null)
     {
         bool disposeClient = customClient == null;
         var client = customClient ?? new HttpClient();
@@ -213,6 +213,8 @@ public static class GhostAdminClient
         string? logo = null;
         string? cover = null;
         string? locale = null;
+        string? twitter = null;
+        string? facebook = null;
 
         try
         {
@@ -242,6 +244,8 @@ public static class GhostAdminClient
                             if (string.Equals(key, "logo", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "site_logo", StringComparison.OrdinalIgnoreCase)) logo = val;
                             if (string.Equals(key, "cover_image", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "cover", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "cover_path", StringComparison.OrdinalIgnoreCase)) cover = val;
                             if (string.Equals(key, "locale", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "lang", StringComparison.OrdinalIgnoreCase)) locale = val;
+                            if (string.Equals(key, "twitter", StringComparison.OrdinalIgnoreCase)) twitter = val;
+                            if (string.Equals(key, "facebook", StringComparison.OrdinalIgnoreCase)) facebook = val;
                             if (string.Equals(key, "navigation", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(val))
                             {
                                 try
@@ -262,6 +266,8 @@ public static class GhostAdminClient
                         logo ??= settingsObj["logo"]?.ToString() ?? settingsObj["site_logo"]?.ToString();
                         cover ??= settingsObj["cover_image"]?.ToString() ?? settingsObj["cover"]?.ToString() ?? settingsObj["cover_path"]?.ToString();
                         locale ??= settingsObj["locale"]?.ToString() ?? settingsObj["lang"]?.ToString();
+                        twitter ??= settingsObj["twitter"]?.ToString();
+                        facebook ??= settingsObj["facebook"]?.ToString();
                         var navNode = settingsObj["navigation"];
                         if (navNode != null)
                         {
@@ -292,6 +298,8 @@ public static class GhostAdminClient
                     logo ??= siteObj?["logo"]?.ToString() ?? siteObj?["site_logo"]?.ToString();
                     cover ??= siteObj?["cover_image"]?.ToString() ?? siteObj?["cover"]?.ToString() ?? siteObj?["cover_path"]?.ToString();
                     locale ??= siteObj?["locale"]?.ToString() ?? siteObj?["lang"]?.ToString();
+                    twitter ??= siteObj?["twitter"]?.ToString();
+                    facebook ??= siteObj?["facebook"]?.ToString();
                     var navArray = siteObj?["navigation"]?.ToString();
                     if (!string.IsNullOrWhiteSpace(navArray))
                     {
@@ -370,7 +378,91 @@ public static class GhostAdminClient
             }
         }
 
-        return (title, description, icon, logo, cover, navItems, locale);
+        return (title, description, icon, logo, cover, navItems, locale, twitter, facebook);
+    }
+
+    public static async Task<(string? Title, string? Description, string? IconUrl, string? LogoUrl, string? CoverUrl, List<GhostNavItem> NavItems, string? Locale, string? Twitter, string? Facebook)> FetchSiteSettingsViaContentApiAsync(string ghostUrl, string contentApiKey, HttpClient? customClient = null)
+    {
+        using var client = customClient ?? new HttpClient();
+        if (!client.DefaultRequestHeaders.Contains("User-Agent"))
+        {
+            client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+        }
+        string cleanBase = ghostUrl.TrimEnd('/');
+        if (cleanBase.EndsWith("/ghost")) cleanBase = cleanBase[..^6];
+        else if (cleanBase.EndsWith("/ghost/api")) cleanBase = cleanBase[..^10];
+
+        string[] versions = ["v3", "v4", "v5", "v6"];
+        foreach (var ver in versions)
+        {
+            try
+            {
+                string url = $"{cleanBase}/ghost/api/{ver}/content/settings/?key={contentApiKey}";
+                var response = await client.GetAsync(url);
+                if (response.IsSuccessStatusCode)
+                {
+                    string jsonString = await response.Content.ReadAsStringAsync();
+                    var root = JsonNode.Parse(jsonString);
+                    var settingsNode = root?["settings"];
+                    if (settingsNode is JsonArray settingsArr)
+                    {
+                        string? title = null, desc = null, icon = null, logo = null, cover = null, locale = null, twitter = null, facebook = null;
+                        List<GhostNavItem> navItems = [];
+                        foreach (var setting in settingsArr)
+                        {
+                            string? key = setting?["key"]?.ToString();
+                            string? val = setting?["value"]?.ToString();
+                            if (string.Equals(key, "title", StringComparison.OrdinalIgnoreCase)) title = val;
+                            if (string.Equals(key, "description", StringComparison.OrdinalIgnoreCase)) desc = val;
+                            if (string.Equals(key, "icon", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "site_icon", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "favicon", StringComparison.OrdinalIgnoreCase)) icon = val;
+                            if (string.Equals(key, "logo", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "site_logo", StringComparison.OrdinalIgnoreCase)) logo = val;
+                            if (string.Equals(key, "cover_image", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "cover", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "cover_path", StringComparison.OrdinalIgnoreCase)) cover = val;
+                            if (string.Equals(key, "locale", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "lang", StringComparison.OrdinalIgnoreCase)) locale = val;
+                            if (string.Equals(key, "twitter", StringComparison.OrdinalIgnoreCase)) twitter = val;
+                            if (string.Equals(key, "facebook", StringComparison.OrdinalIgnoreCase)) facebook = val;
+                            if (string.Equals(key, "navigation", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(val))
+                            {
+                                try
+                                {
+                                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                                    var parsedNav = JsonSerializer.Deserialize<List<GhostNavItem>>(val, options);
+                                    if (parsedNav != null) navItems = parsedNav;
+                                }
+                                catch { }
+                            }
+                        }
+                        return (title, desc, icon, logo, cover, navItems, locale, twitter, facebook);
+                    }
+                    else if (settingsNode is JsonObject settingsObj)
+                    {
+                        string? title = settingsObj["title"]?.ToString();
+                        string? desc = settingsObj["description"]?.ToString();
+                        string? icon = settingsObj["icon"]?.ToString() ?? settingsObj["site_icon"]?.ToString() ?? settingsObj["favicon"]?.ToString();
+                        string? logo = settingsObj["logo"]?.ToString() ?? settingsObj["site_logo"]?.ToString();
+                        string? cover = settingsObj["cover_image"]?.ToString() ?? settingsObj["cover"]?.ToString() ?? settingsObj["cover_path"]?.ToString();
+                        string? locale = settingsObj["locale"]?.ToString() ?? settingsObj["lang"]?.ToString();
+                        string? twitter = settingsObj["twitter"]?.ToString();
+                        string? facebook = settingsObj["facebook"]?.ToString();
+                        List<GhostNavItem> navItems = [];
+                        var navNode = settingsObj["navigation"];
+                        if (navNode != null)
+                        {
+                            try
+                            {
+                                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                                var parsedNav = JsonSerializer.Deserialize<List<GhostNavItem>>(navNode.ToJsonString(), options);
+                                if (parsedNav != null) navItems = parsedNav;
+                            }
+                            catch { }
+                        }
+                        return (title, desc, icon, logo, cover, navItems, locale, twitter, facebook);
+                    }
+                }
+            }
+            catch { }
+        }
+
+        return (null, null, null, null, null, [], null, null, null);
     }
 
     public static async Task<(string? FaviconFile, string? LogoFile, string? CoverFile)> DownloadSiteBrandAssetsAsync(
@@ -401,7 +493,7 @@ public static class GhostAdminClient
         {
             try
             {
-                var (_, _, apiIcon, apiLogo, apiCover, _, _) = await FetchSiteBrandInfoAsync(ghostUrl ?? "", adminApiKey, client);
+                var (_, _, apiIcon, apiLogo, apiCover, _, _, _, _) = await FetchSiteBrandInfoAsync(ghostUrl ?? "", adminApiKey, client);
                 iconUrl ??= apiIcon;
                 logoUrl ??= apiLogo;
                 coverUrl ??= apiCover;

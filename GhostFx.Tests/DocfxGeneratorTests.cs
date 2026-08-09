@@ -285,4 +285,71 @@ public class DocfxGeneratorTests : IDisposable
         string content = await File.ReadAllTextAsync(masterPath);
         Assert.Equal("My Custom Master Template Layout Content", content);
     }
+
+    [Fact]
+    public async Task EnsureDocfxTemplateOverridesExistAsync_GeneratesCorrectIconLinks()
+    {
+        string targetTemplateDir = Path.Combine(_tempDirectory, "icon_links");
+        Directory.CreateDirectory(targetTemplateDir);
+
+        var iconLinks = new List<IconLink>
+        {
+            new IconLink { Icon = "github", Href = "https://github.com/jochenkirstaetter/ghostfx", Title = "GitHub" },
+            new IconLink { Icon = "twitter", Href = "https://x.com/jkirstaetter", Title = "Twitter / X" },
+            new IconLink { Icon = "facebook", Href = "https://facebook.com/jochen.kirstaetter", Title = "Facebook" }
+        };
+
+        await DocfxGenerator.EnsureDocfxTemplateOverridesExistAsync(targetTemplateDir, "ghostfx", iconLinks);
+
+        string jsPath = Path.Combine(targetTemplateDir, "ghostfx", "public", "main.js");
+        Assert.True(File.Exists(jsPath));
+
+        string content = await File.ReadAllTextAsync(jsPath);
+        Assert.Contains("https://x.com/jkirstaetter", content);
+        Assert.Contains("https://facebook.com/jochen.kirstaetter", content);
+        Assert.Contains("https://github.com/jochenkirstaetter/ghostfx", content);
+    }
+
+    [Fact]
+    public async Task EnsureDocfxTemplateOverridesExistAsync_MergesExistingCustomLinks()
+    {
+        string targetTemplateDir = Path.Combine(_tempDirectory, "icon_links_merge");
+        string publicDir = Path.Combine(targetTemplateDir, "ghostfx", "public");
+        Directory.CreateDirectory(publicDir);
+
+        string existingJs = """
+        import './ghost.js';
+
+        export default {
+          iconLinks: [
+            {
+              "icon": "github",
+              "href": "https://github.com/old/ghostfx",
+              "title": "GitHub Old"
+            },
+            {
+              "icon": "rss",
+              "href": "https://jochen.kirstaetter.name/rss/",
+              "title": "RSS Feed"
+            }
+          ]
+        }
+        """;
+        string jsPath = Path.Combine(publicDir, "main.js");
+        await File.WriteAllTextAsync(jsPath, existingJs, System.Text.Encoding.UTF8);
+
+        var newLinks = new List<IconLink>
+        {
+            new IconLink { Icon = "github", Href = "https://github.com/new/ghostfx", Title = "GitHub New" },
+            new IconLink { Icon = "twitter", Href = "https://x.com/newhandle", Title = "Twitter" }
+        };
+
+        await DocfxGenerator.EnsureDocfxTemplateOverridesExistAsync(targetTemplateDir, "ghostfx", newLinks);
+
+        string content = await File.ReadAllTextAsync(jsPath);
+        Assert.Contains("https://github.com/new/ghostfx", content);
+        Assert.Contains("https://x.com/newhandle", content);
+        Assert.DoesNotContain("https://github.com/old/ghostfx", content);
+        Assert.Contains("https://jochen.kirstaetter.name/rss/", content);
+    }
 }

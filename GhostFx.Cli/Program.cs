@@ -20,8 +20,8 @@ public class Program
             name: "--url",
             description: "The live Ghost blog base URL.");
 
-        var apiKeyOption = new Option<string?>(
-            name: "--api-key",
+        var adminApiKeyOption = new Option<string?>(
+            aliases: ["--admin-api-key", "--api-key"],
             description: "The Ghost Admin API key (Format: ID:SECRET).");
 
         var inputOption = new Option<string?>(
@@ -72,12 +72,16 @@ public class Program
             name: "--migrate-theme",
             description: "If true, migrates and converts the Ghost theme/template. (Defaults to true).");
 
+        var contentApiKeyOption = new Option<string?>(
+            name: "--content-api-key",
+            description: "The Ghost Content API key.");
+
 
         var rootCommand = new RootCommand("GhostFx: Live-migrate from Ghost to DocFx.")
         {
             configOption,
             urlOption,
-            apiKeyOption,
+            adminApiKeyOption,
             inputOption,
             outputOption,
             indexOption,
@@ -89,7 +93,8 @@ public class Program
             logoPathOption,
             yesOption,
             gaTagOption,
-            migrateThemeOption
+            migrateThemeOption,
+            contentApiKeyOption
         };
 
         rootCommand.SetHandler(async (InvocationContext context) =>
@@ -97,7 +102,7 @@ public class Program
             var parseResult = context.ParseResult;
             var configFile = parseResult.GetValueForOption(configOption);
             var url = parseResult.GetValueForOption(urlOption);
-            var apiKey = parseResult.GetValueForOption(apiKeyOption);
+            var adminApiKey = parseResult.GetValueForOption(adminApiKeyOption);
             var input = parseResult.GetValueForOption(inputOption);
             var output = parseResult.GetValueForOption(outputOption);
             var indexFile = parseResult.GetValueForOption(indexOption);
@@ -110,6 +115,7 @@ public class Program
             var autoConfirm = parseResult.GetValueForOption(yesOption);
             var gaTag = parseResult.GetValueForOption(gaTagOption);
             var migrateThemeCli = parseResult.GetValueForOption(migrateThemeOption);
+            var contentApiKeyCli = parseResult.GetValueForOption(contentApiKeyOption);
 
             string? tempPipedFile = null;
 
@@ -150,7 +156,7 @@ public class Program
                 }
 
                 if (!string.IsNullOrWhiteSpace(url)) config.GhostUrl = url;
-                if (!string.IsNullOrWhiteSpace(apiKey)) config.AdminApiKey = apiKey;
+                if (!string.IsNullOrWhiteSpace(adminApiKey)) config.AdminApiKey = adminApiKey;
                 if (!string.IsNullOrWhiteSpace(input)) config.GhostExportJson = input;
                 if (!string.IsNullOrWhiteSpace(output)) config.OutputDir = output;
                 if (!string.IsNullOrWhiteSpace(indexFile)) config.IndexFile = indexFile;
@@ -162,6 +168,7 @@ public class Program
                 if (logoPathCli.HasValue) config.LogoPath = logoPathCli.Value;
                 if (!string.IsNullOrWhiteSpace(gaTag)) config.GoogleAnalyticsTag = gaTag;
                 if (migrateThemeCli.HasValue) config.MigrateTheme = migrateThemeCli.Value;
+                if (!string.IsNullOrWhiteSpace(contentApiKeyCli)) config.ContentApiKey = contentApiKeyCli;
 
                 bool isQuiet = config.Quiet || Console.IsOutputRedirected;
                 if (Console.IsInputRedirected)
@@ -192,6 +199,7 @@ public class Program
                                 config.LogoPath = parsedConfig.LogoPath;
                                 config.MigrateTheme = parsedConfig.MigrateTheme;
                                 if (!string.IsNullOrWhiteSpace(parsedConfig.GoogleAnalyticsTag)) config.GoogleAnalyticsTag = parsedConfig.GoogleAnalyticsTag;
+                                if (!string.IsNullOrWhiteSpace(parsedConfig.ContentApiKey)) config.ContentApiKey = parsedConfig.ContentApiKey;
                             }
                             else
                             {
