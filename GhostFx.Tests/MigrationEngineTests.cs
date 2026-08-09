@@ -187,4 +187,58 @@ public class MigrationEngineTests : IDisposable
         Assert.True(File.Exists(Path.Combine(_testOutputDir, "scheduled", "toc.yml")));
         Assert.True(File.Exists(Path.Combine(_testOutputDir, "pages", "toc.yml")));
     }
+
+    [Fact]
+    public async Task ExecuteAsync_WithBlogPageAndNavigation_GeneratesRootTocCorrectly()
+    {
+        string jsonWithBlogPage = """
+        {
+          "db": [
+            {
+              "data": {
+                "posts": [
+                  {
+                    "id": "p1",
+                    "title": "Blog",
+                    "slug": "blog",
+                    "html": "<p>My Blog index page</p>",
+                    "status": "published",
+                    "type": "page"
+                  }
+                ],
+                "tags": [],
+                "settings": [
+                  {
+                    "key": "navigation",
+                    "value": "[{\"label\":\"Blog\",\"url\":\"/blog/\"}]"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+        """;
+
+        var config = new GhostFxConfig
+        {
+            OutputDir = _testOutputDir,
+            IndexFile = Path.Combine(_testOutputDir, "index.md"),
+            SiteTitle = "GhostFx Navigation Test",
+            IncludeDrafts = false
+        };
+
+        var engine = new MigrationEngine();
+        var result = await engine.ExecuteAsync(config, jsonWithBlogPage);
+
+        Assert.True(result.Success);
+        Assert.Equal(1, result.ProcessedPages);
+
+        string rootTocFile = Path.Combine(_testOutputDir, "toc.yml");
+        Assert.True(File.Exists(rootTocFile));
+
+        string tocContent = await File.ReadAllTextAsync(rootTocFile);
+        Assert.Contains("- name: Blog", tocContent);
+        Assert.Contains("href: pages/blog.md", tocContent);
+        Assert.DoesNotContain("published/toc.yml", tocContent);
+    }
 }

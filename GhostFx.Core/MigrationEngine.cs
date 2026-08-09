@@ -501,11 +501,6 @@ public class MigrationEngine
         string slug = path.Trim('/').Split('/').LastOrDefault() ?? "";
         if (string.IsNullOrEmpty(slug)) return "index.md";
 
-        if (slug.Equals("blog", StringComparison.OrdinalIgnoreCase) || slug.Equals("articles", StringComparison.OrdinalIgnoreCase))
-        {
-            return "published/toc.yml";
-        }
-
         var matchingPage = pages.FirstOrDefault(p => string.Equals(p.Slug, slug, StringComparison.OrdinalIgnoreCase));
         if (matchingPage != null)
         {
@@ -516,6 +511,11 @@ public class MigrationEngine
         if (matchingPost != null)
         {
             return matchingPost.FileName;
+        }
+
+        if (slug.Equals("blog", StringComparison.OrdinalIgnoreCase) || slug.Equals("articles", StringComparison.OrdinalIgnoreCase))
+        {
+            return "published/toc.yml";
         }
 
         return $"published/{slug}.md";
