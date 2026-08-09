@@ -47,6 +47,9 @@ public class GhostFxConfig
     [JsonPropertyName("logoPath")]
     public bool LogoPath { get; set; } = true;
 
+    [JsonPropertyName("googleAnalyticsTag")]
+    public string GoogleAnalyticsTag { get; set; } = string.Empty;
+
     private string _themePath = "ghostfx.zip";
 
     [JsonPropertyName("themePath")]

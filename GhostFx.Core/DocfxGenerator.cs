@@ -91,6 +91,11 @@ public static class DocfxGenerator
             globalMetadata["_appLogoPath"] = logoPath ?? faviconPath ?? "favicon.png";
         }
 
+        if (!string.IsNullOrWhiteSpace(config.GoogleAnalyticsTag))
+        {
+            globalMetadata["_googleAnalyticsTagId"] = config.GoogleAnalyticsTag;
+        }
+
         var docfxConfig = new
         {
             build = new
