@@ -110,3 +110,7 @@ Thumbs.db
 
 # Testing stuff.
 ghostfx.json
+ghostfx.http
+posts/
+__pycache__
+jwt_gen.py
