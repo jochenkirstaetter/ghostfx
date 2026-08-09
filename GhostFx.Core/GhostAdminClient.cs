@@ -202,7 +202,7 @@ public static class GhostAdminClient
         return links;
     }
 
-    public static async Task<(string? Title, string? Description, string? IconUrl, string? LogoUrl, string? CoverUrl, List<GhostNavItem> NavItems)> FetchSiteBrandInfoAsync(string ghostUrl, string adminApiKey, HttpClient? customClient = null)
+    public static async Task<(string? Title, string? Description, string? IconUrl, string? LogoUrl, string? CoverUrl, List<GhostNavItem> NavItems, string? Locale)> FetchSiteBrandInfoAsync(string ghostUrl, string adminApiKey, HttpClient? customClient = null)
     {
         bool disposeClient = customClient == null;
         var client = customClient ?? new HttpClient();
@@ -212,6 +212,7 @@ public static class GhostAdminClient
         string? icon = null;
         string? logo = null;
         string? cover = null;
+        string? locale = null;
 
         try
         {
@@ -240,6 +241,7 @@ public static class GhostAdminClient
                             if (string.Equals(key, "icon", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "site_icon", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "favicon", StringComparison.OrdinalIgnoreCase)) icon = val;
                             if (string.Equals(key, "logo", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "site_logo", StringComparison.OrdinalIgnoreCase)) logo = val;
                             if (string.Equals(key, "cover_image", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "cover", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "cover_path", StringComparison.OrdinalIgnoreCase)) cover = val;
+                            if (string.Equals(key, "locale", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "lang", StringComparison.OrdinalIgnoreCase)) locale = val;
                             if (string.Equals(key, "navigation", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(val))
                             {
                                 try
@@ -259,6 +261,7 @@ public static class GhostAdminClient
                         icon ??= settingsObj["icon"]?.ToString() ?? settingsObj["site_icon"]?.ToString() ?? settingsObj["favicon"]?.ToString();
                         logo ??= settingsObj["logo"]?.ToString() ?? settingsObj["site_logo"]?.ToString();
                         cover ??= settingsObj["cover_image"]?.ToString() ?? settingsObj["cover"]?.ToString() ?? settingsObj["cover_path"]?.ToString();
+                        locale ??= settingsObj["locale"]?.ToString() ?? settingsObj["lang"]?.ToString();
                         var navNode = settingsObj["navigation"];
                         if (navNode != null)
                         {
@@ -288,6 +291,7 @@ public static class GhostAdminClient
                     icon ??= siteObj?["icon"]?.ToString() ?? siteObj?["site_icon"]?.ToString() ?? siteObj?["favicon"]?.ToString();
                     logo ??= siteObj?["logo"]?.ToString() ?? siteObj?["site_logo"]?.ToString();
                     cover ??= siteObj?["cover_image"]?.ToString() ?? siteObj?["cover"]?.ToString() ?? siteObj?["cover_path"]?.ToString();
+                    locale ??= siteObj?["locale"]?.ToString() ?? siteObj?["lang"]?.ToString();
                     var navArray = siteObj?["navigation"]?.ToString();
                     if (!string.IsNullOrWhiteSpace(navArray))
                     {
@@ -397,7 +401,7 @@ public static class GhostAdminClient
         {
             try
             {
-                var (_, _, apiIcon, apiLogo, apiCover, _) = await FetchSiteBrandInfoAsync(ghostUrl ?? "", adminApiKey, client);
+                var (_, _, apiIcon, apiLogo, apiCover, _, _) = await FetchSiteBrandInfoAsync(ghostUrl ?? "", adminApiKey, client);
                 iconUrl ??= apiIcon;
                 logoUrl ??= apiLogo;
                 coverUrl ??= apiCover;

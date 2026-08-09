@@ -47,6 +47,9 @@ public class DocfxGeneratorTests : IDisposable
         Assert.Contains("**/content/images/**", jsonContent);
         Assert.Contains("*.png", jsonContent);
         Assert.Contains("_site/**", jsonContent);
+        Assert.Contains("\"_disableContribution\": true", jsonContent);
+        Assert.Contains("\"_disableBreadcrumb\": true", jsonContent);
+        Assert.Contains("\"_lang\": \"en\"", jsonContent);
     }
 
     [Fact]
@@ -157,5 +160,27 @@ public class DocfxGeneratorTests : IDisposable
 
         string mainJs = await File.ReadAllTextAsync(Path.Combine(targetTemplateDir, "public", "main.js"));
         Assert.Contains("dir theme", mainJs);
+    }
+
+    [Fact]
+    public async Task GenerateDocfxJsonIfNotExistsAsync_OmitLogoPath_WhenConfigured()
+    {
+        string subDir = Path.Combine(_tempDirectory, "nologo");
+        Directory.CreateDirectory(subDir);
+
+        var config = new GhostFxConfig
+        {
+            OutputDir = subDir,
+            SiteTitle = "No Logo Site",
+            LogoPath = false
+        };
+
+        string docfxPath = await DocfxGenerator.GenerateDocfxJsonIfNotExistsAsync(subDir, config);
+
+        Assert.True(File.Exists(docfxPath));
+        string jsonContent = await File.ReadAllTextAsync(docfxPath);
+
+        Assert.Contains("No Logo Site", jsonContent);
+        Assert.DoesNotContain("_appLogoPath", jsonContent);
     }
 }

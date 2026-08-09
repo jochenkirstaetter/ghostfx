@@ -56,6 +56,10 @@ public class Program
             aliases: ["--quiet", "-q"],
             description: "Operate in quiet mode without printing banners or progress animations.");
 
+        var logoPathOption = new Option<bool?>(
+            name: "--logo-path",
+            description: "If true, generates _appLogoPath in docfx.json. (Defaults to true).");
+
         var yesOption = new Option<bool>(
             aliases: ["--yes", "-y"],
             description: "Automatically confirm and proceed with migration without interactive prompt.");
@@ -73,6 +77,7 @@ public class Program
             downloadThemeOption,
             themePathOption,
             quietOption,
+            logoPathOption,
             yesOption
         };
 
@@ -90,6 +95,7 @@ public class Program
             var downloadTheme = parseResult.GetValueForOption(downloadThemeOption);
             var themePath = parseResult.GetValueForOption(themePathOption);
             var quietCli = parseResult.GetValueForOption(quietOption);
+            var logoPathCli = parseResult.GetValueForOption(logoPathOption);
             var autoConfirm = parseResult.GetValueForOption(yesOption);
 
             string? tempPipedFile = null;
@@ -140,6 +146,7 @@ public class Program
                 if (downloadTheme.HasValue) config.DownloadTheme = downloadTheme.Value;
                 if (!string.IsNullOrWhiteSpace(themePath)) config.ThemePath = themePath;
                 if (quietCli) config.Quiet = true;
+                if (logoPathCli.HasValue) config.LogoPath = logoPathCli.Value;
 
                 bool isQuiet = config.Quiet || Console.IsOutputRedirected;
                 if (Console.IsInputRedirected)
@@ -167,6 +174,7 @@ public class Program
                                 config.DownloadTheme = parsedConfig.DownloadTheme;
                                 if (!string.IsNullOrWhiteSpace(parsedConfig.ThemePath)) config.ThemePath = parsedConfig.ThemePath;
                                 if (parsedConfig.Quiet) config.Quiet = true;
+                                config.LogoPath = parsedConfig.LogoPath;
                             }
                             else
                             {

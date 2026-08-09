@@ -66,7 +66,7 @@ public class GhostJsonParserTests
     public void ParseJsonExport_ParsesPostsAndTagsCorrectly()
     {
         var parser = new GhostJsonParser();
-        var (posts, tags, title, description, icon, logo, cover, navItems) = parser.ParseJsonExport(_sampleJson);
+        var (posts, tags, title, description, icon, logo, cover, navItems, locale) = parser.ParseJsonExport(_sampleJson);
 
         Assert.Equal(2, posts.Count);
         Assert.Equal(2, tags.Count);
@@ -106,13 +106,39 @@ public class GhostJsonParserTests
         """;
 
         var parser = new GhostJsonParser();
-        var (posts, tags, title, description, icon, logo, cover, navItems) = parser.ParseJsonExport(jsonWithSettings);
+        var (posts, tags, title, description, icon, logo, cover, navItems, locale) = parser.ParseJsonExport(jsonWithSettings);
 
         Assert.Equal("My Ghost Site", title);
         Assert.Equal("A awesome blog", description);
         Assert.Single(navItems);
         Assert.Equal("About", navItems[0].Label);
         Assert.Equal("/about/", navItems[0].Url);
+    }
+
+    [Fact]
+    public void ParseJsonExport_ParsesLocaleSettingCorrectly()
+    {
+        string jsonWithLocale = """
+        {
+          "db": [
+            {
+              "data": {
+                "posts": [],
+                "tags": [],
+                "posts_tags": [],
+                "settings": [
+                  { "key": "locale", "value": "de" }
+                ]
+              }
+            }
+          ]
+        }
+        """;
+
+        var parser = new GhostJsonParser();
+        var (_, _, _, _, _, _, _, _, locale) = parser.ParseJsonExport(jsonWithLocale);
+
+        Assert.Equal("de", locale);
     }
 
     [Fact]

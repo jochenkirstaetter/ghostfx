@@ -44,6 +44,9 @@ public class GhostFxConfig
     [JsonPropertyName("quiet")]
     public bool Quiet { get; set; } = false;
 
+    [JsonPropertyName("logoPath")]
+    public bool LogoPath { get; set; } = true;
+
     private string _themePath = "ghostfx.zip";
 
     [JsonPropertyName("themePath")]

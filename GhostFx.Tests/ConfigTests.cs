@@ -19,6 +19,7 @@ public class ConfigTests
         Assert.False(config.IncludeDrafts);
         Assert.False(config.DownloadTheme);
         Assert.False(config.Quiet);
+        Assert.True(config.LogoPath);
     }
 
     [Fact]

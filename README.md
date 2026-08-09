@@ -101,6 +101,7 @@ ghostfx --config "./configs/my-ghostfx-config.json"
 | `--include-drafts <bool>` | Process draft posts in addition to published posts | `false` |
 | `--download-theme <bool>` | Download active Ghost theme | `false` |
 | `--theme-path <path>` | Path to theme ZIP archive or unzipped theme folder | `ghostfx.zip` |
+| `--logo-path <bool>` | Generate `_appLogoPath` in `docfx.json` | `true` |
 | `--quiet`, `-q` | Quiet mode (suppresses banners and progress animations) | `false` |
 | `--yes`, `-y` | Non-interactive automatic confirmation | `false` |
 

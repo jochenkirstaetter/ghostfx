@@ -7,5 +7,6 @@
   "siteTitle": "GhostFx Sample Blog",
   "includeDrafts": true,
   "downloadTheme": false,
-  "themePath": "ghostfx.zip"
+  "themePath": "ghostfx.zip",
+  "logoPath": true
 }

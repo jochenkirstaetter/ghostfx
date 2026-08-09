@@ -39,7 +39,7 @@ public class MigrationEngine
 
             if (!string.IsNullOrWhiteSpace(jsonContentOverride))
             {
-                var (posts, tags, jsonTitle, jsonDesc, jsonIcon, jsonLogo, jsonCover, jsonNav) = _jsonParser.ParseJsonExport(jsonContentOverride);
+                var (posts, tags, jsonTitle, jsonDesc, jsonIcon, jsonLogo, jsonCover, jsonNav, jsonLocale) = _jsonParser.ParseJsonExport(jsonContentOverride);
                 allPosts = posts;
                 allTags = tags;
                 if (jsonNav.Count > 0) navItems = jsonNav;
@@ -48,11 +48,12 @@ public class MigrationEngine
                 if (!string.IsNullOrWhiteSpace(jsonIcon)) siteIcon = jsonIcon;
                 if (!string.IsNullOrWhiteSpace(jsonLogo)) siteLogo = jsonLogo;
                 if (!string.IsNullOrWhiteSpace(jsonCover)) siteCover = jsonCover;
+                if (!string.IsNullOrWhiteSpace(jsonLocale)) siteLocale = jsonLocale;
             }
             else if (!string.IsNullOrWhiteSpace(config.GhostExportJson) && File.Exists(config.GhostExportJson))
             {
                 string json = await File.ReadAllTextAsync(config.GhostExportJson);
-                var (posts, tags, jsonTitle, jsonDesc, jsonIcon, jsonLogo, jsonCover, jsonNav) = _jsonParser.ParseJsonExport(json);
+                var (posts, tags, jsonTitle, jsonDesc, jsonIcon, jsonLogo, jsonCover, jsonNav, jsonLocale) = _jsonParser.ParseJsonExport(json);
                 allPosts = posts;
                 allTags = tags;
                 if (jsonNav.Count > 0) navItems = jsonNav;
@@ -61,18 +62,20 @@ public class MigrationEngine
                 if (!string.IsNullOrWhiteSpace(jsonIcon)) siteIcon = jsonIcon;
                 if (!string.IsNullOrWhiteSpace(jsonLogo)) siteLogo = jsonLogo;
                 if (!string.IsNullOrWhiteSpace(jsonCover)) siteCover = jsonCover;
+                if (!string.IsNullOrWhiteSpace(jsonLocale)) siteLocale = jsonLocale;
 
                 if (!string.IsNullOrWhiteSpace(config.GhostUrl) && (navItems.Count == 0 || string.IsNullOrWhiteSpace(config.SiteTitle) || string.IsNullOrWhiteSpace(siteIcon) || string.IsNullOrWhiteSpace(siteCover)))
                 {
                     try
                     {
-                        var (apiTitle, apiDesc, apiIcon, apiLogo, apiCover, apiNav) = await GhostAdminClient.FetchSiteBrandInfoAsync(config.GhostUrl, config.AdminApiKey ?? "");
+                        var (apiTitle, apiDesc, apiIcon, apiLogo, apiCover, apiNav, apiLocale) = await GhostAdminClient.FetchSiteBrandInfoAsync(config.GhostUrl, config.AdminApiKey ?? "");
                         if (navItems.Count == 0 && apiNav.Count > 0) navItems = apiNav;
                         if (string.IsNullOrWhiteSpace(config.SiteTitle) && !string.IsNullOrWhiteSpace(apiTitle)) config.SiteTitle = apiTitle;
                         if (string.IsNullOrWhiteSpace(siteDescription) && !string.IsNullOrWhiteSpace(apiDesc)) siteDescription = apiDesc;
                         if (string.IsNullOrWhiteSpace(siteIcon) && !string.IsNullOrWhiteSpace(apiIcon)) siteIcon = apiIcon;
                         if (string.IsNullOrWhiteSpace(siteLogo) && !string.IsNullOrWhiteSpace(apiLogo)) siteLogo = apiLogo;
                         if (string.IsNullOrWhiteSpace(siteCover) && !string.IsNullOrWhiteSpace(apiCover)) siteCover = apiCover;
+                        if (string.IsNullOrWhiteSpace(siteLocale) && !string.IsNullOrWhiteSpace(apiLocale)) siteLocale = apiLocale;
                     }
                     catch { }
                 }
@@ -88,13 +91,14 @@ public class MigrationEngine
                 result.DetectedGhostVersion = version;
                 allTags = allPosts.SelectMany(p => p.Tags).GroupBy(t => t.Id).Select(g => g.First()).ToList();
 
-                var (apiTitle, apiDesc, apiIcon, apiLogo, apiCover, apiNav) = await GhostAdminClient.FetchSiteBrandInfoAsync(config.GhostUrl, config.AdminApiKey);
+                var (apiTitle, apiDesc, apiIcon, apiLogo, apiCover, apiNav, apiLocale) = await GhostAdminClient.FetchSiteBrandInfoAsync(config.GhostUrl, config.AdminApiKey);
                 if (apiNav.Count > 0) navItems = apiNav;
                 if (!string.IsNullOrWhiteSpace(apiTitle)) config.SiteTitle = apiTitle;
                 if (!string.IsNullOrWhiteSpace(apiDesc)) siteDescription = apiDesc;
                 if (!string.IsNullOrWhiteSpace(apiIcon)) siteIcon = apiIcon;
                 if (!string.IsNullOrWhiteSpace(apiLogo)) siteLogo = apiLogo;
                 if (!string.IsNullOrWhiteSpace(apiCover)) siteCover = apiCover;
+                if (!string.IsNullOrWhiteSpace(apiLocale)) siteLocale = apiLocale;
             }
             else
             {
@@ -306,7 +310,7 @@ public class MigrationEngine
 
             // Generate Docfx configuration file inside outputDir
             string customTemplatePath = "template/ghostfx";
-            string docfxPath = await DocfxGenerator.GenerateDocfxJsonIfNotExistsAsync(config.OutputDir, config, customTemplatePath);
+            string docfxPath = await DocfxGenerator.GenerateDocfxJsonIfNotExistsAsync(config.OutputDir, config, customTemplatePath, siteLocale);
             if (!result.GeneratedFiles.Contains(docfxPath))
             {
                 result.GeneratedFiles.Add(docfxPath);
