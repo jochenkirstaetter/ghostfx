@@ -42,6 +42,8 @@ public static class MediaDownloader
             List<string> candidateUrls = [];
             if (!string.IsNullOrWhiteSpace(post.FeatureImage)) candidateUrls.Add(post.FeatureImage);
             if (!string.IsNullOrWhiteSpace(post.OgImage)) candidateUrls.Add(post.OgImage);
+            if (!string.IsNullOrWhiteSpace(post.TwitterImage)) candidateUrls.Add(post.TwitterImage);
+            if (!string.IsNullOrWhiteSpace(post.FacebookImage)) candidateUrls.Add(post.FacebookImage);
 
             if (!string.IsNullOrWhiteSpace(post.Html))
             {
@@ -191,6 +193,18 @@ public static class MediaDownloader
                     string.Equals(post.OgImage, info.FullUrl, StringComparison.OrdinalIgnoreCase))
                 {
                     post.OgImage = relativeSubfolderPath;
+                }
+
+                if (string.Equals(post.TwitterImage, origUrl, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(post.TwitterImage, info.FullUrl, StringComparison.OrdinalIgnoreCase))
+                {
+                    post.TwitterImage = relativeSubfolderPath;
+                }
+
+                if (string.Equals(post.FacebookImage, origUrl, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(post.FacebookImage, info.FullUrl, StringComparison.OrdinalIgnoreCase))
+                {
+                    post.FacebookImage = relativeSubfolderPath;
                 }
             }
         }

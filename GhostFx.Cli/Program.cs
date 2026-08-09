@@ -68,6 +68,10 @@ public class Program
             name: "--ga-tag",
             description: "Google Analytics Tag ID to inject into docfx.json.");
 
+        var migrateThemeOption = new Option<bool?>(
+            name: "--migrate-theme",
+            description: "If true, migrates and converts the Ghost theme/template. (Defaults to true).");
+
 
         var rootCommand = new RootCommand("GhostFx: Live-migrate from Ghost to DocFx.")
         {
@@ -84,7 +88,8 @@ public class Program
             quietOption,
             logoPathOption,
             yesOption,
-            gaTagOption
+            gaTagOption,
+            migrateThemeOption
         };
 
         rootCommand.SetHandler(async (InvocationContext context) =>
@@ -104,6 +109,7 @@ public class Program
             var logoPathCli = parseResult.GetValueForOption(logoPathOption);
             var autoConfirm = parseResult.GetValueForOption(yesOption);
             var gaTag = parseResult.GetValueForOption(gaTagOption);
+            var migrateThemeCli = parseResult.GetValueForOption(migrateThemeOption);
 
             string? tempPipedFile = null;
 
@@ -155,6 +161,7 @@ public class Program
                 if (quietCli) config.Quiet = true;
                 if (logoPathCli.HasValue) config.LogoPath = logoPathCli.Value;
                 if (!string.IsNullOrWhiteSpace(gaTag)) config.GoogleAnalyticsTag = gaTag;
+                if (migrateThemeCli.HasValue) config.MigrateTheme = migrateThemeCli.Value;
 
                 bool isQuiet = config.Quiet || Console.IsOutputRedirected;
                 if (Console.IsInputRedirected)
@@ -183,6 +190,7 @@ public class Program
                                 if (!string.IsNullOrWhiteSpace(parsedConfig.ThemePath)) config.ThemePath = parsedConfig.ThemePath;
                                 if (parsedConfig.Quiet) config.Quiet = true;
                                 config.LogoPath = parsedConfig.LogoPath;
+                                config.MigrateTheme = parsedConfig.MigrateTheme;
                                 if (!string.IsNullOrWhiteSpace(parsedConfig.GoogleAnalyticsTag)) config.GoogleAnalyticsTag = parsedConfig.GoogleAnalyticsTag;
                             }
                             else
@@ -253,6 +261,7 @@ public class Program
                     Console.WriteLine($"  [Index File]      {config.IndexFile}");
                     Console.WriteLine($"  [Include Drafts]  {config.IncludeDrafts}");
                     Console.WriteLine($"  [Download Theme]  {config.DownloadTheme}");
+                    Console.WriteLine($"  [Migrate Theme]   {config.MigrateTheme}");
                     Console.ForegroundColor = ConsoleColor.DarkCyan;
                     Console.WriteLine("==========================================================================");
                     Console.ResetColor();

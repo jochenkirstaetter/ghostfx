@@ -126,12 +126,18 @@ public static class DocfxGenerator
                     }
                 },
                 output = "_site",
-                template = new string[]
-                {
-                    "default",
-                    "modern",
-                    Path.GetFileName(customTemplatePath)
-                },
+                template = config.MigrateTheme
+                    ? new string[]
+                    {
+                        "default",
+                        "modern",
+                        Path.GetFileName(customTemplatePath)
+                    }
+                    : new string[]
+                    {
+                        "default",
+                        "modern"
+                    },
                 globalMetadata
             }
         };
@@ -164,11 +170,11 @@ public static class DocfxGenerator
         string publicDir = Path.Combine(targetTemplateDir, "public");
         Directory.CreateDirectory(publicDir);
 
-        // Remove legacy partials directory if existing
-        string legacyPartialsDir = Path.Combine(targetTemplateDir, "partials");
-        if (Directory.Exists(legacyPartialsDir))
+        // Remove legacy target layout and templates, but preserve directory structure
+        string targetLayoutsDir = Path.Combine(targetTemplateDir, "layout");
+        if (Directory.Exists(targetLayoutsDir))
         {
-            try { Directory.Delete(legacyPartialsDir, true); } catch { }
+            try { Directory.Delete(targetLayoutsDir, true); } catch { }
         }
 
         string sourceDir;
@@ -236,15 +242,68 @@ public static class DocfxGenerator
                 }
             }
 
-            // 3. Process Handlebars (.hbs) template files into converted styling / DOM wrappers
+            // 3. Process Handlebars (.hbs) template files into converted DocFX Mustache templates
             foreach (var hbsFile in Directory.GetFiles(sourceDir, "*.hbs", SearchOption.AllDirectories))
             {
                 string hbsContent = await File.ReadAllTextAsync(hbsFile);
                 string converted = ConvertHandlebarsToDocfx(hbsContent);
-                // Extracted template rules can be appended to main.js as layout helpers
                 string hbsName = Path.GetFileNameWithoutExtension(hbsFile);
-                string templateJsPath = Path.Combine(publicDir, $"{hbsName}.js");
-                await File.WriteAllTextAsync(templateJsPath, $"// Converted Ghost Template ({hbsName})\n/*\n{converted}\n*/");
+                string hbsNameLower = hbsName.ToLowerInvariant();
+
+                bool isPartial = hbsFile.Contains("/partials/", StringComparison.OrdinalIgnoreCase) || 
+                                 hbsFile.Contains("\\partials\\", StringComparison.OrdinalIgnoreCase) ||
+                                 hbsFile.Contains("/partials\\", StringComparison.OrdinalIgnoreCase) ||
+                                 hbsFile.Contains("\\partials/", StringComparison.OrdinalIgnoreCase) ||
+                                 Path.GetDirectoryName(hbsFile)?.EndsWith("partials", StringComparison.OrdinalIgnoreCase) == true;
+
+                string targetPath;
+
+                if (isPartial)
+                {
+                    int partialsIdx = hbsFile.IndexOf("partials", StringComparison.OrdinalIgnoreCase);
+                    string relativePart = hbsFile.Substring(partialsIdx + 8).TrimStart('/', '\\');
+                    string relName = Path.ChangeExtension(relativePart, ".tmpl");
+                    targetPath = Path.Combine(targetTemplateDir, "partials", relName);
+                }
+                else
+                {
+                    if (hbsNameLower == "default")
+                    {
+                        targetPath = Path.Combine(targetTemplateDir, "layout", "_master.tmpl");
+                    }
+                    else if (hbsNameLower == "post")
+                    {
+                        targetPath = Path.Combine(targetTemplateDir, "post.html.primary.tmpl");
+                    }
+                    else if (hbsNameLower == "page")
+                    {
+                        targetPath = Path.Combine(targetTemplateDir, "page.html.primary.tmpl");
+                    }
+                    else if (hbsNameLower == "tag")
+                    {
+                        targetPath = Path.Combine(targetTemplateDir, "tag.html.primary.tmpl");
+                    }
+                    else if (hbsNameLower == "author")
+                    {
+                        targetPath = Path.Combine(targetTemplateDir, "author.html.primary.tmpl");
+                    }
+                    else if (hbsNameLower == "index")
+                    {
+                        targetPath = Path.Combine(targetTemplateDir, "index.html.primary.tmpl");
+                    }
+                    else
+                    {
+                        targetPath = Path.Combine(targetTemplateDir, $"{hbsNameLower}.html.primary.tmpl");
+                    }
+                }
+
+                string? parentDir = Path.GetDirectoryName(targetPath);
+                if (!string.IsNullOrEmpty(parentDir))
+                {
+                    Directory.CreateDirectory(parentDir);
+                }
+
+                await File.WriteAllTextAsync(targetPath, converted);
             }
         }
         finally
@@ -269,17 +328,108 @@ public static class DocfxGenerator
 
         // Convert Site Metadata
         result = Regex.Replace(result, @"\{\{\s*@site\.title\s*\}\}", "{{_appTitle}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*@blog\.title\s*\}\}", "{{_appTitle}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*@site\.description\s*\}\}", "{{_appDescription}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*@blog\.description\s*\}\}", "{{_appDescription}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*@site\.logo\s*\}\}", "{{_appLogoPath}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*@blog\.logo\s*\}\}", "{{_appLogoPath}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*@site\.icon\s*\}\}", "{{_appFaviconPath}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*@blog\.icon\s*\}\}", "{{_appFaviconPath}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*@site\.cover_image\s*\}\}", "{{_appCoverImage}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*@blog\.cover_image\s*\}\}", "{{_appCoverImage}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*@site\.url\s*\}\}", "{{_rel}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*@blog\.url\s*\}\}", "{{_rel}}", RegexOptions.IgnoreCase);
 
         // Convert Post tags
         result = Regex.Replace(result, @"\{\{\s*title\s*\}\}", "{{title}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*content\s*\}\}", "{{{conceptual}}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*excerpt\s*\}\}", "{{summary}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*custom_excerpt\s*\}\}", "{{summary}}", RegexOptions.IgnoreCase);
 
         // Convert Block Helpers {{#post}} ... {{/post}}
         result = Regex.Replace(result, @"\{\{\s*#post\s*\}\}", "<article class=\"ghost-post-container\">", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*/post\s*\}\}", "</article>", RegexOptions.IgnoreCase);
+
+        // Convert layouts references
+        result = Regex.Replace(result, @"\{\{\!<\s*([^ }]+)\s*\}\}", m =>
+        {
+            string layoutName = m.Groups[1].Value.Trim().ToLowerInvariant();
+            if (layoutName == "default")
+                return "{{!master(layout/_master.tmpl)}}";
+            return $"{{!master(layout/_{layoutName}.tmpl)}}";
+        }, RegexOptions.IgnoreCase);
+
+        // Convert comments
+        result = Regex.Replace(result, @"\{\{\!--", "{{!", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"--\}\}", "}}", RegexOptions.IgnoreCase);
+
+        // Convert loops & conditional blocks using a stack for matching tag names
+        var tagStack = new System.Collections.Generic.Stack<string>();
+
+        // We combine loop blocks (#foreach), has blocks (#has), and conditionals (#if, #unless)
+        // using matching regex
+        result = Regex.Replace(result, @"\{\{\s*(#foreach|#has|#if|#unless|\/foreach|\/has|\/if|\/unless)\s*([^ }]*)\s*\}\}", m =>
+        {
+            string marker = m.Groups[1].Value.ToLowerInvariant();
+            string arg = m.Groups[2].Value.Trim();
+
+            if (marker.StartsWith('#'))
+            {
+                string propertyName = arg;
+                if (marker == "#foreach")
+                {
+                    propertyName = arg;
+                    tagStack.Push(propertyName);
+                    return $"{{#{propertyName}}}";
+                }
+                else if (marker == "#has")
+                {
+                    propertyName = "hasMultipleAuthors";
+                    if (arg.Contains("author", StringComparison.OrdinalIgnoreCase))
+                    {
+                        propertyName = "hasMultipleAuthors";
+                    }
+                    tagStack.Push(propertyName);
+                    return $"{{#{propertyName}}}";
+                }
+                else if (marker == "#if")
+                {
+                    tagStack.Push(propertyName);
+                    return $"{{#{propertyName}}}";
+                }
+                else // #unless
+                {
+                    tagStack.Push(propertyName);
+                    return $"{{^{propertyName}}}";
+                }
+            }
+            else // closing tag
+            {
+                if (tagStack.Count > 0)
+                {
+                    return $"{{/{tagStack.Pop()}}}";
+                }
+                return "{{/posts}}"; // fallback
+            }
+        }, RegexOptions.IgnoreCase);
+
+        // Convert partials
+        result = Regex.Replace(result, @"\{\{>\s*""?([^"" }]+)""?\s*\}\}", m =>
+        {
+            string path = m.Groups[1].Value;
+            if (path.StartsWith("partials/", StringComparison.OrdinalIgnoreCase) || path.StartsWith("partials\\", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"{{{{> {path}}}}}";
+            }
+            return $"{{{{> partials/{path}}}}}";
+        }, RegexOptions.IgnoreCase);
+
+        // Master layout content injection spot
+        result = Regex.Replace(result, @"\{\{\{\s*body\s*\}\}\}", "{{!body}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*body\s*\}\}", "{{!body}}", RegexOptions.IgnoreCase);
+
+        // Convert img_url custom helper references
+        result = Regex.Replace(result, @"\{\{\s*img_url\s+""?([^"" }]+)""?(?:\s+[^}]+)?\s*\}\}", "{{$1}}", RegexOptions.IgnoreCase);
 
         return result;
     }

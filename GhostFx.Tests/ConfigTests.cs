@@ -20,6 +20,7 @@ public class ConfigTests
         Assert.False(config.DownloadTheme);
         Assert.False(config.Quiet);
         Assert.True(config.LogoPath);
+        Assert.True(config.MigrateTheme);
     }
 
     [Fact]
@@ -34,7 +35,8 @@ public class ConfigTests
             "siteTitle": "My Custom Title",
             "includeDrafts": true,
             "downloadTheme": true,
-            "themeOutputPath": "custom-theme.zip"
+            "themeOutputPath": "custom-theme.zip",
+            "migrateTheme": false
         }
         """;
 
@@ -50,6 +52,7 @@ public class ConfigTests
         Assert.True(config.IncludeDrafts);
         Assert.True(config.DownloadTheme);
         Assert.Equal("custom-theme.zip", config.ThemePath);
+        Assert.False(config.MigrateTheme);
     }
 
     [Fact]

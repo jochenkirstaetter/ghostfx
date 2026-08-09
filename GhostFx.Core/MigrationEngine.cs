@@ -204,7 +204,24 @@ public class MigrationEngine
                     MetaDescription = !string.IsNullOrWhiteSpace(post.MetaDescription) ? post.MetaDescription : post.CustomExcerpt,
                     Image = !string.IsNullOrWhiteSpace(post.OgImage) ? post.OgImage : post.FeatureImage,
                     OgTitle = !string.IsNullOrWhiteSpace(post.OgTitle) ? post.OgTitle : post.Title,
-                    OgDescription = !string.IsNullOrWhiteSpace(post.OgDescription) ? post.OgDescription : post.CustomExcerpt
+                    OgDescription = !string.IsNullOrWhiteSpace(post.OgDescription) ? post.OgDescription : post.CustomExcerpt,
+                    Layout = isPage ? "page" : "post",
+                    IsPost = !isPage,
+                    IsPage = isPage,
+                    IsDraft = isDraft,
+                    IsScheduled = isScheduled,
+                    FeatureImage = !string.IsNullOrWhiteSpace(post.FeatureImage) ? post.FeatureImage : (!string.IsNullOrWhiteSpace(post.OgImage) ? post.OgImage : ""),
+                    Featured = post.Featured,
+                    PublishedAt = post.PublishedAt?.ToString("yyyy-MM-ddTHH:mm:ssK") ?? "",
+                    Excerpt = post.CustomExcerpt,
+                    TwitterTitle = !string.IsNullOrWhiteSpace(post.TwitterTitle) ? post.TwitterTitle : post.Title,
+                    TwitterDescription = !string.IsNullOrWhiteSpace(post.TwitterDescription) ? post.TwitterDescription : post.CustomExcerpt,
+                    TwitterImage = post.TwitterImage,
+                    FacebookTitle = !string.IsNullOrWhiteSpace(post.FacebookTitle) ? post.FacebookTitle : post.Title,
+                    FacebookDescription = !string.IsNullOrWhiteSpace(post.FacebookDescription) ? post.FacebookDescription : post.CustomExcerpt,
+                    FacebookImage = post.FacebookImage,
+                    CodeinjectionHead = post.CodeinjectionHead,
+                    CodeinjectionFoot = post.CodeinjectionFoot
                 };
 
                 string htmlContent = !string.IsNullOrWhiteSpace(post.Html)
@@ -311,7 +328,7 @@ public class MigrationEngine
 
             // Generate Docfx configuration file inside outputDir
             string customTemplatePath = "template/ghostfx";
-            string docfxPath = await DocfxGenerator.GenerateDocfxJsonIfNotExistsAsync(config.OutputDir, config, customTemplatePath, siteLocale);
+            string docfxPath = await DocfxGenerator.GenerateDocfxJsonIfNotExistsAsync(config.OutputDir, config, customTemplatePath, siteLocale ?? "en");
             if (!result.GeneratedFiles.Contains(docfxPath))
             {
                 result.GeneratedFiles.Add(docfxPath);
@@ -319,7 +336,7 @@ public class MigrationEngine
 
             // Convert Active Ghost theme to Docfx template override if downloaded/available
             string themePath = config.ThemePath;
-            if (File.Exists(themePath) || Directory.Exists(themePath))
+            if (config.MigrateTheme && (File.Exists(themePath) || Directory.Exists(themePath)))
             {
                 onProgress?.Invoke(totalPostsCount + 1, totalPostsCount + 1, "Converting active Ghost theme to DocFx template override");
                 string templateDir = Path.Combine(config.OutputDir, customTemplatePath);
@@ -519,6 +536,18 @@ public class MigrationEngine
 
             string tagFilePath = Path.Combine(tagsDir, $"{tag.Slug}.md");
             var sb = new System.Text.StringBuilder();
+            sb.AppendLine("---");
+            sb.AppendLine($"uid: tag-{tag.Slug}");
+            sb.AppendLine($"title: \"Tag: {tag.Name.Replace("\"", "\\\"")}\"");
+            sb.AppendLine("layout: tag");
+            sb.AppendLine("isTagPage: true");
+            sb.AppendLine($"tagName: \"{tag.Name.Replace("\"", "\\\"")}\"");
+            if (!string.IsNullOrWhiteSpace(tag.Description))
+            {
+                sb.AppendLine($"tagDescription: \"{tag.Description.Replace("\"", "\\\"").Replace("\n", " ").Replace("\r", "")}\"");
+            }
+            sb.AppendLine("---");
+            sb.AppendLine();
             sb.AppendLine($"# Tag: {tag.Name}");
             sb.AppendLine();
             if (!string.IsNullOrWhiteSpace(tag.Description))
@@ -558,6 +587,8 @@ public class MigrationEngine
         mainTagsSb.AppendLine("---");
         mainTagsSb.AppendLine("uid: tags-index");
         mainTagsSb.AppendLine("title: \"Browse by Tag\"");
+        mainTagsSb.AppendLine("layout: tags");
+        mainTagsSb.AppendLine("isTagsIndexPage: true");
         mainTagsSb.AppendLine("---");
         mainTagsSb.AppendLine();
         mainTagsSb.AppendLine("# Browse Content by Tag");

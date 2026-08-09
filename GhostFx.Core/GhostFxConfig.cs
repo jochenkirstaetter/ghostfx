@@ -65,4 +65,7 @@ public class GhostFxConfig
         get => _themePath;
         set => _themePath = value;
     }
+
+    [JsonPropertyName("migrateTheme")]
+    public bool MigrateTheme { get; set; } = true;
 }

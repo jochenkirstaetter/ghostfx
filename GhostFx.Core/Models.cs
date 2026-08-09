@@ -45,6 +45,69 @@ public sealed class FrontMatter
 
     [YamlMember(Alias = "og_description")]
     public string OgDescription { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "layout")]
+    public string Layout { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "isPost")]
+    public bool IsPost { get; set; }
+
+    [YamlMember(Alias = "isPage")]
+    public bool IsPage { get; set; }
+
+    [YamlMember(Alias = "isDraft")]
+    public bool IsDraft { get; set; }
+
+    [YamlMember(Alias = "isScheduled")]
+    public bool IsScheduled { get; set; }
+
+    [YamlMember(Alias = "isTagPage")]
+    public bool IsTagPage { get; set; }
+
+    [YamlMember(Alias = "isTagsIndexPage")]
+    public bool IsTagsIndexPage { get; set; }
+
+    [YamlMember(Alias = "tagName")]
+    public string TagName { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "tagDescription")]
+    public string TagDescription { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "feature_image")]
+    public string FeatureImage { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "featured")]
+    public bool Featured { get; set; }
+
+    [YamlMember(Alias = "publishedAt")]
+    public string PublishedAt { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "excerpt")]
+    public string Excerpt { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "twitter_title")]
+    public string TwitterTitle { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "twitter_description")]
+    public string TwitterDescription { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "twitter_image")]
+    public string TwitterImage { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "facebook_title")]
+    public string FacebookTitle { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "facebook_description")]
+    public string FacebookDescription { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "facebook_image")]
+    public string FacebookImage { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "codeinjection_head")]
+    public string CodeinjectionHead { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "codeinjection_foot")]
+    public string CodeinjectionFoot { get; set; } = string.Empty;
 }
 
 public sealed class BlogPostMetadata
@@ -150,6 +213,33 @@ public class GhostPost
 
     [JsonPropertyName("tags")]
     public List<GhostTag> Tags { get; set; } = [];
+
+    [JsonPropertyName("featured")]
+    public bool Featured { get; set; }
+
+    [JsonPropertyName("twitter_title")]
+    public string TwitterTitle { get; set; } = string.Empty;
+
+    [JsonPropertyName("twitter_description")]
+    public string TwitterDescription { get; set; } = string.Empty;
+
+    [JsonPropertyName("twitter_image")]
+    public string TwitterImage { get; set; } = string.Empty;
+
+    [JsonPropertyName("facebook_title")]
+    public string FacebookTitle { get; set; } = string.Empty;
+
+    [JsonPropertyName("facebook_description")]
+    public string FacebookDescription { get; set; } = string.Empty;
+
+    [JsonPropertyName("facebook_image")]
+    public string FacebookImage { get; set; } = string.Empty;
+
+    [JsonPropertyName("codeinjection_head")]
+    public string CodeinjectionHead { get; set; } = string.Empty;
+
+    [JsonPropertyName("codeinjection_foot")]
+    public string CodeinjectionFoot { get; set; } = string.Empty;
 }
 
 public class GhostTag

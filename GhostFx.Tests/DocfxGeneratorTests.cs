@@ -77,17 +77,28 @@ public class DocfxGeneratorTests : IDisposable
     public void ConvertHandlebarsToDocfx_ConvertsGhostTagsToDocfxSyntax()
     {
         string hbsInput = """
+        {{!< default}}
         <!DOCTYPE html>
         <html>
         <head>
             <title>{{title}} - {{@site.title}}</title>
             {{ghost_head}}
+            {{!-- Theme comments should translate --}}
         </head>
         <body>
             {{#post}}
             <h1>{{title}}</h1>
             <div class="content">{{content}}</div>
+            <img src="{{img_url feature_image size="xl"}}" />
             {{/post}}
+            
+            {{#foreach posts}}
+                <h2>{{title}}</h2>
+                {{#foreach tags}}
+                    <span>{{name}}</span>
+                {{/foreach}}
+            {{/foreach}}
+            
             {{ghost_foot}}
         </body>
         </html>
@@ -95,12 +106,19 @@ public class DocfxGeneratorTests : IDisposable
 
         string converted = DocfxGenerator.ConvertHandlebarsToDocfx(hbsInput);
 
+        Assert.Contains("{{!master(layout/_master.tmpl)}}", converted);
         Assert.Contains("{{_appTitle}}", converted);
         Assert.Contains("<!-- DocFx Head Injection -->", converted);
         Assert.Contains("<!-- DocFx Foot Injection -->", converted);
         Assert.Contains("<article class=\"ghost-post-container\">", converted);
         Assert.Contains("</article>", converted);
         Assert.Contains("{{{conceptual}}}", converted);
+        Assert.Contains("{{! Theme comments should translate }}", converted);
+        Assert.Contains("{{#posts}}", converted);
+        Assert.Contains("{{/posts}}", converted);
+        Assert.Contains("{{#tags}}", converted);
+        Assert.Contains("{{/tags}}", converted);
+        Assert.Contains("img src=\"{{feature_image}}\"", converted);
     }
 
     [Fact]
@@ -120,6 +138,10 @@ public class DocfxGeneratorTests : IDisposable
 
         await File.WriteAllTextAsync(Path.Combine(extractSourceDir, "default.hbs"), "<html><head>{{ghost_head}}</head><body>{{@site.title}} {{ghost_foot}}</body></html>");
 
+        string partialsDir = Path.Combine(extractSourceDir, "partials");
+        Directory.CreateDirectory(partialsDir);
+        await File.WriteAllTextAsync(Path.Combine(partialsDir, "site-nav.hbs"), "<nav>{{@site.title}}</nav>");
+
         ZipFile.CreateFromDirectory(extractSourceDir, themeZipPath);
 
         string targetTemplateDir = Path.Combine(_tempDirectory, "template", "ghostfx");
@@ -129,8 +151,11 @@ public class DocfxGeneratorTests : IDisposable
         Assert.True(File.Exists(Path.Combine(targetTemplateDir, "public", "main.css")));
         Assert.True(File.Exists(Path.Combine(targetTemplateDir, "public", "main.js")));
 
-        // Verify NO partials directory or .partial files are generated for DocFx modern template
-        Assert.False(Directory.Exists(Path.Combine(targetTemplateDir, "partials")));
+        // Verify layout/ master template is generated
+        Assert.True(File.Exists(Path.Combine(targetTemplateDir, "layout", "_master.tmpl")));
+
+        // Verify partials are generated under partials/ folder
+        Assert.True(File.Exists(Path.Combine(targetTemplateDir, "partials", "site-nav.tmpl")));
 
         string mainCss = await File.ReadAllTextAsync(Path.Combine(targetTemplateDir, "public", "main.css"));
         Assert.Contains("background: #fff", mainCss);
@@ -138,6 +163,9 @@ public class DocfxGeneratorTests : IDisposable
         string mainJs = await File.ReadAllTextAsync(Path.Combine(targetTemplateDir, "public", "main.js"));
         Assert.Contains("Ghost Header Code Injection", mainJs);
         Assert.Contains("Ghost Footer Code Injection", mainJs);
+
+        string partialContent = await File.ReadAllTextAsync(Path.Combine(targetTemplateDir, "partials", "site-nav.tmpl"));
+        Assert.Contains("{{_appTitle}}", partialContent);
     }
 
     [Fact]
@@ -154,6 +182,7 @@ public class DocfxGeneratorTests : IDisposable
 
         Assert.True(File.Exists(Path.Combine(targetTemplateDir, "public", "main.css")));
         Assert.True(File.Exists(Path.Combine(targetTemplateDir, "public", "main.js")));
+        Assert.True(File.Exists(Path.Combine(targetTemplateDir, "index.html.primary.tmpl")));
 
         string mainCss = await File.ReadAllTextAsync(Path.Combine(targetTemplateDir, "public", "main.css"));
         Assert.Contains("color: red", mainCss);
@@ -182,5 +211,28 @@ public class DocfxGeneratorTests : IDisposable
 
         Assert.Contains("No Logo Site", jsonContent);
         Assert.DoesNotContain("_appLogoPath", jsonContent);
+    }
+
+    [Fact]
+    public async Task GenerateDocfxJsonIfNotExistsAsync_OmitsCustomTemplate_WhenMigrateThemeIsFalse()
+    {
+        string subDir = Path.Combine(_tempDirectory, "nomigrate");
+        Directory.CreateDirectory(subDir);
+
+        var config = new GhostFxConfig
+        {
+            OutputDir = subDir,
+            SiteTitle = "No Migrate Site",
+            MigrateTheme = false
+        };
+
+        string docfxPath = await DocfxGenerator.GenerateDocfxJsonIfNotExistsAsync(subDir, config, "template/ghostfx");
+
+        Assert.True(File.Exists(docfxPath));
+        string jsonContent = await File.ReadAllTextAsync(docfxPath);
+
+        Assert.Contains("No Migrate Site", jsonContent);
+        Assert.Contains("\"modern\"", jsonContent);
+        Assert.DoesNotContain("\"ghostfx\"", jsonContent);
     }
 }
