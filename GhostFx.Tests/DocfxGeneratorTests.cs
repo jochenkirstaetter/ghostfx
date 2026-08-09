@@ -144,12 +144,14 @@ public class DocfxGeneratorTests : IDisposable
 
         ZipFile.CreateFromDirectory(extractSourceDir, themeZipPath);
 
-        string targetTemplateDir = Path.Combine(_tempDirectory, "template", "ghostfx");
+        string targetTemplateDir = Path.Combine(_tempDirectory, "ghostfx");
         await DocfxGenerator.ConvertGhostThemeToDocfxTemplateAsync(themeZipPath, targetTemplateDir, "<script>header</script>", "<script>footer</script>");
 
         // Verify modern template public/ directory structure
         Assert.True(File.Exists(Path.Combine(targetTemplateDir, "public", "main.css")));
         Assert.True(File.Exists(Path.Combine(targetTemplateDir, "public", "main.js")));
+
+        Assert.True(File.Exists(Path.Combine(targetTemplateDir, "public", "ghost.js")));
 
         // Verify layout/ master template is generated
         Assert.True(File.Exists(Path.Combine(targetTemplateDir, "layout", "_master.tmpl")));
@@ -161,8 +163,12 @@ public class DocfxGeneratorTests : IDisposable
         Assert.Contains("background: #fff", mainCss);
 
         string mainJs = await File.ReadAllTextAsync(Path.Combine(targetTemplateDir, "public", "main.js"));
-        Assert.Contains("Ghost Header Code Injection", mainJs);
-        Assert.Contains("Ghost Footer Code Injection", mainJs);
+        Assert.Contains("import './ghost.js';", mainJs);
+        Assert.Contains("export default", mainJs);
+
+        string ghostJs = await File.ReadAllTextAsync(Path.Combine(targetTemplateDir, "public", "ghost.js"));
+        Assert.Contains("Ghost Header Code Injection", ghostJs);
+        Assert.Contains("Ghost Footer Code Injection", ghostJs);
 
         string partialContent = await File.ReadAllTextAsync(Path.Combine(targetTemplateDir, "partials", "site-nav.tmpl"));
         Assert.Contains("{{_appTitle}}", partialContent);
@@ -177,18 +183,21 @@ public class DocfxGeneratorTests : IDisposable
         await File.WriteAllTextAsync(Path.Combine(themeDir, "custom.js"), "console.log('dir theme');");
         await File.WriteAllTextAsync(Path.Combine(themeDir, "index.hbs"), "<div>{{title}}</div>");
 
-        string targetTemplateDir = Path.Combine(_tempDirectory, "template_dir", "ghostfx");
+        string targetTemplateDir = Path.Combine(_tempDirectory, "ghostfx_dir");
         await DocfxGenerator.ConvertGhostThemeToDocfxTemplateAsync(themeDir, targetTemplateDir);
 
         Assert.True(File.Exists(Path.Combine(targetTemplateDir, "public", "main.css")));
-        Assert.True(File.Exists(Path.Combine(targetTemplateDir, "public", "main.js")));
+        Assert.True(File.Exists(Path.Combine(targetTemplateDir, "public", "ghost.js")));
         Assert.True(File.Exists(Path.Combine(targetTemplateDir, "index.html.primary.tmpl")));
 
         string mainCss = await File.ReadAllTextAsync(Path.Combine(targetTemplateDir, "public", "main.css"));
         Assert.Contains("color: red", mainCss);
 
         string mainJs = await File.ReadAllTextAsync(Path.Combine(targetTemplateDir, "public", "main.js"));
-        Assert.Contains("dir theme", mainJs);
+        Assert.Contains("import './ghost.js';", mainJs);
+
+        string ghostJs = await File.ReadAllTextAsync(Path.Combine(targetTemplateDir, "public", "ghost.js"));
+        Assert.Contains("dir theme", ghostJs);
     }
 
     [Fact]
@@ -226,7 +235,7 @@ public class DocfxGeneratorTests : IDisposable
             MigrateTheme = false
         };
 
-        string docfxPath = await DocfxGenerator.GenerateDocfxJsonIfNotExistsAsync(subDir, config, "template/ghostfx");
+        string docfxPath = await DocfxGenerator.GenerateDocfxJsonIfNotExistsAsync(subDir, config, "ghostfx");
 
         Assert.True(File.Exists(docfxPath));
         string jsonContent = await File.ReadAllTextAsync(docfxPath);

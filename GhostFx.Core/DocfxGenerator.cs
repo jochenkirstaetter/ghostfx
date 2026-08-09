@@ -13,7 +13,7 @@ public static class DocfxGenerator
     public static async Task<string> GenerateDocfxJsonIfNotExistsAsync(
         string rootDir,
         GhostFxConfig config,
-        string customTemplatePath = "template/ghostfx",
+        string customTemplatePath = "ghostfx",
         string siteLocale = "en",
         List<IconLink>? iconLinks = null)
     {
@@ -207,9 +207,9 @@ public static class DocfxGenerator
                 }
             }
 
-            // 2. Process JS assets and Code Injections into public/main.js for DocFx modern template
-            string mainJsPath = Path.Combine(publicDir, "main.js");
-            using (var jsWriter = new StreamWriter(mainJsPath, append: false))
+            // 2. Process JS assets and Code Injections into public/ghost.js
+            string ghostJsPath = Path.Combine(publicDir, "ghost.js");
+            using (var jsWriter = new StreamWriter(ghostJsPath, append: false))
             {
                 await jsWriter.WriteLineAsync("// GhostFx Auto-Converted Ghost Theme JS Override for DocFx Modern Template");
                 await jsWriter.WriteLineAsync("document.addEventListener('DOMContentLoaded', () => {");
@@ -240,6 +240,35 @@ public static class DocfxGenerator
                     await jsWriter.WriteLineAsync($"// Source: {Path.GetFileName(jsFile)}");
                     await jsWriter.WriteLineAsync(jsContent);
                 }
+            }
+
+            // Ensure main.js imports ghost.js and exports a default configuration
+            string mainJsPath = Path.Combine(publicDir, "main.js");
+            if (File.Exists(mainJsPath))
+            {
+                string mainContent = await File.ReadAllTextAsync(mainJsPath);
+                if (!mainContent.Contains("import './ghost.js';"))
+                {
+                    mainContent = "import './ghost.js';\n" + mainContent;
+                    await File.WriteAllTextAsync(mainJsPath, mainContent, System.Text.Encoding.UTF8);
+                }
+            }
+            else
+            {
+                string defaultJs = """
+                import './ghost.js';
+
+                export default {
+                  iconLinks: [
+                    {
+                      "icon": "github",
+                      "href": "https://github.com/jochenkirstaetter/ghostfx",
+                      "title": "GitHub"
+                    }
+                  ]
+                }
+                """;
+                await File.WriteAllTextAsync(mainJsPath, defaultJs, System.Text.Encoding.UTF8);
             }
 
             // 3. Process Handlebars (.hbs) template files into converted DocFX Mustache templates
@@ -434,7 +463,7 @@ public static class DocfxGenerator
         return result;
     }
 
-    public static async Task EnsureDocfxTemplateOverridesExistAsync(string rootDir, string customTemplatePath = "template/ghostfx", List<IconLink>? iconLinks = null)
+    public static async Task EnsureDocfxTemplateOverridesExistAsync(string rootDir, string customTemplatePath = "ghostfx", List<IconLink>? iconLinks = null)
     {
         string publicDir = Path.Combine(rootDir, customTemplatePath, "public");
         Directory.CreateDirectory(publicDir);
@@ -463,14 +492,33 @@ public static class DocfxGenerator
         ];
 
         string jsPath = Path.Combine(publicDir, "main.js");
-        var options = new JsonSerializerOptions { WriteIndented = true };
-        string jsonLinks = JsonSerializer.Serialize(links, options);
+        if (!File.Exists(jsPath))
+        {
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            string jsonLinks = JsonSerializer.Serialize(links, options);
 
-        string defaultJs = $$"""
-        export default {
-          iconLinks: {{jsonLinks}}
+            bool hasGhostJs = File.Exists(Path.Combine(publicDir, "ghost.js"));
+            string importGhost = hasGhostJs ? "import './ghost.js';\n\n" : "";
+
+            string defaultJs = $$"""
+            {{importGhost}}export default {
+              iconLinks: {{jsonLinks}}
+            }
+            """;
+            await File.WriteAllTextAsync(jsPath, defaultJs);
         }
-        """;
-        await File.WriteAllTextAsync(jsPath, defaultJs);
+        else
+        {
+            bool hasGhostJs = File.Exists(Path.Combine(publicDir, "ghost.js"));
+            if (hasGhostJs)
+            {
+                string mainContent = await File.ReadAllTextAsync(jsPath);
+                if (!mainContent.Contains("import './ghost.js';"))
+                {
+                    mainContent = "import './ghost.js';\n" + mainContent;
+                    await File.WriteAllTextAsync(jsPath, mainContent, System.Text.Encoding.UTF8);
+                }
+            }
+        }
     }
 }

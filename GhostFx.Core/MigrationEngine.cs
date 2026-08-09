@@ -327,7 +327,7 @@ public class MigrationEngine
             if (!result.GeneratedFiles.Contains(mainTagsPath)) result.GeneratedFiles.Add(mainTagsPath);
 
             // Generate Docfx configuration file inside outputDir
-            string customTemplatePath = "template/ghostfx";
+            string customTemplatePath = "ghostfx";
             string docfxPath = await DocfxGenerator.GenerateDocfxJsonIfNotExistsAsync(config.OutputDir, config, customTemplatePath, siteLocale ?? "en");
             if (!result.GeneratedFiles.Contains(docfxPath))
             {
