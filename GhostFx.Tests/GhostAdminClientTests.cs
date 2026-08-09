@@ -23,4 +23,12 @@ public class GhostAdminClientTests
         string invalidKey = "invalid-key-without-colon";
         Assert.Throws<ArgumentException>(() => GhostAdminClient.GenerateGhostJwt(invalidKey));
     }
+
+    [Fact]
+    public void OutputUserJwt()
+    {
+        string key = "6a777175fa1c3d04edb5b95e:ac7b580278fd70336f1713640014e7d528abb981658923a4d6a5f747dad39a1c";
+        string token = GhostAdminClient.GenerateGhostJwt(key, "/v3/admin/");
+        Assert.NotEmpty(token);
+    }
 }

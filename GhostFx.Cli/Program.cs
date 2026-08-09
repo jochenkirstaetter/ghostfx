@@ -48,6 +48,10 @@ public class Program
             name: "--download-theme",
             description: "If true, downloads and extracts the active theme zip.");
 
+        var themePathOption = new Option<string?>(
+            name: "--theme-path",
+            description: "Path to a theme zip archive or extracted theme folder.");
+
         var yesOption = new Option<bool>(
             aliases: ["--yes", "-y"],
             description: "Automatically confirm and proceed with migration without interactive prompt.");
@@ -63,6 +67,7 @@ public class Program
             siteTitleOption,
             includeDraftsOption,
             downloadThemeOption,
+            themePathOption,
             yesOption
         };
 
@@ -78,6 +83,7 @@ public class Program
             var siteTitle = parseResult.GetValueForOption(siteTitleOption);
             var includeDrafts = parseResult.GetValueForOption(includeDraftsOption);
             var downloadTheme = parseResult.GetValueForOption(downloadThemeOption);
+            var themePath = parseResult.GetValueForOption(themePathOption);
             var autoConfirm = parseResult.GetValueForOption(yesOption);
 
             if (configFile == null)
@@ -120,15 +126,16 @@ public class Program
 
             if (!string.IsNullOrWhiteSpace(url)) config.GhostUrl = url;
             if (!string.IsNullOrWhiteSpace(apiKey)) config.AdminApiKey = apiKey;
-            if (!string.IsNullOrWhiteSpace(input)) config.InputJsonPath = input;
+            if (!string.IsNullOrWhiteSpace(input)) config.GhostExportJson = input;
             if (!string.IsNullOrWhiteSpace(output)) config.OutputDir = output;
             if (!string.IsNullOrWhiteSpace(indexFile)) config.IndexFile = indexFile;
             if (!string.IsNullOrWhiteSpace(siteTitle)) config.SiteTitle = siteTitle;
             if (includeDrafts.HasValue) config.IncludeDrafts = includeDrafts.Value;
             if (downloadTheme.HasValue) config.DownloadTheme = downloadTheme.Value;
+            if (!string.IsNullOrWhiteSpace(themePath)) config.ThemePath = themePath;
 
             bool hasApiCreds = !string.IsNullOrWhiteSpace(config.GhostUrl) && !string.IsNullOrWhiteSpace(config.AdminApiKey);
-            bool hasInputFile = !string.IsNullOrWhiteSpace(config.InputJsonPath) && File.Exists(config.InputJsonPath);
+            bool hasInputFile = !string.IsNullOrWhiteSpace(config.GhostExportJson) && File.Exists(config.GhostExportJson);
 
             if (!hasApiCreds && !hasInputFile)
             {
@@ -161,7 +168,7 @@ public class Program
             }
             else
             {
-                Console.WriteLine($"  [Source]          Local JSON Export ({config.InputJsonPath})");
+                Console.WriteLine($"  [Source]          Local JSON Export ({config.GhostExportJson})");
             }
 
             Console.WriteLine($"  [Site Title]      {config.SiteTitle}");

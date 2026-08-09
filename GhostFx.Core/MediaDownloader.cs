@@ -20,6 +20,10 @@ public static class MediaDownloader
         @"<img\s+[^>]*src=[""']([^""']+)[""']",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    private static readonly Regex SrcsetRegex = new(
+        @"srcset=[""']([^""']+)[""']",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     public static async Task<List<string>> ProcessAndDownloadMediaAsync(
         List<GhostPost> posts,
         string ghostUrl,
@@ -28,7 +32,7 @@ public static class MediaDownloader
         HttpClient? customClient = null)
     {
         string cleanGhostUrl = ghostUrl.TrimEnd('/');
-        string mediaDir = Path.Combine(outputDir, "media");
+        string mediaDir = Path.Combine(outputDir, "content", "images");
         Directory.CreateDirectory(mediaDir);
 
         var urlToLocalPathMap = new Dictionary<string, (string RelativePath, string FullUrl, string LocalFilePath)>(StringComparer.OrdinalIgnoreCase);
@@ -48,6 +52,19 @@ public static class MediaDownloader
                 foreach (Match match in GeneralImgSrcRegex.Matches(post.Html))
                 {
                     candidateUrls.Add(match.Groups[1].Value);
+                }
+                foreach (Match match in SrcsetRegex.Matches(post.Html))
+                {
+                    string srcsetVal = match.Groups[1].Value;
+                    var parts = srcsetVal.Split(',');
+                    foreach (var part in parts)
+                    {
+                        string urlToken = part.Trim().Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
+                        if (!string.IsNullOrWhiteSpace(urlToken))
+                        {
+                            candidateUrls.Add(urlToken);
+                        }
+                    }
                 }
             }
 
@@ -108,7 +125,7 @@ public static class MediaDownloader
                     {
                         try
                         {
-                            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
                             var response = await client.GetAsync(item.FullUrl, cts.Token);
                             if (response.IsSuccessStatusCode)
                             {
@@ -140,10 +157,6 @@ public static class MediaDownloader
 
         foreach (var post in posts)
         {
-            bool isDraft = string.Equals(post.Status, "draft", StringComparison.OrdinalIgnoreCase);
-            bool isScheduled = string.Equals(post.Status, "scheduled", StringComparison.OrdinalIgnoreCase);
-            bool inSubfolder = isDraft || isScheduled;
-
             foreach (var kvp in urlToLocalPathMap)
             {
                 string origUrl = kvp.Key;
@@ -155,31 +168,49 @@ public static class MediaDownloader
                     continue;
                 }
 
-                string relativePublishedPath = $"media/{info.RelativePath.Replace('\\', '/').TrimStart('/')}";
-                string relativeSubfolderPath = $"../media/{info.RelativePath.Replace('\\', '/').TrimStart('/')}";
-                string targetRelPath = inSubfolder ? relativeSubfolderPath : relativePublishedPath;
+                string relativePublishedPath = $"content/images/{info.RelativePath.Replace('\\', '/').TrimStart('/')}";
+                string relativeSubfolderPath = $"../content/images/{info.RelativePath.Replace('\\', '/').TrimStart('/')}";
 
                 if (!string.IsNullOrWhiteSpace(post.Html))
                 {
-                    post.Html = post.Html.Replace(origUrl, targetRelPath);
-                    post.Html = post.Html.Replace(info.FullUrl, targetRelPath);
+                    post.Html = post.Html.Replace(origUrl, relativeSubfolderPath);
+                    post.Html = post.Html.Replace(info.FullUrl, relativeSubfolderPath);
+
+                    post.Html = NormalizeSrcset(post.Html, relativeSubfolderPath, relativePublishedPath);
+                    post.Html = NormalizeSrcset(post.Html, origUrl, relativePublishedPath);
+                    post.Html = NormalizeSrcset(post.Html, info.FullUrl, relativePublishedPath);
                 }
 
                 if (string.Equals(post.FeatureImage, origUrl, StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(post.FeatureImage, info.FullUrl, StringComparison.OrdinalIgnoreCase))
                 {
-                    post.FeatureImage = relativePublishedPath;
+                    post.FeatureImage = relativeSubfolderPath;
                 }
 
                 if (string.Equals(post.OgImage, origUrl, StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(post.OgImage, info.FullUrl, StringComparison.OrdinalIgnoreCase))
                 {
-                    post.OgImage = relativePublishedPath;
+                    post.OgImage = relativeSubfolderPath;
                 }
             }
         }
 
         return downloadedFiles.ToList();
+    }
+
+    private static string NormalizeSrcset(string html, string oldPath, string newPath)
+    {
+        if (string.IsNullOrWhiteSpace(html)) return html;
+        return SrcsetRegex.Replace(html, match =>
+        {
+            string attrValue = match.Groups[1].Value;
+            if (attrValue.Contains(oldPath))
+            {
+                string updated = attrValue.Replace(oldPath, newPath);
+                return match.Value.Replace(attrValue, updated);
+            }
+            return match.Value;
+        });
     }
 
     private static string ExtractRelativePath(string url)

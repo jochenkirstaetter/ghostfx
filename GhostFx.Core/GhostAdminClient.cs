@@ -127,12 +127,11 @@ public static class GhostAdminClient
 
         string jsonString = await response.Content.ReadAsStringAsync();
         var root = JsonNode.Parse(jsonString);
-        var settingsArray = root?["settings"]?.AsArray();
-
+        var settingsNode = root?["settings"];
         string headerCode = string.Empty;
         string footerCode = string.Empty;
 
-        if (settingsArray != null)
+        if (settingsNode is JsonArray settingsArray)
         {
             foreach (var setting in settingsArray)
             {
@@ -146,6 +145,11 @@ public static class GhostAdminClient
                     footerCode = setting?["value"]?.ToString() ?? string.Empty;
                 }
             }
+        }
+        else if (settingsNode is JsonObject settingsObj)
+        {
+            headerCode = settingsObj["codeinjection_head"]?.ToString() ?? string.Empty;
+            footerCode = settingsObj["codeinjection_foot"]?.ToString() ?? string.Empty;
         }
 
         return (headerCode, footerCode);
@@ -200,92 +204,182 @@ public static class GhostAdminClient
 
     public static async Task<(string? Title, string? Description, string? IconUrl, string? LogoUrl, string? CoverUrl, List<GhostNavItem> NavItems)> FetchSiteBrandInfoAsync(string ghostUrl, string adminApiKey, HttpClient? customClient = null)
     {
-        using var client = customClient ?? new HttpClient();
+        bool disposeClient = customClient == null;
+        var client = customClient ?? new HttpClient();
         List<GhostNavItem> navItems = [];
+        string? title = null;
+        string? description = null;
+        string? icon = null;
+        string? logo = null;
+        string? cover = null;
 
         try
         {
-            var (response, _) = await SendWithFallbackAsync(client, ghostUrl, "settings/", adminApiKey);
-            if (response.IsSuccessStatusCode)
+            if (!client.DefaultRequestHeaders.Contains("User-Agent"))
             {
-                string jsonString = await response.Content.ReadAsStringAsync();
-                var root = JsonNode.Parse(jsonString);
-                var settingsArray = root?["settings"]?.AsArray();
+                client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            }
+            string cleanGhostUrl = ghostUrl.TrimEnd('/');
 
-                string? title = null;
-                string? description = null;
-                string? icon = null;
-                string? logo = null;
-                string? cover = null;
-
-                if (settingsArray != null)
+            try
+            {
+                var (response, _) = await SendWithFallbackAsync(client, ghostUrl, "settings/", adminApiKey);
+                if (response.IsSuccessStatusCode)
                 {
-                    foreach (var setting in settingsArray)
+                    string jsonString = await response.Content.ReadAsStringAsync();
+                    var root = JsonNode.Parse(jsonString);
+                    var settingsNode = root?["settings"];
+                    if (settingsNode is JsonArray settingsArray)
                     {
-                        string? key = setting?["key"]?.ToString();
-                        string? val = setting?["value"]?.ToString();
-                        if (key == "title") title = val;
-                        if (key == "description") description = val;
-                        if (key == "icon") icon = val;
-                        if (key == "logo") logo = val;
-                        if (key == "cover_image") cover = val;
-                        if (key == "navigation" && !string.IsNullOrWhiteSpace(val))
+                        foreach (var setting in settingsArray)
+                        {
+                            string? key = setting?["key"]?.ToString();
+                            string? val = setting?["value"]?.ToString();
+                            if (string.Equals(key, "title", StringComparison.OrdinalIgnoreCase)) title = val;
+                            if (string.Equals(key, "description", StringComparison.OrdinalIgnoreCase)) description = val;
+                            if (string.Equals(key, "icon", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "site_icon", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "favicon", StringComparison.OrdinalIgnoreCase)) icon = val;
+                            if (string.Equals(key, "logo", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "site_logo", StringComparison.OrdinalIgnoreCase)) logo = val;
+                            if (string.Equals(key, "cover_image", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "cover", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "cover_path", StringComparison.OrdinalIgnoreCase)) cover = val;
+                            if (string.Equals(key, "navigation", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(val))
+                            {
+                                try
+                                {
+                                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                                    var parsedNav = JsonSerializer.Deserialize<List<GhostNavItem>>(val, options);
+                                    if (parsedNav != null) navItems = parsedNav;
+                                }
+                                catch { }
+                            }
+                        }
+                    }
+                    else if (settingsNode is JsonObject settingsObj)
+                    {
+                        title ??= settingsObj["title"]?.ToString();
+                        description ??= settingsObj["description"]?.ToString();
+                        icon ??= settingsObj["icon"]?.ToString() ?? settingsObj["site_icon"]?.ToString() ?? settingsObj["favicon"]?.ToString();
+                        logo ??= settingsObj["logo"]?.ToString() ?? settingsObj["site_logo"]?.ToString();
+                        cover ??= settingsObj["cover_image"]?.ToString() ?? settingsObj["cover"]?.ToString() ?? settingsObj["cover_path"]?.ToString();
+                        var navNode = settingsObj["navigation"];
+                        if (navNode != null)
                         {
                             try
                             {
                                 var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                                var parsedNav = JsonSerializer.Deserialize<List<GhostNavItem>>(val, options);
-                                if (parsedNav != null) navItems = parsedNav;
+                                var parsedNav = JsonSerializer.Deserialize<List<GhostNavItem>>(navNode.ToJsonString(), options);
+                                if (parsedNav != null && parsedNav.Count > 0) navItems = parsedNav;
                             }
                             catch { }
                         }
                     }
                 }
-
-                if (!string.IsNullOrWhiteSpace(title) || !string.IsNullOrWhiteSpace(description) || !string.IsNullOrWhiteSpace(icon) || !string.IsNullOrWhiteSpace(logo) || !string.IsNullOrWhiteSpace(cover) || navItems.Count > 0)
-                {
-                    return (title, description, icon, logo, cover, navItems);
-                }
             }
-        }
-        catch { }
+            catch { }
 
-        try
-        {
-            var (response, _) = await SendWithFallbackAsync(client, ghostUrl, "site/", adminApiKey);
-            if (response.IsSuccessStatusCode)
+            try
             {
-                string jsonString = await response.Content.ReadAsStringAsync();
-                var root = JsonNode.Parse(jsonString);
-                var siteObj = root?["site"];
-                string? title = siteObj?["title"]?.ToString();
-                string? description = siteObj?["description"]?.ToString();
-                string? icon = siteObj?["icon"]?.ToString();
-                string? logo = siteObj?["logo"]?.ToString();
-                string? cover = siteObj?["cover_image"]?.ToString();
-                var navArray = siteObj?["navigation"]?.ToString();
-                if (!string.IsNullOrWhiteSpace(navArray))
+                var (response, _) = await SendWithFallbackAsync(client, ghostUrl, "site/", adminApiKey);
+                if (response.IsSuccessStatusCode)
                 {
-                    try
+                    string jsonString = await response.Content.ReadAsStringAsync();
+                    var root = JsonNode.Parse(jsonString);
+                    var siteObj = root?["site"];
+                    title ??= siteObj?["title"]?.ToString();
+                    description ??= siteObj?["description"]?.ToString();
+                    icon ??= siteObj?["icon"]?.ToString() ?? siteObj?["site_icon"]?.ToString() ?? siteObj?["favicon"]?.ToString();
+                    logo ??= siteObj?["logo"]?.ToString() ?? siteObj?["site_logo"]?.ToString();
+                    cover ??= siteObj?["cover_image"]?.ToString() ?? siteObj?["cover"]?.ToString() ?? siteObj?["cover_path"]?.ToString();
+                    var navArray = siteObj?["navigation"]?.ToString();
+                    if (!string.IsNullOrWhiteSpace(navArray))
                     {
-                        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                        var parsedNav = JsonSerializer.Deserialize<List<GhostNavItem>>(navArray, options);
-                        if (parsedNav != null) navItems = parsedNav;
+                        try
+                        {
+                            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                            var parsedNav = JsonSerializer.Deserialize<List<GhostNavItem>>(navArray, options);
+                            if (parsedNav != null && parsedNav.Count > 0) navItems = parsedNav;
+                        }
+                        catch { }
                     }
-                    catch { }
                 }
-                return (title, description, icon, logo, cover, navItems);
+            }
+            catch { }
+
+            if (navItems.Count == 0 || string.IsNullOrWhiteSpace(cover) || string.IsNullOrWhiteSpace(icon))
+            {
+                try
+                {
+                    var htmlResponse = await client.GetAsync(cleanGhostUrl);
+                    if (htmlResponse.IsSuccessStatusCode)
+                    {
+                        string html = await htmlResponse.Content.ReadAsStringAsync();
+
+                        if (navItems.Count == 0)
+                        {
+                            var navMatches = Regex.Matches(html, """<li\s+class=["']nav-[^"']*["']><a\s+href=["']([^"']+)["']>([^<]+)</a></li>""", RegexOptions.IgnoreCase);
+                            foreach (Match m in navMatches)
+                            {
+                                if (m.Success)
+                                {
+                                    string url = m.Groups[1].Value.Trim();
+                                    string label = m.Groups[2].Value.Trim();
+                                    navItems.Add(new GhostNavItem { Label = label, Url = url });
+                                }
+                            }
+                        }
+
+                        if (string.IsNullOrWhiteSpace(cover))
+                        {
+                            var match = Regex.Match(html, """<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']""", RegexOptions.IgnoreCase);
+                            if (!match.Success) match = Regex.Match(html, """<meta\s+content=["']([^"']+)["']\s+property=["']og:image["']""", RegexOptions.IgnoreCase);
+                            if (match.Success) cover = match.Groups[1].Value.Trim();
+                        }
+
+                        if (string.IsNullOrWhiteSpace(icon) || icon.EndsWith("/favicon.png", StringComparison.OrdinalIgnoreCase) || icon.EndsWith("/favicon.ico", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var match = Regex.Match(html, """<link\s+[^>]*href=["']([^"']*?/content/images/[^"']+)["'][^>]*rel=["'](?:shortcut\s+|apple-touch-)?icon["']""", RegexOptions.IgnoreCase);
+                            if (!match.Success) match = Regex.Match(html, """<link\s+[^>]*rel=["'](?:shortcut\s+|apple-touch-)?icon["'][^>]*href=["']([^"']*?/content/images/[^"']+)["']""", RegexOptions.IgnoreCase);
+                            if (!match.Success) match = Regex.Match(html, """<link\s+[^>]*rel=["'](?:shortcut\s+)?icon["'][^>]*href=["']([^"']+)["']""", RegexOptions.IgnoreCase);
+                            if (!match.Success) match = Regex.Match(html, """<link\s+[^>]*href=["']([^"']+)["'][^>]*rel=["'](?:shortcut\s+)?icon["']""", RegexOptions.IgnoreCase);
+                            if (match.Success) icon = match.Groups[1].Value.Trim();
+                        }
+
+                        if (string.IsNullOrWhiteSpace(title))
+                        {
+                            var match = Regex.Match(html, """<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']""", RegexOptions.IgnoreCase);
+                            if (match.Success) title = match.Groups[1].Value.Trim();
+                        }
+
+                        if (string.IsNullOrWhiteSpace(description))
+                        {
+                            var match = Regex.Match(html, """<meta\s+property=["']og:description["']\s+content=["']([^"']+)["']""", RegexOptions.IgnoreCase);
+                            if (match.Success) description = match.Groups[1].Value.Trim();
+                        }
+                    }
+                }
+                catch { }
             }
         }
-        catch { }
+        finally
+        {
+            if (disposeClient)
+            {
+                client.Dispose();
+            }
+        }
 
-        return (null, null, null, null, null, navItems);
+        return (title, description, icon, logo, cover, navItems);
     }
 
-    public static async Task<(string? FaviconFile, string? LogoFile, string? CoverFile)> DownloadSiteBrandAssetsAsync(string ghostUrl, string adminApiKey, string outputDir, HttpClient? customClient = null)
+    public static async Task<(string? FaviconFile, string? LogoFile, string? CoverFile)> DownloadSiteBrandAssetsAsync(
+        string ghostUrl,
+        string adminApiKey,
+        string outputDir,
+        string? knownIcon = null,
+        string? knownLogo = null,
+        string? knownCover = null,
+        HttpClient? customClient = null)
     {
         using var client = customClient ?? new HttpClient();
-        string cleanGhostUrl = ghostUrl.TrimEnd('/');
+        string cleanGhostUrl = (ghostUrl ?? "").TrimEnd('/');
         string? faviconSaved = null;
         string? logoSaved = null;
         string? coverSaved = null;
@@ -295,106 +389,106 @@ public static class GhostAdminClient
             client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
         }
 
-        var (_, _, iconUrl, logoUrl, coverUrl, _) = await FetchSiteBrandInfoAsync(ghostUrl, adminApiKey, client);
+        string? iconUrl = knownIcon;
+        string? logoUrl = knownLogo;
+        string? coverUrl = knownCover;
 
-        List<string> candidateFaviconUrls = [];
-        if (!string.IsNullOrWhiteSpace(iconUrl))
-        {
-            string url = iconUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? iconUrl : $"{cleanGhostUrl}/{iconUrl.TrimStart('/')}";
-            candidateFaviconUrls.Add(url);
-        }
-        else
+        if (string.IsNullOrWhiteSpace(iconUrl) || string.IsNullOrWhiteSpace(logoUrl) || string.IsNullOrWhiteSpace(coverUrl))
         {
             try
             {
-                var htmlResponse = await client.GetAsync(cleanGhostUrl);
-                if (htmlResponse.IsSuccessStatusCode)
+                var (_, _, apiIcon, apiLogo, apiCover, _) = await FetchSiteBrandInfoAsync(ghostUrl ?? "", adminApiKey, client);
+                iconUrl ??= apiIcon;
+                logoUrl ??= apiLogo;
+                coverUrl ??= apiCover;
+            }
+            catch { }
+        }
+
+        async Task<string?> EnsureAssetDownloadedAsync(string? url)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return null;
+
+            string cleanRel = url.Replace('\\', '/');
+            int idx = cleanRel.IndexOf("/content/images/", StringComparison.OrdinalIgnoreCase);
+            string subPath = idx >= 0 ? cleanRel[(idx + "/content/images/".Length)..] : cleanRel.TrimStart('/');
+
+            string localPath = Path.Combine(outputDir, "content", "images", subPath);
+
+            if (File.Exists(localPath) && new FileInfo(localPath).Length > 0)
+            {
+                return localPath;
+            }
+
+            string fullFetchUrl = url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+                ? url
+                : $"{cleanGhostUrl}/{url.TrimStart('/')}";
+
+            if (!string.IsNullOrWhiteSpace(cleanGhostUrl))
+            {
+                try
                 {
-                    string html = await htmlResponse.Content.ReadAsStringAsync();
-                    var match = Regex.Match(html, """<link\s+[^>]*rel=["'](?:shortcut\s+)?icon["'][^>]*href=["']([^"']+)["']""", RegexOptions.IgnoreCase);
-                    if (!match.Success)
+                    var response = await client.GetAsync(fullFetchUrl);
+                    if (response.IsSuccessStatusCode)
                     {
-                        match = Regex.Match(html, """<link\s+[^>]*href=["']([^"']+)["'][^>]*rel=["'](?:shortcut\s+)?icon["']""", RegexOptions.IgnoreCase);
-                    }
-                    if (match.Success)
-                    {
-                        string href = match.Groups[1].Value.Trim();
-                        string url = href.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? href : $"{cleanGhostUrl}/{href.TrimStart('/')}";
-                        candidateFaviconUrls.Add(url);
+                        Directory.CreateDirectory(Path.GetDirectoryName(localPath)!);
+                        await using var fs = new FileStream(localPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                        await response.Content.CopyToAsync(fs);
+                        return localPath;
                     }
                 }
+                catch { }
+            }
+
+            return null;
+        }
+
+        Directory.CreateDirectory(outputDir);
+        Directory.CreateDirectory(Path.Combine(outputDir, "content", "images"));
+
+        // 1. Process Icon (settings.icon -> original filename under content/images/ + favicon.png)
+        string? iconLocalPath = await EnsureAssetDownloadedAsync(iconUrl);
+        if (iconLocalPath != null)
+        {
+            faviconSaved = iconLocalPath;
+            try
+            {
+                string rootFavicon = Path.Combine(outputDir, "favicon.png");
+                string mediaFavicon = Path.Combine(outputDir, "content", "images", "favicon.png");
+                File.Copy(iconLocalPath, rootFavicon, overwrite: true);
+                File.Copy(iconLocalPath, mediaFavicon, overwrite: true);
             }
             catch { }
         }
 
-        candidateFaviconUrls.Add($"{cleanGhostUrl}/favicon.png");
-        candidateFaviconUrls.Add($"{cleanGhostUrl}/favicon.ico");
-
-        foreach (var candidateUrl in candidateFaviconUrls)
+        // 2. Process Logo (settings.logo -> original filename under content/images/ + logo.png)
+        string? logoLocalPath = await EnsureAssetDownloadedAsync(logoUrl);
+        if (logoLocalPath != null)
         {
+            logoSaved = logoLocalPath;
             try
             {
-                var response = await client.GetAsync(candidateUrl);
-                if (response.IsSuccessStatusCode)
-                {
-                    string ext = Path.GetExtension(candidateUrl);
-                    if (string.IsNullOrWhiteSpace(ext) || ext.Length > 5) ext = ".png";
-                    string faviconFile = Path.Combine(outputDir, "favicon" + ext);
-                    await using var fs = new FileStream(faviconFile, FileMode.Create, FileAccess.Write, FileShare.None);
-                    await response.Content.CopyToAsync(fs);
-                    faviconSaved = faviconFile;
-                    break;
-                }
+                string ext = Path.GetExtension(logoLocalPath);
+                if (string.IsNullOrWhiteSpace(ext)) ext = ".png";
+                string rootLogo = Path.Combine(outputDir, "logo" + ext);
+                string mediaLogo = Path.Combine(outputDir, "content", "images", "logo" + ext);
+                File.Copy(logoLocalPath, rootLogo, overwrite: true);
+                File.Copy(logoLocalPath, mediaLogo, overwrite: true);
             }
             catch { }
         }
 
-        if (!string.IsNullOrWhiteSpace(logoUrl))
+        // 3. Process Cover (settings.cover_image -> original filename under content/images/ + cover.jpg)
+        string? coverLocalPath = await EnsureAssetDownloadedAsync(coverUrl);
+        if (coverLocalPath != null)
         {
-            string targetLogoUrl = logoUrl;
-            if (!targetLogoUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
-                !targetLogoUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-            {
-                targetLogoUrl = $"{cleanGhostUrl}/{targetLogoUrl.TrimStart('/')}";
-            }
-
+            coverSaved = coverLocalPath;
             try
             {
-                var response = await client.GetAsync(targetLogoUrl);
-                if (response.IsSuccessStatusCode)
-                {
-                    string ext = Path.GetExtension(targetLogoUrl);
-                    if (string.IsNullOrWhiteSpace(ext) || ext.Length > 5) ext = ".png";
-                    string logoFile = Path.Combine(outputDir, "logo" + ext);
-                    await using var fs = new FileStream(logoFile, FileMode.Create, FileAccess.Write, FileShare.None);
-                    await response.Content.CopyToAsync(fs);
-                    logoSaved = logoFile;
-                }
-            }
-            catch { }
-        }
-
-        if (!string.IsNullOrWhiteSpace(coverUrl))
-        {
-            string targetCoverUrl = coverUrl;
-            if (!targetCoverUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
-                !targetCoverUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-            {
-                targetCoverUrl = $"{cleanGhostUrl}/{targetCoverUrl.TrimStart('/')}";
-            }
-
-            try
-            {
-                var response = await client.GetAsync(targetCoverUrl);
-                if (response.IsSuccessStatusCode)
-                {
-                    string ext = Path.GetExtension(targetCoverUrl);
-                    if (string.IsNullOrWhiteSpace(ext) || ext.Length > 5) ext = ".png";
-                    string coverFile = Path.Combine(outputDir, "cover" + ext);
-                    await using var fs = new FileStream(coverFile, FileMode.Create, FileAccess.Write, FileShare.None);
-                    await response.Content.CopyToAsync(fs);
-                    coverSaved = coverFile;
-                }
+                string rootCover = Path.Combine(outputDir, "cover.jpg");
+                string mediaCover = Path.Combine(outputDir, "content", "images", "cover.jpg");
+                File.Copy(coverLocalPath, rootCover, overwrite: true);
+                File.Copy(coverLocalPath, mediaCover, overwrite: true);
             }
             catch { }
         }

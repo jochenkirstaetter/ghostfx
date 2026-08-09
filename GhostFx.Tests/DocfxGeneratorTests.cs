@@ -42,7 +42,11 @@ public class DocfxGeneratorTests : IDisposable
 
         Assert.Contains("\"modern\"", jsonContent);
         Assert.Contains("Test Blog", jsonContent);
-        Assert.Contains("articles/**.md", jsonContent);
+        Assert.Contains("\"published\"", jsonContent);
+        Assert.Contains("\"pages\"", jsonContent);
+        Assert.Contains("**/content/images/**", jsonContent);
+        Assert.Contains("*.png", jsonContent);
+        Assert.Contains("_site/**", jsonContent);
     }
 
     [Fact]
@@ -131,5 +135,27 @@ public class DocfxGeneratorTests : IDisposable
         string mainJs = await File.ReadAllTextAsync(Path.Combine(targetTemplateDir, "public", "main.js"));
         Assert.Contains("Ghost Header Code Injection", mainJs);
         Assert.Contains("Ghost Footer Code Injection", mainJs);
+    }
+
+    [Fact]
+    public async Task ConvertGhostThemeToDocfxTemplateAsync_WorksWithDirectorySource()
+    {
+        string themeDir = Path.Combine(_tempDirectory, "unzipped_theme");
+        Directory.CreateDirectory(themeDir);
+        await File.WriteAllTextAsync(Path.Combine(themeDir, "style.css"), "h1 { color: red; }");
+        await File.WriteAllTextAsync(Path.Combine(themeDir, "custom.js"), "console.log('dir theme');");
+        await File.WriteAllTextAsync(Path.Combine(themeDir, "index.hbs"), "<div>{{title}}</div>");
+
+        string targetTemplateDir = Path.Combine(_tempDirectory, "template_dir", "ghostfx");
+        await DocfxGenerator.ConvertGhostThemeToDocfxTemplateAsync(themeDir, targetTemplateDir);
+
+        Assert.True(File.Exists(Path.Combine(targetTemplateDir, "public", "main.css")));
+        Assert.True(File.Exists(Path.Combine(targetTemplateDir, "public", "main.js")));
+
+        string mainCss = await File.ReadAllTextAsync(Path.Combine(targetTemplateDir, "public", "main.css"));
+        Assert.Contains("color: red", mainCss);
+
+        string mainJs = await File.ReadAllTextAsync(Path.Combine(targetTemplateDir, "public", "main.js"));
+        Assert.Contains("dir theme", mainJs);
     }
 }

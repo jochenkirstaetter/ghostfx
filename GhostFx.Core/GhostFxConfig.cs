@@ -10,8 +10,21 @@ public class GhostFxConfig
     [JsonPropertyName("adminApiKey")]
     public string AdminApiKey { get; set; } = string.Empty;
 
+    private string _ghostExportJson = string.Empty;
+
+    [JsonPropertyName("ghostExportJson")]
+    public string GhostExportJson
+    {
+        get => _ghostExportJson;
+        set => _ghostExportJson = value;
+    }
+
     [JsonPropertyName("inputJsonPath")]
-    public string InputJsonPath { get; set; } = string.Empty;
+    public string InputJsonPath
+    {
+        get => _ghostExportJson;
+        set => _ghostExportJson = value;
+    }
 
     [JsonPropertyName("outputDir")]
     public string OutputDir { get; set; } = "articles";
@@ -28,6 +41,19 @@ public class GhostFxConfig
     [JsonPropertyName("downloadTheme")]
     public bool DownloadTheme { get; set; } = false;
 
+    private string _themePath = "ghostfx.zip";
+
+    [JsonPropertyName("themePath")]
+    public string ThemePath
+    {
+        get => _themePath;
+        set => _themePath = value;
+    }
+
     [JsonPropertyName("themeOutputPath")]
-    public string ThemeOutputPath { get; set; } = "ghostfx.zip";
+    public string ThemeOutputPath
+    {
+        get => _themePath;
+        set => _themePath = value;
+    }
 }

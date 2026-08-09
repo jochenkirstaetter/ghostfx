@@ -8,7 +8,7 @@ namespace GhostFx.Core;
 
 public class GhostJsonParser
 {
-    public (List<GhostPost> Posts, List<GhostTag> Tags, string? Title, string? Description, List<GhostNavItem> NavItems) ParseJsonExport(string jsonContent)
+    public (List<GhostPost> Posts, List<GhostTag> Tags, string? Title, string? Description, string? Icon, string? Logo, string? CoverImage, List<GhostNavItem> NavItems) ParseJsonExport(string jsonContent)
     {
         if (string.IsNullOrWhiteSpace(jsonContent))
             throw new ArgumentException("JSON content cannot be null or empty.");
@@ -43,6 +43,9 @@ public class GhostJsonParser
 
         string? title = data.Settings?.FirstOrDefault(s => string.Equals(s.Key, "title", StringComparison.OrdinalIgnoreCase))?.Value;
         string? description = data.Settings?.FirstOrDefault(s => string.Equals(s.Key, "description", StringComparison.OrdinalIgnoreCase))?.Value;
+        string? icon = data.Settings?.FirstOrDefault(s => string.Equals(s.Key, "icon", StringComparison.OrdinalIgnoreCase) || string.Equals(s.Key, "site_icon", StringComparison.OrdinalIgnoreCase) || string.Equals(s.Key, "favicon", StringComparison.OrdinalIgnoreCase))?.Value;
+        string? logo = data.Settings?.FirstOrDefault(s => string.Equals(s.Key, "logo", StringComparison.OrdinalIgnoreCase) || string.Equals(s.Key, "site_logo", StringComparison.OrdinalIgnoreCase))?.Value;
+        string? cover = data.Settings?.FirstOrDefault(s => string.Equals(s.Key, "cover_image", StringComparison.OrdinalIgnoreCase) || string.Equals(s.Key, "cover", StringComparison.OrdinalIgnoreCase) || string.Equals(s.Key, "cover_path", StringComparison.OrdinalIgnoreCase))?.Value;
 
         List<GhostNavItem> navItems = [];
         string? navJson = data.Settings?.FirstOrDefault(s => string.Equals(s.Key, "navigation", StringComparison.OrdinalIgnoreCase))?.Value;
@@ -56,6 +59,6 @@ public class GhostJsonParser
             catch { }
         }
 
-        return (data.Posts, data.Tags, title, description, navItems);
+        return (data.Posts, data.Tags, title, description, icon, logo, cover, navItems);
     }
 }

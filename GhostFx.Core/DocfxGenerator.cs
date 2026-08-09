@@ -28,64 +28,73 @@ public static class DocfxGenerator
 
         string articlesPattern = string.IsNullOrEmpty(relOutputDir) ? "**.md" : $"{relOutputDir}/**.md";
         string tocPattern = string.IsNullOrEmpty(relOutputDir) ? "**/toc.yml" : $"{relOutputDir}/**/toc.yml";
-        string draftsPattern = string.IsNullOrEmpty(relOutputDir) ? "drafts/**.md" : $"{relOutputDir}/drafts/**.md";
-        string tagsPattern = string.IsNullOrEmpty(relOutputDir) ? "tags/**.md" : $"{relOutputDir}/tags/**.md";
-
-        string indexPath = config.IndexFile;
-        if (!string.IsNullOrEmpty(relOutputDir) && !File.Exists(Path.Combine(fullRootDir, config.IndexFile)) && File.Exists(Path.Combine(fullOutputDir, config.IndexFile)))
-        {
-            indexPath = $"{relOutputDir}/{config.IndexFile}";
-        }
+        string mediaPattern = string.IsNullOrEmpty(relOutputDir) ? "**/content/images/**" : $"{relOutputDir}/**/content/images/**";
 
         string? faviconPath = null;
         if (File.Exists(Path.Combine(fullRootDir, "favicon.png"))) faviconPath = "favicon.png";
+        else if (File.Exists(Path.Combine(fullOutputDir, "content", "images", "favicon.png"))) faviconPath = string.IsNullOrEmpty(relOutputDir) ? "content/images/favicon.png" : $"{relOutputDir}/content/images/favicon.png";
         else if (File.Exists(Path.Combine(fullOutputDir, "favicon.png"))) faviconPath = string.IsNullOrEmpty(relOutputDir) ? "favicon.png" : $"{relOutputDir}/favicon.png";
+        else if (File.Exists(Path.Combine(fullOutputDir, "content", "images", "favicon.svg"))) faviconPath = string.IsNullOrEmpty(relOutputDir) ? "content/images/favicon.svg" : $"{relOutputDir}/content/images/favicon.svg";
         else if (File.Exists(Path.Combine(fullRootDir, "favicon.svg"))) faviconPath = "favicon.svg";
         else if (File.Exists(Path.Combine(fullOutputDir, "favicon.svg"))) faviconPath = string.IsNullOrEmpty(relOutputDir) ? "favicon.svg" : $"{relOutputDir}/favicon.svg";
+        else if (File.Exists(Path.Combine(fullOutputDir, "content", "images", "favicon.ico"))) faviconPath = string.IsNullOrEmpty(relOutputDir) ? "content/images/favicon.ico" : $"{relOutputDir}/content/images/favicon.ico";
         else if (File.Exists(Path.Combine(fullRootDir, "favicon.ico"))) faviconPath = "favicon.ico";
         else if (File.Exists(Path.Combine(fullOutputDir, "favicon.ico"))) faviconPath = string.IsNullOrEmpty(relOutputDir) ? "favicon.ico" : $"{relOutputDir}/favicon.ico";
 
         string? logoPath = null;
         if (File.Exists(Path.Combine(fullRootDir, "logo.png"))) logoPath = "logo.png";
+        else if (File.Exists(Path.Combine(fullOutputDir, "content", "images", "logo.png"))) logoPath = string.IsNullOrEmpty(relOutputDir) ? "content/images/logo.png" : $"{relOutputDir}/content/images/logo.png";
         else if (File.Exists(Path.Combine(fullOutputDir, "logo.png"))) logoPath = string.IsNullOrEmpty(relOutputDir) ? "logo.png" : $"{relOutputDir}/logo.png";
+        else if (File.Exists(Path.Combine(fullOutputDir, "content", "images", "logo.svg"))) logoPath = string.IsNullOrEmpty(relOutputDir) ? "content/images/logo.svg" : $"{relOutputDir}/content/images/logo.svg";
         else if (File.Exists(Path.Combine(fullRootDir, "logo.svg"))) logoPath = "logo.svg";
         else if (File.Exists(Path.Combine(fullOutputDir, "logo.svg"))) logoPath = string.IsNullOrEmpty(relOutputDir) ? "logo.svg" : $"{relOutputDir}/logo.svg";
         else if (!string.IsNullOrEmpty(faviconPath)) logoPath = faviconPath;
+
+        var excludePatterns = new string[] { "_site/**", "**/_site/**" };
+
+        var contentEntries = new List<object>
+        {
+            new
+            {
+                files = new string[] { "**.md" },
+                src = "published",
+                dest = ""
+            },
+            new
+            {
+                files = new string[] { "**.md" },
+                src = "pages",
+                dest = ""
+            },
+            new
+            {
+                files = new string[] { "**.md", "**/toc.yml" },
+                exclude = new string[] { "published/**", "pages/**", "_site/**", "**/_site/**" }
+            }
+        };
 
         var docfxConfig = new
         {
             build = new
             {
-                content = new object[]
-                {
-                    new
-                    {
-                        files = new string[]
-                        {
-                            articlesPattern,
-                            draftsPattern,
-                            tocPattern,
-                            "toc.yml",
-                            indexPath,
-                            "tags.md",
-                            tagsPattern
-                        }
-                    }
-                },
+                content = contentEntries.ToArray(),
                 resource = new object[]
                 {
                     new
                     {
                         files = new string[]
                         {
-                            "images/**",
-                            "media/**",
-                            "**/images/**",
-                            "**/media/**",
-                            string.IsNullOrEmpty(relOutputDir) ? "images/**" : $"{relOutputDir}/images/**",
-                            string.IsNullOrEmpty(relOutputDir) ? "media/**" : $"{relOutputDir}/media/**",
-                            string.IsNullOrEmpty(relOutputDir) ? "**/images/**" : $"{relOutputDir}/**/images/**",
-                            string.IsNullOrEmpty(relOutputDir) ? "**/media/**" : $"{relOutputDir}/**/media/**"
+                            "**/content/images/**",
+                            "*.png",
+                            "*.jpg",
+                            "*.jpeg",
+                            "*.svg",
+                            "*.ico"
+                        },
+                        exclude = new string[]
+                        {
+                            "_site/**",
+                            "**/_site/**"
                         }
                     }
                 },
@@ -121,9 +130,15 @@ public static class DocfxGenerator
         return docfxPath;
     }
 
-    public static async Task ConvertGhostThemeToDocfxTemplateAsync(string zipFilePath, string targetTemplateDir, string headerInjection = "", string footerInjection = "")
+    public static async Task ConvertGhostThemeToDocfxTemplateAsync(string themePath, string targetTemplateDir, string headerInjection = "", string footerInjection = "")
     {
-        if (string.IsNullOrWhiteSpace(zipFilePath) || !File.Exists(zipFilePath))
+        if (string.IsNullOrWhiteSpace(themePath))
+            return;
+
+        bool isZip = File.Exists(themePath) && (themePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) || !Directory.Exists(themePath));
+        bool isDirectory = Directory.Exists(themePath);
+
+        if (!isZip && !isDirectory)
             return;
 
         // DocFx modern template uses public/ directory (main.css and main.js) for layout overrides and styling
@@ -137,18 +152,29 @@ public static class DocfxGenerator
             try { Directory.Delete(legacyPartialsDir, true); } catch { }
         }
 
-        string tempExtractPath = Path.Combine(Path.GetTempPath(), "GhostFx_Theme_" + Guid.NewGuid().ToString("N"));
+        string sourceDir;
+        string? tempExtractPath = null;
+
+        if (isZip)
+        {
+            tempExtractPath = Path.Combine(Path.GetTempPath(), "GhostFx_Theme_" + Guid.NewGuid().ToString("N"));
+            ZipFile.ExtractToDirectory(themePath, tempExtractPath, overwriteFiles: true);
+            sourceDir = tempExtractPath;
+        }
+        else
+        {
+            sourceDir = themePath;
+        }
+
         try
         {
-            ZipFile.ExtractToDirectory(zipFilePath, tempExtractPath, overwriteFiles: true);
-
             // 1. Process CSS assets and compile into public/main.css for DocFx modern template
             string mainCssPath = Path.Combine(publicDir, "main.css");
             using (var cssWriter = new StreamWriter(mainCssPath, append: false))
             {
                 await cssWriter.WriteLineAsync("/* GhostFx Auto-Converted Ghost Theme CSS Override for DocFx Modern Template */");
 
-                foreach (var cssFile in Directory.GetFiles(tempExtractPath, "*.css", SearchOption.AllDirectories))
+                foreach (var cssFile in Directory.GetFiles(sourceDir, "*.css", SearchOption.AllDirectories))
                 {
                     string cssContent = await File.ReadAllTextAsync(cssFile);
                     await cssWriter.WriteLineAsync($"/* Source: {Path.GetFileName(cssFile)} */");
@@ -182,7 +208,7 @@ public static class DocfxGenerator
 
                 await jsWriter.WriteLineAsync("});");
 
-                foreach (var jsFile in Directory.GetFiles(tempExtractPath, "*.js", SearchOption.AllDirectories))
+                foreach (var jsFile in Directory.GetFiles(sourceDir, "*.js", SearchOption.AllDirectories))
                 {
                     if (jsFile.Contains("node_modules")) continue;
                     string jsContent = await File.ReadAllTextAsync(jsFile);
@@ -192,7 +218,7 @@ public static class DocfxGenerator
             }
 
             // 3. Process Handlebars (.hbs) template files into converted styling / DOM wrappers
-            foreach (var hbsFile in Directory.GetFiles(tempExtractPath, "*.hbs", SearchOption.AllDirectories))
+            foreach (var hbsFile in Directory.GetFiles(sourceDir, "*.hbs", SearchOption.AllDirectories))
             {
                 string hbsContent = await File.ReadAllTextAsync(hbsFile);
                 string converted = ConvertHandlebarsToDocfx(hbsContent);
@@ -204,7 +230,7 @@ public static class DocfxGenerator
         }
         finally
         {
-            if (Directory.Exists(tempExtractPath))
+            if (!string.IsNullOrEmpty(tempExtractPath) && Directory.Exists(tempExtractPath))
             {
                 try { Directory.Delete(tempExtractPath, true); } catch { }
             }

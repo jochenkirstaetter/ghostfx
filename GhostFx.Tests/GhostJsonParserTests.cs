@@ -66,7 +66,7 @@ public class GhostJsonParserTests
     public void ParseJsonExport_ParsesPostsAndTagsCorrectly()
     {
         var parser = new GhostJsonParser();
-        var (posts, tags, title, description, navItems) = parser.ParseJsonExport(_sampleJson);
+        var (posts, tags, title, description, icon, logo, cover, navItems) = parser.ParseJsonExport(_sampleJson);
 
         Assert.Equal(2, posts.Count);
         Assert.Equal(2, tags.Count);
@@ -106,7 +106,7 @@ public class GhostJsonParserTests
         """;
 
         var parser = new GhostJsonParser();
-        var (posts, tags, title, description, navItems) = parser.ParseJsonExport(jsonWithSettings);
+        var (posts, tags, title, description, icon, logo, cover, navItems) = parser.ParseJsonExport(jsonWithSettings);
 
         Assert.Equal("My Ghost Site", title);
         Assert.Equal("A awesome blog", description);

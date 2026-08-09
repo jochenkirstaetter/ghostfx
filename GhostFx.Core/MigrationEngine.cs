@@ -32,26 +32,50 @@ public class MigrationEngine
             List<GhostPost> allPosts = [];
             List<GhostTag> allTags = [];
             string? siteDescription = null;
+            string? siteIcon = null;
+            string? siteLogo = null;
+            string? siteCover = null;
             List<GhostNavItem> navItems = [];
 
             if (!string.IsNullOrWhiteSpace(jsonContentOverride))
             {
-                var (posts, tags, jsonTitle, jsonDesc, jsonNav) = _jsonParser.ParseJsonExport(jsonContentOverride);
+                var (posts, tags, jsonTitle, jsonDesc, jsonIcon, jsonLogo, jsonCover, jsonNav) = _jsonParser.ParseJsonExport(jsonContentOverride);
                 allPosts = posts;
                 allTags = tags;
                 if (jsonNav.Count > 0) navItems = jsonNav;
                 if (!string.IsNullOrWhiteSpace(jsonTitle)) config.SiteTitle = jsonTitle;
                 if (!string.IsNullOrWhiteSpace(jsonDesc)) siteDescription = jsonDesc;
+                if (!string.IsNullOrWhiteSpace(jsonIcon)) siteIcon = jsonIcon;
+                if (!string.IsNullOrWhiteSpace(jsonLogo)) siteLogo = jsonLogo;
+                if (!string.IsNullOrWhiteSpace(jsonCover)) siteCover = jsonCover;
             }
-            else if (!string.IsNullOrWhiteSpace(config.InputJsonPath) && File.Exists(config.InputJsonPath))
+            else if (!string.IsNullOrWhiteSpace(config.GhostExportJson) && File.Exists(config.GhostExportJson))
             {
-                string json = await File.ReadAllTextAsync(config.InputJsonPath);
-                var (posts, tags, jsonTitle, jsonDesc, jsonNav) = _jsonParser.ParseJsonExport(json);
+                string json = await File.ReadAllTextAsync(config.GhostExportJson);
+                var (posts, tags, jsonTitle, jsonDesc, jsonIcon, jsonLogo, jsonCover, jsonNav) = _jsonParser.ParseJsonExport(json);
                 allPosts = posts;
                 allTags = tags;
                 if (jsonNav.Count > 0) navItems = jsonNav;
                 if (!string.IsNullOrWhiteSpace(jsonTitle)) config.SiteTitle = jsonTitle;
                 if (!string.IsNullOrWhiteSpace(jsonDesc)) siteDescription = jsonDesc;
+                if (!string.IsNullOrWhiteSpace(jsonIcon)) siteIcon = jsonIcon;
+                if (!string.IsNullOrWhiteSpace(jsonLogo)) siteLogo = jsonLogo;
+                if (!string.IsNullOrWhiteSpace(jsonCover)) siteCover = jsonCover;
+
+                if (!string.IsNullOrWhiteSpace(config.GhostUrl) && (navItems.Count == 0 || string.IsNullOrWhiteSpace(config.SiteTitle) || string.IsNullOrWhiteSpace(siteIcon) || string.IsNullOrWhiteSpace(siteCover)))
+                {
+                    try
+                    {
+                        var (apiTitle, apiDesc, apiIcon, apiLogo, apiCover, apiNav) = await GhostAdminClient.FetchSiteBrandInfoAsync(config.GhostUrl, config.AdminApiKey ?? "");
+                        if (navItems.Count == 0 && apiNav.Count > 0) navItems = apiNav;
+                        if (string.IsNullOrWhiteSpace(config.SiteTitle) && !string.IsNullOrWhiteSpace(apiTitle)) config.SiteTitle = apiTitle;
+                        if (string.IsNullOrWhiteSpace(siteDescription) && !string.IsNullOrWhiteSpace(apiDesc)) siteDescription = apiDesc;
+                        if (string.IsNullOrWhiteSpace(siteIcon) && !string.IsNullOrWhiteSpace(apiIcon)) siteIcon = apiIcon;
+                        if (string.IsNullOrWhiteSpace(siteLogo) && !string.IsNullOrWhiteSpace(apiLogo)) siteLogo = apiLogo;
+                        if (string.IsNullOrWhiteSpace(siteCover) && !string.IsNullOrWhiteSpace(apiCover)) siteCover = apiCover;
+                    }
+                    catch { }
+                }
             }
             else if (!string.IsNullOrWhiteSpace(config.GhostUrl) && !string.IsNullOrWhiteSpace(config.AdminApiKey))
             {
@@ -64,25 +88,19 @@ public class MigrationEngine
                 result.DetectedGhostVersion = version;
                 allTags = allPosts.SelectMany(p => p.Tags).GroupBy(t => t.Id).Select(g => g.First()).ToList();
 
-                var (apiTitle, apiDesc, _, _, _, apiNav) = await GhostAdminClient.FetchSiteBrandInfoAsync(config.GhostUrl, config.AdminApiKey);
+                var (apiTitle, apiDesc, apiIcon, apiLogo, apiCover, apiNav) = await GhostAdminClient.FetchSiteBrandInfoAsync(config.GhostUrl, config.AdminApiKey);
                 if (apiNav.Count > 0) navItems = apiNav;
                 if (!string.IsNullOrWhiteSpace(apiTitle)) config.SiteTitle = apiTitle;
                 if (!string.IsNullOrWhiteSpace(apiDesc)) siteDescription = apiDesc;
+                if (!string.IsNullOrWhiteSpace(apiIcon)) siteIcon = apiIcon;
+                if (!string.IsNullOrWhiteSpace(apiLogo)) siteLogo = apiLogo;
+                if (!string.IsNullOrWhiteSpace(apiCover)) siteCover = apiCover;
             }
             else
             {
                 result.Success = false;
-                result.Message = "Missing credentials or input file. Provide inputJsonPath or GhostUrl + AdminApiKey.";
+                result.Message = "Missing credentials or input file. Provide ghostExportJson or GhostUrl + AdminApiKey.";
                 return result;
-            }
-
-            if (!string.IsNullOrWhiteSpace(config.GhostUrl))
-            {
-                string siteRootDir = Path.GetDirectoryName(Path.GetFullPath(config.OutputDir)) ?? ".";
-                var (favFile, logoFile, coverFile) = await GhostAdminClient.DownloadSiteBrandAssetsAsync(config.GhostUrl, config.AdminApiKey ?? "", siteRootDir);
-                if (!string.IsNullOrEmpty(favFile) && !result.GeneratedFiles.Contains(favFile)) result.GeneratedFiles.Add(favFile);
-                if (!string.IsNullOrEmpty(logoFile) && !result.GeneratedFiles.Contains(logoFile)) result.GeneratedFiles.Add(logoFile);
-                if (!string.IsNullOrEmpty(coverFile) && !result.GeneratedFiles.Contains(coverFile)) result.GeneratedFiles.Add(coverFile);
             }
 
             if (allPosts.Count > 0)
@@ -92,35 +110,43 @@ public class MigrationEngine
                 result.GeneratedFiles.AddRange(mediaFiles);
             }
 
+            if (!string.IsNullOrWhiteSpace(config.GhostUrl) || !string.IsNullOrWhiteSpace(siteIcon) || !string.IsNullOrWhiteSpace(siteLogo) || !string.IsNullOrWhiteSpace(siteCover))
+            {
+                var (favFile, logoFile, coverFile) = await GhostAdminClient.DownloadSiteBrandAssetsAsync(config.GhostUrl ?? "", config.AdminApiKey ?? "", config.OutputDir, siteIcon, siteLogo, siteCover);
+                if (!string.IsNullOrEmpty(favFile) && !result.GeneratedFiles.Contains(favFile)) result.GeneratedFiles.Add(favFile);
+                if (!string.IsNullOrEmpty(logoFile) && !result.GeneratedFiles.Contains(logoFile)) result.GeneratedFiles.Add(logoFile);
+                if (!string.IsNullOrEmpty(coverFile) && !result.GeneratedFiles.Contains(coverFile)) result.GeneratedFiles.Add(coverFile);
+            }
+
             if (config.DownloadTheme)
             {
-                if (File.Exists(config.ThemeOutputPath))
+                if (File.Exists(config.ThemePath) || Directory.Exists(config.ThemePath))
                 {
-                    if (!result.GeneratedFiles.Contains(config.ThemeOutputPath))
+                    if (!result.GeneratedFiles.Contains(config.ThemePath))
                     {
-                        result.GeneratedFiles.Add(config.ThemeOutputPath);
+                        result.GeneratedFiles.Add(config.ThemePath);
                     }
                 }
                 else
                 {
                     try
                     {
-                        await GhostAdminClient.DownloadActiveThemeAsync(config.GhostUrl, config.AdminApiKey ?? "", config.ThemeOutputPath);
-                        result.GeneratedFiles.Add(config.ThemeOutputPath);
+                        await GhostAdminClient.DownloadActiveThemeAsync(config.GhostUrl ?? "", config.AdminApiKey ?? "", config.ThemePath);
+                        result.GeneratedFiles.Add(config.ThemePath);
                     }
                     catch (Exception ex)
                     {
                         bool manualProvided = false;
                         if (onManualThemeRequested != null)
                         {
-                            manualProvided = await onManualThemeRequested(config.ThemeOutputPath, result.DetectedGhostVersion);
+                            manualProvided = await onManualThemeRequested(config.ThemePath, result.DetectedGhostVersion);
                         }
 
-                        if (manualProvided && File.Exists(config.ThemeOutputPath))
+                        if (manualProvided && (File.Exists(config.ThemePath) || Directory.Exists(config.ThemePath)))
                         {
-                            if (!result.GeneratedFiles.Contains(config.ThemeOutputPath))
+                            if (!result.GeneratedFiles.Contains(config.ThemePath))
                             {
-                                result.GeneratedFiles.Add(config.ThemeOutputPath);
+                                result.GeneratedFiles.Add(config.ThemePath);
                             }
                         }
                         else
@@ -181,8 +207,8 @@ public class MigrationEngine
                     : (!string.IsNullOrWhiteSpace(post.CustomExcerpt) ? $"<p>{post.CustomExcerpt}</p>" : "");
                 string fullDoc = _converter.BuildFullMarkdownDocument(frontMatter, htmlContent);
 
-                string subDirName = (isDraft || isScheduled) ? "drafts" : "";
-                string targetSubDir = !string.IsNullOrEmpty(subDirName) ? Path.Combine(config.OutputDir, subDirName) : config.OutputDir;
+                string subDirName = isPage ? "pages" : (isDraft ? "draft" : (isScheduled ? "scheduled" : "published"));
+                string targetSubDir = Path.Combine(config.OutputDir, subDirName);
                 Directory.CreateDirectory(targetSubDir);
 
                 string fileName = $"{post.Slug}.md";
@@ -191,7 +217,7 @@ public class MigrationEngine
                 await File.WriteAllTextAsync(filePath, fullDoc);
                 result.GeneratedFiles.Add(filePath);
 
-                string relativePathInToc = !string.IsNullOrEmpty(subDirName) ? $"{subDirName}/{fileName}" : fileName;
+                string relativePathInToc = $"{subDirName}/{fileName}";
 
                 var meta = new BlogPostMetadata
                 {
@@ -212,7 +238,7 @@ public class MigrationEngine
                 }
                 else if (isScheduled)
                 {
-                    draftMetaList.Add(meta);
+                    scheduledMetaList.Add(meta);
                     result.ProcessedScheduled++;
                 }
                 else if (isDraft)
@@ -227,51 +253,72 @@ public class MigrationEngine
                 }
             }
 
-            // Generate Root Table of Contents (toc.yml for top navbar)
-            string rootDirForToc = Path.GetDirectoryName(Path.GetFullPath(config.OutputDir)) ?? ".";
-            string rootTocPath = Path.Combine(rootDirForToc, "toc.yml");
-            GenerateRootToc(rootTocPath, navItems, pageMetaList, publishedMetaList, config.OutputDir);
-            if (!result.GeneratedFiles.Contains(rootTocPath)) result.GeneratedFiles.Add(rootTocPath);
-
-            // Generate Front Page (index.md)
-            string indexPath = Path.Combine(Path.GetDirectoryName(config.OutputDir) ?? ".", config.IndexFile);
-            GenerateFrontPage(indexPath, publishedMetaList, config.SiteTitle, siteDescription, config.OutputDir);
+            // Generate Front Page (index.md) inside outputDir
+            string indexFileName = Path.GetFileName(config.IndexFile);
+            string indexPath = Path.Combine(config.OutputDir, indexFileName);
+            GenerateFrontPage(indexPath, publishedMetaList, config.SiteTitle, siteDescription);
             result.GeneratedFiles.Add(indexPath);
 
-            // Generate main Table of Contents (toc.yml)
-            string tocPath = Path.Combine(config.OutputDir, "toc.yml");
-            GenerateToc(tocPath, publishedMetaList);
-            result.GeneratedFiles.Add(tocPath);
-
-            // Handle drafts & scheduled TOC
+            // Generate subfolder Table of Contents files
+            if (publishedMetaList.Count > 0)
+            {
+                string pubTocPath = Path.Combine(config.OutputDir, "published", "toc.yml");
+                GenerateToc(pubTocPath, publishedMetaList);
+                result.GeneratedFiles.Add(pubTocPath);
+            }
+            if (pageMetaList.Count > 0)
+            {
+                string pageTocPath = Path.Combine(config.OutputDir, "pages", "toc.yml");
+                GenerateToc(pageTocPath, pageMetaList);
+                result.GeneratedFiles.Add(pageTocPath);
+            }
             if (draftMetaList.Count > 0)
             {
-                string draftTocPath = Path.Combine(config.OutputDir, "drafts", "toc.yml");
+                string draftTocPath = Path.Combine(config.OutputDir, "draft", "toc.yml");
                 GenerateToc(draftTocPath, draftMetaList);
                 result.GeneratedFiles.Add(draftTocPath);
             }
+            if (scheduledMetaList.Count > 0)
+            {
+                string scheduledTocPath = Path.Combine(config.OutputDir, "scheduled", "toc.yml");
+                GenerateToc(scheduledTocPath, scheduledMetaList);
+                result.GeneratedFiles.Add(scheduledTocPath);
+            }
 
-            // Generate Tag Index Pages
+            // Generate Root Table of Contents (toc.yml for top navbar) inside outputDir
+            string rootTocPath = Path.Combine(config.OutputDir, "toc.yml");
+            if (navItems.Count > 0 || pageMetaList.Count > 0)
+            {
+                GenerateRootToc(rootTocPath, navItems, pageMetaList, publishedMetaList);
+            }
+            else
+            {
+                GenerateMainOutputDirToc(rootTocPath, publishedMetaList, pageMetaList, draftMetaList, scheduledMetaList);
+            }
+            if (!result.GeneratedFiles.Contains(rootTocPath)) result.GeneratedFiles.Add(rootTocPath);
+
+            // Generate Tag Index Pages inside outputDir
             string tagsOutputDir = Path.Combine(config.OutputDir, "tags");
-            GenerateTagPages(tagsOutputDir, publishedMetaList, allTags);
+            GenerateTagPages(tagsOutputDir, config.OutputDir, publishedMetaList, allTags);
             result.ProcessedTags = allTags.Count;
+            string mainTagsPath = Path.Combine(config.OutputDir, "tags.md");
+            if (!result.GeneratedFiles.Contains(mainTagsPath)) result.GeneratedFiles.Add(mainTagsPath);
 
-            // Generate Docfx configuration file if omitted/not existing
-            string rootDir = Path.GetDirectoryName(Path.GetFullPath(config.OutputDir)) ?? ".";
+            // Generate Docfx configuration file inside outputDir
             string customTemplatePath = "template/ghostfx";
-            string docfxPath = await DocfxGenerator.GenerateDocfxJsonIfNotExistsAsync(rootDir, config, customTemplatePath);
+            string docfxPath = await DocfxGenerator.GenerateDocfxJsonIfNotExistsAsync(config.OutputDir, config, customTemplatePath);
             if (!result.GeneratedFiles.Contains(docfxPath))
             {
                 result.GeneratedFiles.Add(docfxPath);
             }
 
             // Convert Active Ghost theme to Docfx template override if downloaded/available
-            string themeZipPath = config.ThemeOutputPath;
-            if (File.Exists(themeZipPath))
+            string themePath = config.ThemePath;
+            if (File.Exists(themePath) || Directory.Exists(themePath))
             {
                 onProgress?.Invoke(totalPostsCount + 1, totalPostsCount + 1, "Converting active Ghost theme to DocFx template override");
-                string templateDir = Path.Combine(rootDir, customTemplatePath);
-                ConvertGhostThemeToDocfxTemplate(themeZipPath, templateDir);
+                string templateDir = Path.Combine(config.OutputDir, customTemplatePath);
+                await DocfxGenerator.ConvertGhostThemeToDocfxTemplateAsync(themePath, templateDir, result.HeaderCodeInjection, result.FooterCodeInjection);
             }
 
             stopwatch.Stop();
@@ -290,30 +337,7 @@ public class MigrationEngine
         }
     }
 
-    private static void ConvertGhostThemeToDocfxTemplate(string zipPath, string targetTemplateDir)
-    {
-        try
-        {
-            Directory.CreateDirectory(targetTemplateDir);
-            using var archive = ZipFile.OpenRead(zipPath);
-            foreach (var entry in archive.Entries)
-            {
-                if (entry.FullName.EndsWith(".hbs", StringComparison.OrdinalIgnoreCase) ||
-                    entry.FullName.EndsWith(".css", StringComparison.OrdinalIgnoreCase) ||
-                    entry.FullName.EndsWith(".js", StringComparison.OrdinalIgnoreCase))
-                {
-                    string destinationPath = Path.Combine(targetTemplateDir, entry.Name);
-                    entry.ExtractToFile(destinationPath, overwrite: true);
-                }
-            }
-        }
-        catch
-        {
-            // Ignore theme extraction failure if zip is corrupted
-        }
-    }
-
-    private static void GenerateFrontPage(string indexPath, List<BlogPostMetadata> posts, string siteTitle, string? siteDescription, string outputDir)
+    private static void GenerateFrontPage(string indexPath, List<BlogPostMetadata> posts, string siteTitle, string? siteDescription)
     {
         var sb = new System.Text.StringBuilder();
         sb.AppendLine($"# {siteTitle}");
@@ -333,7 +357,7 @@ public class MigrationEngine
 
         foreach (var post in posts.OrderByDescending(p => p.Date).Take(10))
         {
-            string link = Path.Combine(outputDir, post.FileName).Replace('\\', '/');
+            string link = post.FileName.Replace('\\', '/');
             sb.AppendLine($"- [{post.Title}]({link}) - *{post.Date:yyyy-MM-dd}*");
         }
 
@@ -353,7 +377,45 @@ public class MigrationEngine
         File.WriteAllText(tocPath, sb.ToString());
     }
 
-    private static void GenerateRootToc(string rootTocPath, List<GhostNavItem> navItems, List<BlogPostMetadata> pages, List<BlogPostMetadata> posts, string outputDir)
+    private static void GenerateMainOutputDirToc(
+        string tocPath,
+        List<BlogPostMetadata> published,
+        List<BlogPostMetadata> pages,
+        List<BlogPostMetadata> drafts,
+        List<BlogPostMetadata> scheduled)
+    {
+        var sb = new System.Text.StringBuilder();
+        if (published.Count > 0)
+        {
+            sb.AppendLine("- name: Published");
+            sb.AppendLine("  href: published/toc.yml");
+        }
+        if (pages.Count > 0)
+        {
+            sb.AppendLine("- name: Pages");
+            sb.AppendLine("  href: pages/toc.yml");
+        }
+        if (drafts.Count > 0)
+        {
+            sb.AppendLine("- name: Drafts");
+            sb.AppendLine("  href: draft/toc.yml");
+        }
+        if (scheduled.Count > 0)
+        {
+            sb.AppendLine("- name: Scheduled");
+            sb.AppendLine("  href: scheduled/toc.yml");
+        }
+
+        if (sb.Length == 0)
+        {
+            sb.AppendLine("- name: Published");
+            sb.AppendLine("  href: published/toc.yml");
+        }
+
+        File.WriteAllText(tocPath, sb.ToString());
+    }
+
+    private static void GenerateRootToc(string rootTocPath, List<GhostNavItem> navItems, List<BlogPostMetadata> pages, List<BlogPostMetadata> posts)
     {
         var sb = new System.Text.StringBuilder();
 
@@ -366,7 +428,7 @@ public class MigrationEngine
                 string label = nav.Label;
                 string url = nav.Url?.Trim() ?? "";
 
-                string href = ResolveNavHref(url, pages, posts, outputDir);
+                string href = ResolveNavHref(url, pages, posts);
                 string safeLabel = label.Contains(':') || label.Contains('#') ? $"\"{label.Replace("\"", "\\\"")}\"" : label;
                 sb.AppendLine($"- name: {safeLabel}");
                 sb.AppendLine($"  href: {href}");
@@ -379,7 +441,7 @@ public class MigrationEngine
                 string cleanLabel = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(page.Slug.Replace("-", " ").Replace("_", " "));
                 string safeLabel = cleanLabel.Contains(':') || cleanLabel.Contains('#') ? $"\"{cleanLabel.Replace("\"", "\\\"")}\"" : cleanLabel;
                 sb.AppendLine($"- name: {safeLabel}");
-                sb.AppendLine($"  href: {outputDir}/{page.FileName}");
+                sb.AppendLine($"  href: {page.FileName}");
             }
         }
         else
@@ -387,13 +449,13 @@ public class MigrationEngine
             sb.AppendLine("- name: Home");
             sb.AppendLine("  href: index.md");
             sb.AppendLine("- name: Articles");
-            sb.AppendLine($"  href: {outputDir}/toc.yml");
+            sb.AppendLine("  href: published/toc.yml");
         }
 
         File.WriteAllText(rootTocPath, sb.ToString());
     }
 
-    private static string ResolveNavHref(string url, List<BlogPostMetadata> pages, List<BlogPostMetadata> posts, string outputDir)
+    private static string ResolveNavHref(string url, List<BlogPostMetadata> pages, List<BlogPostMetadata> posts)
     {
         if (string.IsNullOrWhiteSpace(url) || url == "/" || url.Equals("home", StringComparison.OrdinalIgnoreCase))
         {
@@ -419,25 +481,25 @@ public class MigrationEngine
 
         if (slug.Equals("blog", StringComparison.OrdinalIgnoreCase) || slug.Equals("articles", StringComparison.OrdinalIgnoreCase))
         {
-            return $"{outputDir}/toc.yml";
+            return "published/toc.yml";
         }
 
         var matchingPage = pages.FirstOrDefault(p => string.Equals(p.Slug, slug, StringComparison.OrdinalIgnoreCase));
         if (matchingPage != null)
         {
-            return $"{outputDir}/{matchingPage.FileName}";
+            return matchingPage.FileName;
         }
 
         var matchingPost = posts.FirstOrDefault(p => string.Equals(p.Slug, slug, StringComparison.OrdinalIgnoreCase));
         if (matchingPost != null)
         {
-            return $"{outputDir}/{matchingPost.FileName}";
+            return matchingPost.FileName;
         }
 
-        return $"{outputDir}/{slug}.md";
+        return $"published/{slug}.md";
     }
 
-    private static void GenerateTagPages(string tagsDir, List<BlogPostMetadata> posts, List<GhostTag> allTags)
+    private static void GenerateTagPages(string tagsDir, string outputDir, List<BlogPostMetadata> posts, List<GhostTag> allTags)
     {
         Directory.CreateDirectory(tagsDir);
 
@@ -484,12 +546,8 @@ public class MigrationEngine
         }
         File.WriteAllText(tagsTocPath, tocSb.ToString());
 
-        // Generate root tags.md index page with .md relative links
-        string fullTagsDir = Path.GetFullPath(tagsDir);
-        string fullOutputDir = Path.GetDirectoryName(fullTagsDir) ?? tagsDir;
-        string outputDirName = Path.GetFileName(fullOutputDir);
-        string rootDir = Path.GetDirectoryName(fullOutputDir) ?? ".";
-        string mainTagsPath = Path.Combine(rootDir, "tags.md");
+        // Generate root tags.md index page in outputDir with .md relative links
+        string mainTagsPath = Path.Combine(outputDir, "tags.md");
 
         var mainTagsSb = new System.Text.StringBuilder();
         mainTagsSb.AppendLine("---");
@@ -505,7 +563,7 @@ public class MigrationEngine
             var tagPosts = postsByTag[tag.Name].ToList();
             if (tagPosts.Count == 0) continue;
 
-            string relPath = $"{outputDirName}/tags/{tag.Slug}.md";
+            string relPath = $"tags/{tag.Slug}.md";
             mainTagsSb.AppendLine($"- [{tag.Name} ({tagPosts.Count})]({relPath})");
         }
 
