@@ -19,8 +19,8 @@ Welcome to the **GhostFx** repository! This document provides operational guidel
   - `MarkdownConverter.cs`: HTML-to-Markdown conversion powered by `ReverseMarkdown` and YAML front-matter generation via `YamlDotNet`.
   - `DocfxGenerator.cs`: Generates `docfx.json`, `index.md`, `toc.yml`, and tag indices.
   - `GhostFxConfig.cs`: Configuration options schema (`ghostfx.json`).
-- **`GhostFx.Cli/`** (`net10.0`): Command-line application using `System.CommandLine`. Packable as a global .NET tool (`ghostfx`).
-- **`GhostFx.Tests/`** (`net10.0`): xUnit unit test suite for configuration, parsing, markdown conversion, and migration workflows.
+- **`GhostFx.Cli/`** (`net10.0`): Command-line application using `System.CommandLine`. Supports quiet mode (`--quiet`, `-q`), piped stdin/stdout/stderr workflows, non-interactive execution, and cross-platform exit code handling. Packable as a global .NET tool (`ghostfx`).
+- **`GhostFx.Tests/`** (`net10.0`): xUnit unit test suite for configuration, parsing, markdown conversion, media path normalization, quiet mode, and migration workflows.
 
 ---
 
@@ -53,8 +53,13 @@ dotnet run --project GhostFx.Cli/GhostFx.Cli.csproj -- --help
    - Use `System.Text.Json` for JSON processing and `YamlDotNet` for YAML front-matter formatting.
 4. **Testing**:
    - Unit tests are located in `GhostFx.Tests`.
-   - Maintain unit test coverage for any changes to `MarkdownConverter`, `GhostJsonParser`, or `DocfxGenerator`.
+   - Maintain unit test coverage for any changes to `MarkdownConverter`, `GhostJsonParser`, `DocfxGenerator`, or `MediaDownloader`.
    - Test methods must be attributed with `[Fact]` or `[Theory]` and include `using Xunit;`.
+5. **CLI & I/O Standards**:
+   - Support `--quiet` / `-q` mode and automatic stdout redirection detection (`Console.IsOutputRedirected`).
+   - Support piped standard input (`Console.In` / `Console.IsInputRedirected`) for JSON exports or configurations.
+   - Route warnings and errors to standard error (`Console.Error`).
+   - Use cross-platform exit codes (`0` for success, `1` for error) across Windows, Linux, and macOS.
 
 ---
 
@@ -70,6 +75,34 @@ dotnet run --project GhostFx.Cli/GhostFx.Cli.csproj -- --help
   "siteTitle": "My Migrated Ghost Blog",
   "includeDrafts": false,
   "downloadTheme": false,
-  "themePath": "ghostfx.zip"
+  "themePath": "ghostfx.zip",
+  "quiet": false
 }
+```
+
+---
+
+## 5. Output Directory Structure
+
+Generated static site source files are organized under `outputDir`:
+
+```
+<outputDir>/
+├── docfx.json
+├── index.md
+├── tags.md
+├── toc.yml
+├── published/         # Published posts
+│   └── post-slug.md
+├── pages/             # Ghost pages
+│   └── page-slug.md
+├── draft/             # Draft posts
+│   └── draft-slug.md
+├── scheduled/         # Scheduled posts
+│   └── post-slug.md
+├── content/
+│   └── images/        # Backwards-compatible Ghost media & brand assets
+│       └── 2024/05/sample.jpg
+└── template/
+    └── ghostfx/       # Converted DocFX modern theme overrides
 ```

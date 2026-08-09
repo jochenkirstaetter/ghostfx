@@ -18,6 +18,7 @@ public class ConfigTests
         Assert.Equal("My Static Blog", config.SiteTitle);
         Assert.False(config.IncludeDrafts);
         Assert.False(config.DownloadTheme);
+        Assert.False(config.Quiet);
     }
 
     [Fact]

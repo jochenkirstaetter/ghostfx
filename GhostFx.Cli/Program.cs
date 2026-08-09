@@ -52,6 +52,10 @@ public class Program
             name: "--theme-path",
             description: "Path to a theme zip archive or extracted theme folder.");
 
+        var quietOption = new Option<bool>(
+            aliases: ["--quiet", "-q"],
+            description: "Operate in quiet mode without printing banners or progress animations.");
+
         var yesOption = new Option<bool>(
             aliases: ["--yes", "-y"],
             description: "Automatically confirm and proceed with migration without interactive prompt.");
@@ -68,6 +72,7 @@ public class Program
             includeDraftsOption,
             downloadThemeOption,
             themePathOption,
+            quietOption,
             yesOption
         };
 
@@ -84,211 +89,263 @@ public class Program
             var includeDrafts = parseResult.GetValueForOption(includeDraftsOption);
             var downloadTheme = parseResult.GetValueForOption(downloadThemeOption);
             var themePath = parseResult.GetValueForOption(themePathOption);
+            var quietCli = parseResult.GetValueForOption(quietOption);
             var autoConfirm = parseResult.GetValueForOption(yesOption);
 
-            if (configFile == null)
+            string? tempPipedFile = null;
+
+            try
             {
-                var defaultFile = new FileInfo("ghostfx.json");
-                if (defaultFile.Exists)
+                if (configFile == null)
                 {
-                    configFile = defaultFile;
-                }
-            }
-
-            var config = new GhostFxConfig();
-
-            if (configFile != null && configFile.Exists)
-            {
-                Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine($"[INFO] Loading configuration from: {configFile.FullName}");
-                Console.ResetColor();
-                try
-                {
-                    string jsonString = await File.ReadAllTextAsync(configFile.FullName);
-                    var parsedConfig = JsonSerializer.Deserialize<GhostFxConfig>(jsonString, new JsonSerializerOptions
+                    var defaultFile = new FileInfo("ghostfx.json");
+                    if (defaultFile.Exists)
                     {
-                        PropertyNameCaseInsensitive = true
-                    });
-
-                    if (parsedConfig != null)
-                    {
-                        config = parsedConfig;
+                        configFile = defaultFile;
                     }
                 }
-                catch (Exception ex)
+
+                var config = new GhostFxConfig();
+
+                if (configFile != null && configFile.Exists)
                 {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"[ERROR] Reading config file: {ex.Message}");
+                    try
+                    {
+                        string jsonString = await File.ReadAllTextAsync(configFile.FullName);
+                        var parsedConfig = JsonSerializer.Deserialize<GhostFxConfig>(jsonString, new JsonSerializerOptions
+                        {
+                            PropertyNameCaseInsensitive = true
+                        });
+
+                        if (parsedConfig != null)
+                        {
+                            config = parsedConfig;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.Error.WriteLine($"[ERROR] Reading config file: {ex.Message}");
+                        Environment.ExitCode = 1;
+                        return;
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(url)) config.GhostUrl = url;
+                if (!string.IsNullOrWhiteSpace(apiKey)) config.AdminApiKey = apiKey;
+                if (!string.IsNullOrWhiteSpace(input)) config.GhostExportJson = input;
+                if (!string.IsNullOrWhiteSpace(output)) config.OutputDir = output;
+                if (!string.IsNullOrWhiteSpace(indexFile)) config.IndexFile = indexFile;
+                if (!string.IsNullOrWhiteSpace(siteTitle)) config.SiteTitle = siteTitle;
+                if (includeDrafts.HasValue) config.IncludeDrafts = includeDrafts.Value;
+                if (downloadTheme.HasValue) config.DownloadTheme = downloadTheme.Value;
+                if (!string.IsNullOrWhiteSpace(themePath)) config.ThemePath = themePath;
+                if (quietCli) config.Quiet = true;
+
+                bool isQuiet = config.Quiet || Console.IsOutputRedirected;
+                if (Console.IsInputRedirected)
+                {
+                    autoConfirm = true;
+                    string pipedInput = await Console.In.ReadToEndAsync();
+                    if (!string.IsNullOrWhiteSpace(pipedInput))
+                    {
+                        try
+                        {
+                            var parsedConfig = JsonSerializer.Deserialize<GhostFxConfig>(pipedInput, new JsonSerializerOptions
+                            {
+                                PropertyNameCaseInsensitive = true
+                            });
+
+                            if (parsedConfig != null && (!string.IsNullOrWhiteSpace(parsedConfig.GhostUrl) || !string.IsNullOrWhiteSpace(parsedConfig.GhostExportJson)))
+                            {
+                                if (!string.IsNullOrWhiteSpace(parsedConfig.GhostUrl)) config.GhostUrl = parsedConfig.GhostUrl;
+                                if (!string.IsNullOrWhiteSpace(parsedConfig.AdminApiKey)) config.AdminApiKey = parsedConfig.AdminApiKey;
+                                if (!string.IsNullOrWhiteSpace(parsedConfig.GhostExportJson)) config.GhostExportJson = parsedConfig.GhostExportJson;
+                                if (!string.IsNullOrWhiteSpace(parsedConfig.OutputDir)) config.OutputDir = parsedConfig.OutputDir;
+                                if (!string.IsNullOrWhiteSpace(parsedConfig.IndexFile)) config.IndexFile = parsedConfig.IndexFile;
+                                if (!string.IsNullOrWhiteSpace(parsedConfig.SiteTitle)) config.SiteTitle = parsedConfig.SiteTitle;
+                                config.IncludeDrafts = parsedConfig.IncludeDrafts;
+                                config.DownloadTheme = parsedConfig.DownloadTheme;
+                                if (!string.IsNullOrWhiteSpace(parsedConfig.ThemePath)) config.ThemePath = parsedConfig.ThemePath;
+                                if (parsedConfig.Quiet) config.Quiet = true;
+                            }
+                            else
+                            {
+                                string tempPath = Path.Combine(Path.GetTempPath(), $"ghostfx_piped_{Guid.NewGuid():N}.json");
+                                await File.WriteAllTextAsync(tempPath, pipedInput);
+                                config.GhostExportJson = tempPath;
+                                tempPipedFile = tempPath;
+                            }
+                        }
+                        catch
+                        {
+                            string tempPath = Path.Combine(Path.GetTempPath(), $"ghostfx_piped_{Guid.NewGuid():N}.json");
+                            await File.WriteAllTextAsync(tempPath, pipedInput);
+                            config.GhostExportJson = tempPath;
+                            tempPipedFile = tempPath;
+                        }
+                    }
+                }
+
+                if (configFile != null && configFile.Exists && !isQuiet)
+                {
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine($"[INFO] Loading configuration from: {configFile.FullName}");
                     Console.ResetColor();
+                }
+
+                bool hasApiCreds = !string.IsNullOrWhiteSpace(config.GhostUrl) && !string.IsNullOrWhiteSpace(config.AdminApiKey);
+                bool hasInputFile = !string.IsNullOrWhiteSpace(config.GhostExportJson) && File.Exists(config.GhostExportJson);
+
+                if (!hasApiCreds && !hasInputFile)
+                {
+                    Console.Error.WriteLine("==========================================================================");
+                    Console.Error.WriteLine(" Welcome to GhostFx - Ghost to DocFx Migration Suite");
+                    Console.Error.WriteLine("==========================================================================");
+                    Console.Error.WriteLine("Missing Credentials or Input File: Your Ghost details could not be resolved.");
+                    Console.Error.WriteLine("To use GhostFx, please do one of the following:");
+                    Console.Error.WriteLine("  1. Create a 'ghostfx.json' configuration file in the current directory.");
+                    Console.Error.WriteLine("  2. Pass a custom configuration file path using: --config <path>");
+                    Console.Error.WriteLine("  3. Specify live Ghost details: --url <url> --api-key <key>");
+                    Console.Error.WriteLine("  4. Specify a local JSON export file: --input <path-to-ghost-export.json>");
+                    Console.Error.WriteLine("  5. Pipe a JSON export file into stdin.");
+                    Environment.ExitCode = 1;
                     return;
                 }
-            }
 
-            if (!string.IsNullOrWhiteSpace(url)) config.GhostUrl = url;
-            if (!string.IsNullOrWhiteSpace(apiKey)) config.AdminApiKey = apiKey;
-            if (!string.IsNullOrWhiteSpace(input)) config.GhostExportJson = input;
-            if (!string.IsNullOrWhiteSpace(output)) config.OutputDir = output;
-            if (!string.IsNullOrWhiteSpace(indexFile)) config.IndexFile = indexFile;
-            if (!string.IsNullOrWhiteSpace(siteTitle)) config.SiteTitle = siteTitle;
-            if (includeDrafts.HasValue) config.IncludeDrafts = includeDrafts.Value;
-            if (downloadTheme.HasValue) config.DownloadTheme = downloadTheme.Value;
-            if (!string.IsNullOrWhiteSpace(themePath)) config.ThemePath = themePath;
-
-            bool hasApiCreds = !string.IsNullOrWhiteSpace(config.GhostUrl) && !string.IsNullOrWhiteSpace(config.AdminApiKey);
-            bool hasInputFile = !string.IsNullOrWhiteSpace(config.GhostExportJson) && File.Exists(config.GhostExportJson);
-
-            if (!hasApiCreds && !hasInputFile)
-            {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("==========================================================================");
-                Console.WriteLine(" Welcome to GhostFx - Ghost to DocFx Migration Suite");
-                Console.WriteLine("==========================================================================");
-                Console.WriteLine("Missing Credentials or Input File: Your Ghost details could not be resolved.");
-                Console.WriteLine("To use GhostFx, please do one of the following:");
-                Console.WriteLine("  1. Create a 'ghostfx.json' configuration file in the current directory.");
-                Console.WriteLine("  2. Pass a custom configuration file path using: --config <path>");
-                Console.WriteLine("  3. Specify live Ghost details: --url <url> --api-key <key>");
-                Console.WriteLine("  4. Specify a local JSON export file: --input <path-to-ghost-export.json>");
-                Console.ResetColor();
-                Console.WriteLine();
-                return;
-            }
-
-            // Display Migration Plan Overview
-            Console.WriteLine();
-            Console.ForegroundColor = ConsoleColor.DarkCyan;
-            Console.WriteLine("==========================================================================");
-            Console.WriteLine($" GhostFx Migration Plan: {config.SiteTitle}");
-            Console.WriteLine("==========================================================================");
-            Console.ResetColor();
-
-            if (hasApiCreds)
-            {
-                Console.WriteLine($"  [Source]          Live Ghost API ({config.GhostUrl})");
-            }
-            else
-            {
-                Console.WriteLine($"  [Source]          Local JSON Export ({config.GhostExportJson})");
-            }
-
-            Console.WriteLine($"  [Site Title]      {config.SiteTitle}");
-            Console.WriteLine($"  [Output Directory]{config.OutputDir}/");
-            Console.WriteLine($"  [Index File]      {config.IndexFile}");
-            Console.WriteLine($"  [Include Drafts]  {config.IncludeDrafts}");
-            Console.WriteLine($"  [Download Theme]  {config.DownloadTheme}");
-            Console.ForegroundColor = ConsoleColor.DarkCyan;
-            Console.WriteLine("==========================================================================");
-            Console.ResetColor();
-            Console.WriteLine();
-
-            // Check if theme zip already exists on disk
-            if (config.DownloadTheme && File.Exists(config.ThemeOutputPath))
-            {
-                Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine($"[INFO] Found existing theme zip archive at: {config.ThemeOutputPath}");
-                Console.ResetColor();
-            }
-
-            // Interactive Confirmation Prompt
-            if (!autoConfirm && !Console.IsInputRedirected)
-            {
-                Console.Write("Do you want to proceed with this migration? [Y/n]: ");
-                string? response = Console.ReadLine()?.Trim();
-                if (!string.IsNullOrEmpty(response) && (response.StartsWith("n", StringComparison.OrdinalIgnoreCase) || response.StartsWith("no", StringComparison.OrdinalIgnoreCase)))
+                if (!isQuiet)
                 {
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine("[INFO] Migration cancelled by user.");
-                    Console.ResetColor();
-                    return;
-                }
-            }
-
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine($"[INFO] Starting migration engine for: {config.SiteTitle}...");
-            Console.ResetColor();
-
-            var engine = new MigrationEngine();
-            var result = await engine.ExecuteAsync(
-                config,
-                onProgress: (current, total, item) =>
-                {
-                    AsciiProgressBar.Draw(current, total, item);
-                },
-                onManualThemeRequested: async (targetPath, version) =>
-                {
+                    // Display Migration Plan Overview
                     Console.WriteLine();
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    string verInfo = string.IsNullOrWhiteSpace(version) ? "" : $" ({version})";
-                    Console.WriteLine($"[WARN] Automated theme download via Ghost API is unsupported by your Ghost host{verInfo}.");
-                    Console.WriteLine($"      You can manually export/download your theme zip from Ghost Admin:");
+                    Console.ForegroundColor = ConsoleColor.DarkCyan;
+                    Console.WriteLine("==========================================================================");
+                    Console.WriteLine($" GhostFx Migration Plan: {config.SiteTitle}");
+                    Console.WriteLine("==========================================================================");
+                    Console.ResetColor();
 
-                    if (string.Equals(version, "v3", StringComparison.OrdinalIgnoreCase))
+                    if (hasApiCreds)
                     {
-                        Console.WriteLine($"      Settings > Design > Installed Themes > Download");
-                    }
-                    else if (string.Equals(version, "v4", StringComparison.OrdinalIgnoreCase) ||
-                             string.Equals(version, "v5", StringComparison.OrdinalIgnoreCase) ||
-                             string.Equals(version, "v6", StringComparison.OrdinalIgnoreCase))
-                    {
-                        Console.WriteLine($"      Settings > Theme > Change theme > Advanced > Export theme");
+                        Console.WriteLine($"  [Source]          Live Ghost API ({config.GhostUrl})");
                     }
                     else
                     {
-                        Console.WriteLine($"      - Ghost v3:       Settings > Design > Installed Themes > Download");
-                        Console.WriteLine($"      - Ghost v4/v5/v6: Settings > Theme > Change theme > Advanced > Export theme");
+                        Console.WriteLine($"  [Source]          Local JSON Export ({config.GhostExportJson})");
                     }
 
-                    Console.WriteLine($"      and save the zip file to: {targetPath}");
+                    Console.WriteLine($"  [Site Title]      {config.SiteTitle}");
+                    Console.WriteLine($"  [Output Directory]{config.OutputDir}/");
+                    Console.WriteLine($"  [Index File]      {config.IndexFile}");
+                    Console.WriteLine($"  [Include Drafts]  {config.IncludeDrafts}");
+                    Console.WriteLine($"  [Download Theme]  {config.DownloadTheme}");
+                    Console.ForegroundColor = ConsoleColor.DarkCyan;
+                    Console.WriteLine("==========================================================================");
                     Console.ResetColor();
+                    Console.WriteLine();
 
-                    if (Console.IsInputRedirected || autoConfirm)
+                    // Check if theme zip already exists on disk
+                    if (config.DownloadTheme && (File.Exists(config.ThemePath) || Directory.Exists(config.ThemePath)))
                     {
-                        return false;
+                        Console.ForegroundColor = ConsoleColor.Cyan;
+                        Console.WriteLine($"[INFO] Found existing theme at: {config.ThemePath}");
+                        Console.ResetColor();
                     }
 
-                    Console.Write($"\nHave you placed the exported theme zip file at '{targetPath}'? [y/N]: ");
-                    string? input = Console.ReadLine()?.Trim();
-                    bool confirmed = !string.IsNullOrEmpty(input) && (input.Equals("y", StringComparison.OrdinalIgnoreCase) || input.Equals("yes", StringComparison.OrdinalIgnoreCase));
+                    // Interactive Confirmation Prompt
+                    if (!autoConfirm && !Console.IsInputRedirected)
+                    {
+                        Console.Write("Do you want to proceed with this migration? [Y/n]: ");
+                        string? response = Console.ReadLine()?.Trim();
+                        if (!string.IsNullOrEmpty(response) && (response.StartsWith("n", StringComparison.OrdinalIgnoreCase) || response.StartsWith("no", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.WriteLine("[INFO] Migration cancelled by user.");
+                            Console.ResetColor();
+                            return;
+                        }
+                    }
 
-                    if (confirmed && File.Exists(targetPath))
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine($"[INFO] Starting migration engine for: {config.SiteTitle}...");
+                    Console.ResetColor();
+                }
+
+                var engine = new MigrationEngine();
+                var result = await engine.ExecuteAsync(
+                    config,
+                    onProgress: isQuiet ? null : (current, total, item) =>
+                    {
+                        AsciiProgressBar.Draw(current, total, item);
+                    },
+                    onManualThemeRequested: async (targetPath, version) =>
+                    {
+                        if (!isQuiet)
+                        {
+                            Console.WriteLine();
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            string verInfo = string.IsNullOrWhiteSpace(version) ? "" : $" ({version})";
+                            Console.WriteLine($"[WARN] Automated theme download via Ghost API is unsupported by your Ghost host{verInfo}.");
+                            Console.WriteLine($"      You can manually export/download your theme zip from Ghost Admin and save it to: {targetPath}");
+                            Console.ResetColor();
+                        }
+
+                        if (Console.IsInputRedirected || autoConfirm || isQuiet)
+                        {
+                            return false;
+                        }
+
+                        Console.Write($"\nHave you placed the exported theme zip file at '{targetPath}'? [y/N]: ");
+                        string? inputStr = Console.ReadLine()?.Trim();
+                        bool confirmed = !string.IsNullOrEmpty(inputStr) && (inputStr.Equals("y", StringComparison.OrdinalIgnoreCase) || inputStr.Equals("yes", StringComparison.OrdinalIgnoreCase));
+
+                        if (confirmed && (File.Exists(targetPath) || Directory.Exists(targetPath)))
+                        {
+                            Console.ForegroundColor = ConsoleColor.Green;
+                            Console.WriteLine($"[INFO] Custom theme detected at '{targetPath}'. Continuing migration...");
+                            Console.ResetColor();
+                            return true;
+                        }
+
+                        return false;
+                    });
+
+                if (!string.IsNullOrEmpty(result.ThemeDownloadWarning) && !isQuiet)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"\n[WARN] {result.ThemeDownloadWarning}");
+                    Console.ResetColor();
+                }
+
+                if (result.Success)
+                {
+                    Environment.ExitCode = 0;
+                    if (!isQuiet)
                     {
                         Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine($"[INFO] Theme zip detected at '{targetPath}'. Continuing migration with custom theme...");
+                        Console.WriteLine($"\n[SUCCESS] {result.Message}");
                         Console.ResetColor();
-                        return true;
+                        Console.WriteLine($"  Processed Posts:     {result.ProcessedPosts}");
+                        Console.WriteLine($"  Processed Pages:     {result.ProcessedPages}");
+                        Console.WriteLine($"  Processed Drafts:    {result.ProcessedDrafts}");
+                        if (result.ProcessedScheduled > 0)
+                        {
+                            Console.WriteLine($"  Processed Scheduled: {result.ProcessedScheduled}");
+                        }
+                        Console.WriteLine($"  Processed Tags:      {result.ProcessedTags}");
+                        Console.WriteLine($"  Generated Files:     {result.GeneratedFiles.Count}");
+                        Console.WriteLine($"  Duration:            {result.ElapsedDuration.TotalSeconds:F2}s");
                     }
-
-                    return false;
-                });
-
-            if (!string.IsNullOrEmpty(result.ThemeDownloadWarning))
-            {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"\n[WARN] {result.ThemeDownloadWarning}");
-                Console.ResetColor();
-            }
-
-            if (result.Success)
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"\n[SUCCESS] {result.Message}");
-                Console.ResetColor();
-                Console.WriteLine($"  Processed Posts:     {result.ProcessedPosts}");
-                Console.WriteLine($"  Processed Pages:     {result.ProcessedPages}");
-                Console.WriteLine($"  Processed Drafts:    {result.ProcessedDrafts}");
-                if (result.ProcessedScheduled > 0)
-                {
-                    Console.WriteLine($"  Processed Scheduled: {result.ProcessedScheduled}");
                 }
-                Console.WriteLine($"  Processed Tags:      {result.ProcessedTags}");
-                Console.WriteLine($"  Generated Files:     {result.GeneratedFiles.Count}");
-                Console.WriteLine($"  Duration:            {result.ElapsedDuration.TotalSeconds:F2}s");
+                else
+                {
+                    Environment.ExitCode = 1;
+                    Console.Error.WriteLine($"[ERROR] {result.Message}");
+                }
             }
-            else
+            finally
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"\n[ERROR] {result.Message}");
-                Console.ResetColor();
+                if (!string.IsNullOrEmpty(tempPipedFile) && File.Exists(tempPipedFile))
+                {
+                    try { File.Delete(tempPipedFile); } catch { }
+                }
             }
         });
 
