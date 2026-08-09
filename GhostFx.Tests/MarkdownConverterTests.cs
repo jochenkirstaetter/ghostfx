@@ -58,4 +58,24 @@ public class MarkdownConverterTests
         Assert.Contains("uid: hello-world", fullDoc);
         Assert.Contains("## Welcome to GhostFx", fullDoc);
     }
+
+    [Fact]
+    public void ConvertHtmlToMarkdown_EnsuresFigureHasCorrectSpacing()
+    {
+        var converter = new MarkdownConverter();
+        string html = "Some text<figure class=\"kg-card\"><img src=\"test.jpg\"><figcaption>Caption</figcaption></figure>Some trailing text";
+        string markdown = converter.ConvertHtmlToMarkdown(html);
+
+        Assert.Equal("Some text\n\n<figure class=\"kg-card\"><img src=\"test.jpg\"><figcaption>Caption</figcaption></figure>\n\nSome trailing text", markdown);
+    }
+
+    [Fact]
+    public void ConvertHtmlToMarkdown_ConvertsBrToDoubleSpaceNewline()
+    {
+        var converter = new MarkdownConverter();
+        string html = "Line 1<br/>Line 2<br />Line 3";
+        string markdown = converter.ConvertHtmlToMarkdown(html);
+
+        Assert.Equal("Line 1  \nLine 2  \nLine 3", markdown);
+    }
 }

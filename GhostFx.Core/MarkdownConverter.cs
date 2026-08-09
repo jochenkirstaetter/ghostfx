@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using ReverseMarkdown;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
+using System.Text.RegularExpressions;
 
 namespace GhostFx.Core;
 
@@ -28,7 +29,14 @@ public class MarkdownConverter
         if (string.IsNullOrWhiteSpace(html))
             return string.Empty;
 
-        return _htmlConverter.Convert(html).Trim();
+        string processedHtml = Regex.Replace(html, @"<br\s*/?>", " GHOSTFXBRPLACEHOLDER ", RegexOptions.IgnoreCase);
+
+        string markdown = _htmlConverter.Convert(processedHtml);
+        markdown = Regex.Replace(markdown, @"\s*<figure", "\n\n<figure");
+        markdown = Regex.Replace(markdown, @"</figure>\s*", "</figure>\n\n");
+        markdown = Regex.Replace(markdown, @"\s*GHOSTFXBRPLACEHOLDER\s*", "  \n");
+
+        return markdown.Trim();
     }
 
     public string GenerateYamlFrontmatter(FrontMatter frontMatter)
