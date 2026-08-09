@@ -244,4 +244,45 @@ public class DocfxGeneratorTests : IDisposable
         Assert.Contains("\"modern\"", jsonContent);
         Assert.DoesNotContain("\"ghostfx\"", jsonContent);
     }
+
+    [Fact]
+    public async Task EnsureDocfxTemplateOverridesExistAsync_ScaffoldsMasterTemplate()
+    {
+        string targetTemplateDir = Path.Combine(_tempDirectory, "scaffold_master");
+        Directory.CreateDirectory(targetTemplateDir);
+
+        await DocfxGenerator.EnsureDocfxTemplateOverridesExistAsync(targetTemplateDir, "ghostfx");
+
+        string masterPath = Path.Combine(targetTemplateDir, "ghostfx", "layout", "_master.tmpl");
+        Assert.True(File.Exists(masterPath));
+
+        string content = await File.ReadAllTextAsync(masterPath);
+        Assert.Contains("{{!Licensed to the .NET Foundation", content);
+        Assert.Contains("{{#_googleAnalyticsTagId}}", content);
+    }
+
+    [Fact]
+    public async Task ConvertGhostThemeToDocfxTemplateAsync_PreservesCustomMasterTemplate()
+    {
+        string themeDir = Path.Combine(_tempDirectory, "custom_theme_src");
+        Directory.CreateDirectory(themeDir);
+        await File.WriteAllTextAsync(Path.Combine(themeDir, "default.hbs"), "Theme Default Layout");
+
+        string targetTemplateDir = Path.Combine(_tempDirectory, "custom_theme_dest");
+        Directory.CreateDirectory(targetTemplateDir);
+
+        // Pre-create a customized master layout
+        string layoutDir = Path.Combine(targetTemplateDir, "layout");
+        Directory.CreateDirectory(layoutDir);
+        string masterPath = Path.Combine(layoutDir, "_master.tmpl");
+        await File.WriteAllTextAsync(masterPath, "My Custom Master Template Layout Content");
+
+        // Run conversion
+        await DocfxGenerator.ConvertGhostThemeToDocfxTemplateAsync(themeDir, targetTemplateDir);
+
+        // Check that _master.tmpl is preserved and NOT overwritten by the raw theme's default.hbs conversion
+        Assert.True(File.Exists(masterPath));
+        string content = await File.ReadAllTextAsync(masterPath);
+        Assert.Equal("My Custom Master Template Layout Content", content);
+    }
 }
