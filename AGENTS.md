@@ -64,12 +64,12 @@ dotnet run --project GhostFx.Cli/GhostFx.Cli.csproj -- --help
 {
   "ghostUrl": "https://yourblog.ghost.io",
   "adminApiKey": "YOUR_ADMIN_API_KEY_ID:YOUR_ADMIN_API_KEY_SECRET",
-  "inputJsonPath": "sample-ghost-export.json",
+  "ghostExportJson": "sample-ghost-export.json",
   "outputDir": "articles",
   "indexFile": "index.md",
   "siteTitle": "My Migrated Ghost Blog",
   "includeDrafts": false,
   "downloadTheme": false,
-  "themeOutputPath": "ghostfx.zip"
+  "themePath": "ghostfx.zip"
 }
 ```

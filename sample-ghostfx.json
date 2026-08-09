@@ -1,11 +1,11 @@
 {
   "ghostUrl": "https://demo.ghost.io",
   "adminApiKey": "640a1b2c3d4e5f6a7b8c9d0e:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-  "inputJsonPath": "sample-ghost-export.json",
+  "ghostExportJson": "sample-ghost-export.json",
   "outputDir": "articles",
   "indexFile": "index.md",
   "siteTitle": "GhostFx Sample Blog",
   "includeDrafts": true,
   "downloadTheme": false,
-  "themeOutputPath": "ghostfx.zip"
+  "themePath": "ghostfx.zip"
 }
