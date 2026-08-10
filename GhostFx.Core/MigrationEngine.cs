@@ -22,7 +22,8 @@ public class MigrationEngine
         GhostFxConfig config,
         string? jsonContentOverride = null,
         Action<int, int, string>? onProgress = null,
-        Func<string, string, Task<bool>>? onManualThemeRequested = null)
+        Func<string, string, Task<bool>>? onManualThemeRequested = null,
+        Func<string, Task<bool>>? onConfirmTemplatePurge = null)
     {
         var result = new MigrationResult();
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
@@ -374,7 +375,7 @@ public class MigrationEngine
             {
                 onProgress?.Invoke(totalPostsCount + 1, totalPostsCount + 1, "Converting active Ghost theme to DocFx template override");
                 string templateDir = Path.Combine(config.OutputDir, customTemplatePath);
-                await DocfxGenerator.ConvertGhostThemeToDocfxTemplateAsync(themePath, templateDir, result.HeaderCodeInjection, result.FooterCodeInjection);
+                await DocfxGenerator.ConvertGhostThemeToDocfxTemplateAsync(themePath, templateDir, result.HeaderCodeInjection, result.FooterCodeInjection, onConfirmTemplatePurge);
             }
 
             stopwatch.Stop();

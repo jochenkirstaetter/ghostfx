@@ -11,7 +11,7 @@ namespace GhostFx.Core;
 public static class DocfxGenerator
 {
     private const string DefaultMasterTemplate = """
-{{!Licensed to the .NET Foundation under one or more agreements. The .NET Foundation licenses this file to you under the MIT license.}}
+{{!GhostFx - Ghost to DocFx template conversion engine. This content has been auto-generated and changes might be over-written.}}
 {{!include(/^public/.*/)}}
 {{!include(favicon.ico)}}
 {{!include(logo.svg)}}
@@ -319,7 +319,12 @@ public static class DocfxGenerator
         return docfxPath;
     }
 
-    public static async Task ConvertGhostThemeToDocfxTemplateAsync(string themePath, string targetTemplateDir, string headerInjection = "", string footerInjection = "")
+    public static async Task ConvertGhostThemeToDocfxTemplateAsync(
+        string themePath, 
+        string targetTemplateDir, 
+        string headerInjection = "", 
+        string footerInjection = "",
+        Func<string, Task<bool>>? onConfirmTemplatePurge = null)
     {
         if (string.IsNullOrWhiteSpace(themePath))
             return;
@@ -330,22 +335,51 @@ public static class DocfxGenerator
         if (!isZip && !isDirectory)
             return;
 
-        // DocFx modern template uses public/ directory (main.css and main.js) for layout overrides and styling
+        // If template directory exists, confirm purge
+        if (Directory.Exists(targetTemplateDir))
+        {
+            if (onConfirmTemplatePurge != null)
+            {
+                bool confirmed = await onConfirmTemplatePurge(targetTemplateDir);
+                if (!confirmed)
+                {
+                    return; // Skip theme migration/purge
+                }
+            }
+
+            PurgeDirectory(targetTemplateDir);
+        }
+
+        Directory.CreateDirectory(targetTemplateDir);
+
+        // DocFx modern template uses public/ directory for layout overrides and styling
         string publicDir = Path.Combine(targetTemplateDir, "public");
         Directory.CreateDirectory(publicDir);
 
-        // Remove legacy target layout and templates, but preserve _master.tmpl and directory structure
-        string targetLayoutsDir = Path.Combine(targetTemplateDir, "layout");
-        if (Directory.Exists(targetLayoutsDir))
-        {
-            foreach (var file in Directory.GetFiles(targetLayoutsDir))
-            {
-                if (Path.GetFileName(file).Equals("_master.tmpl", StringComparison.OrdinalIgnoreCase))
-                    continue;
-                try { File.Delete(file); } catch { }
-            }
-        }
+        await ConvertGhostThemeFolderAsync(themePath, targetTemplateDir, headerInjection, footerInjection);
+    }
 
+    private static void CopyDirectory(string source, string target)
+    {
+        Directory.CreateDirectory(target);
+        foreach (var file in Directory.GetFiles(source))
+        {
+            string targetFile = Path.Combine(target, Path.GetFileName(file));
+            File.Copy(file, targetFile, true);
+        }
+        foreach (var subDir in Directory.GetDirectories(source))
+        {
+            string targetSubDir = Path.Combine(target, Path.GetFileName(subDir));
+            CopyDirectory(subDir, targetSubDir);
+        }
+    }
+
+    private static async Task ConvertGhostThemeFolderAsync(string themePath, string targetTemplateDir, string headerInjection = "", string footerInjection = "")
+    {
+        string publicDir = Path.Combine(targetTemplateDir, "public");
+        Directory.CreateDirectory(publicDir);
+
+        bool isZip = File.Exists(themePath) && (themePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) || !Directory.Exists(themePath));
         string sourceDir;
         string? tempExtractPath = null;
 
@@ -362,89 +396,72 @@ public static class DocfxGenerator
 
         try
         {
-            // 1. Process CSS assets and compile into public/main.css for DocFx modern template
-            string mainCssPath = Path.Combine(publicDir, "main.css");
-            using (var cssWriter = new StreamWriter(mainCssPath, append: false))
+            // 1. Recursive copy of the assets directory if it exists
+            string assetsSourceDir = Path.Combine(sourceDir, "assets");
+            if (Directory.Exists(assetsSourceDir))
             {
-                await cssWriter.WriteLineAsync("/* GhostFx Auto-Converted Ghost Theme CSS Override for DocFx Modern Template */");
-
-                foreach (var cssFile in Directory.GetFiles(sourceDir, "*.css", SearchOption.AllDirectories))
-                {
-                    string cssContent = await File.ReadAllTextAsync(cssFile);
-                    await cssWriter.WriteLineAsync($"/* Source: {Path.GetFileName(cssFile)} */");
-                    await cssWriter.WriteLineAsync(cssContent);
-                }
+                CopyDirectory(assetsSourceDir, publicDir);
             }
 
-            // 2. Process JS assets and Code Injections into public/ghost.js
-            string ghostJsPath = Path.Combine(publicDir, "ghost.js");
-            using (var jsWriter = new StreamWriter(ghostJsPath, append: false))
+            // Also copy any individual asset files located in the root of sourceDir
+            foreach (var file in Directory.GetFiles(sourceDir))
             {
-                await jsWriter.WriteLineAsync("// GhostFx Auto-Converted Ghost Theme JS Override for DocFx Modern Template");
-                await jsWriter.WriteLineAsync("document.addEventListener('DOMContentLoaded', () => {");
-                await jsWriter.WriteLineAsync("  console.log('[GhostFx] Modern theme overrides loaded.');");
-
-                if (!string.IsNullOrWhiteSpace(headerInjection))
+                string ext = Path.GetExtension(file).ToLowerInvariant();
+                if (ext == ".css" || ext == ".js" || ext == ".png" || ext == ".jpg" || ext == ".svg" || ext == ".ico")
                 {
-                    await jsWriter.WriteLineAsync("  // Ghost Header Code Injection");
-                    await jsWriter.WriteLineAsync($"  const headerContainer = document.createElement('div');");
-                    await jsWriter.WriteLineAsync($"  headerContainer.innerHTML = {JsonSerializer.Serialize(headerInjection)};");
-                    await jsWriter.WriteLineAsync("  document.head.appendChild(headerContainer);");
-                }
-
-                if (!string.IsNullOrWhiteSpace(footerInjection))
-                {
-                    await jsWriter.WriteLineAsync("  // Ghost Footer Code Injection");
-                    await jsWriter.WriteLineAsync($"  const footerContainer = document.createElement('div');");
-                    await jsWriter.WriteLineAsync($"  footerContainer.innerHTML = {JsonSerializer.Serialize(footerInjection)};");
-                    await jsWriter.WriteLineAsync("  document.body.appendChild(footerContainer);");
-                }
-
-                await jsWriter.WriteLineAsync("});");
-
-                foreach (var jsFile in Directory.GetFiles(sourceDir, "*.js", SearchOption.AllDirectories))
-                {
-                    if (jsFile.Contains("node_modules")) continue;
-                    string jsContent = await File.ReadAllTextAsync(jsFile);
-                    await jsWriter.WriteLineAsync($"// Source: {Path.GetFileName(jsFile)}");
-                    await jsWriter.WriteLineAsync(jsContent);
-                }
-            }
-
-            // Ensure main.js imports ghost.js and exports a default configuration
-            string mainJsPath = Path.Combine(publicDir, "main.js");
-            if (File.Exists(mainJsPath))
-            {
-                string mainContent = await File.ReadAllTextAsync(mainJsPath);
-                if (!mainContent.Contains("import './ghost.js';"))
-                {
-                    mainContent = "import './ghost.js';\n\n" + mainContent;
-                    await File.WriteAllTextAsync(mainJsPath, mainContent, System.Text.Encoding.UTF8);
-                }
-            }
-            else
-            {
-                string defaultJs = """
-                import './ghost.js';
-
-                export default {
-                  iconLinks: [
-                    {
-                      "icon": "github",
-                      "href": "https://github.com/jochenkirstaetter/ghostfx",
-                      "title": "GitHub"
+                    try
+                     {
+                        File.Copy(file, Path.Combine(publicDir, Path.GetFileName(file)), true);
                     }
-                  ]
+                    catch { }
+                }
+            }
+
+            // 2. Copy favicon.ico additionally to the output root folder if it exists
+            string rootDir = Path.GetDirectoryName(targetTemplateDir) ?? targetTemplateDir;
+            string faviconSourcePath = Path.Combine(sourceDir, "favicon.ico");
+            if (!File.Exists(faviconSourcePath))
+            {
+                faviconSourcePath = Path.Combine(sourceDir, "assets", "favicon.ico");
+            }
+
+            if (File.Exists(faviconSourcePath))
+            {
+                try
+                {
+                    File.Copy(faviconSourcePath, Path.Combine(rootDir, "favicon.ico"), true);
+                    File.Copy(faviconSourcePath, Path.Combine(publicDir, "favicon.ico"), true);
+                }
+                catch { }
+            }
+
+            // 3. Ensure public/main.css exists
+            string mainCssPath = Path.Combine(publicDir, "main.css");
+            if (!File.Exists(mainCssPath))
+            {
+                string defaultCss = """
+                /* GhostFx Auto-Generated DocFx Theme Overrides */
+                :root {
+                    --docfx-primary: #15171a;
+                    --docfx-accent: #30b1ff;
+                }
+
+                .ghost-post-container {
+                    max-width: 840px;
+                    margin: 0 auto;
+                    padding: 1.5rem 0;
                 }
                 """;
-                await File.WriteAllTextAsync(mainJsPath, defaultJs, System.Text.Encoding.UTF8);
+                await File.WriteAllTextAsync(mainCssPath, defaultCss);
             }
 
-            // 3. Process Handlebars (.hbs) template files into converted DocFX Mustache templates
+            // 4. Ensure public/main.js exists & strictly adheres to specifications
+            await EnsureDocfxTemplateOverridesExistAsync(rootDir, Path.GetFileName(targetTemplateDir));
+
+            // 5. Process Handlebars (.hbs) template files into converted DocFX Mustache templates
             foreach (var hbsFile in Directory.GetFiles(sourceDir, "*.hbs", SearchOption.AllDirectories))
             {
                 string hbsContent = await File.ReadAllTextAsync(hbsFile);
-                string converted = ConvertHandlebarsToDocfx(hbsContent);
                 string hbsName = Path.GetFileNameWithoutExtension(hbsFile);
                 string hbsNameLower = hbsName.ToLowerInvariant();
 
@@ -454,18 +471,27 @@ public static class DocfxGenerator
                                  hbsFile.Contains("\\partials/", StringComparison.OrdinalIgnoreCase) ||
                                  Path.GetDirectoryName(hbsFile)?.EndsWith("partials", StringComparison.OrdinalIgnoreCase) == true;
 
+                bool isLayout = hbsNameLower == "default";
+                string converted = ConvertHandlebarsToDocfx(hbsContent, isLayout, headerInjection, footerInjection);
+
                 string targetPath;
 
                 if (isPartial)
                 {
                     int partialsIdx = hbsFile.IndexOf("partials", StringComparison.OrdinalIgnoreCase);
                     string relativePart = hbsFile.Substring(partialsIdx + 8).TrimStart('/', '\\');
+
+                    if (IsDevelopmentOrTestFile(relativePart))
+                    {
+                        continue;
+                    }
+
                     string relName = Path.ChangeExtension(relativePart, ".tmpl");
                     targetPath = Path.Combine(targetTemplateDir, "partials", relName);
                 }
                 else
                 {
-                    if (hbsNameLower == "default")
+                    if (isLayout)
                     {
                         targetPath = Path.Combine(targetTemplateDir, "layout", "_master.tmpl");
                         if (File.Exists(targetPath))
@@ -493,9 +519,26 @@ public static class DocfxGenerator
                     {
                         targetPath = Path.Combine(targetTemplateDir, "index.html.primary.tmpl");
                     }
-                    else
+                    else if (hbsNameLower == "error-404")
+                    {
+                        targetPath = Path.Combine(targetTemplateDir, "error-404.html.primary.tmpl");
+                    }
+                    else if (hbsNameLower == "error")
+                    {
+                        targetPath = Path.Combine(targetTemplateDir, "error.html.primary.tmpl");
+                    }
+                    else if (hbsNameLower == "archive" || hbsNameLower == "search" || hbsNameLower == "private" || hbsNameLower == "subscribe")
                     {
                         targetPath = Path.Combine(targetTemplateDir, $"{hbsNameLower}.html.primary.tmpl");
+                    }
+                    else if (hbsNameLower.StartsWith("custom-"))
+                    {
+                        targetPath = Path.Combine(targetTemplateDir, $"{hbsNameLower}.html.primary.tmpl");
+                    }
+                    else
+                    {
+                        // Skip any development leftovers or unsupported templates in the root folder
+                        continue;
                     }
                 }
 
@@ -517,7 +560,7 @@ public static class DocfxGenerator
         }
     }
 
-    public static string ConvertHandlebarsToDocfx(string hbsContent)
+    public static string ConvertHandlebarsToDocfx(string hbsContent, bool isLayout = false, string? headerInjection = null, string? footerInjection = null)
     {
         if (string.IsNullOrWhiteSpace(hbsContent))
             return string.Empty;
@@ -527,6 +570,24 @@ public static class DocfxGenerator
         // Convert Ghost Head & Foot
         result = Regex.Replace(result, @"\{\{\s*ghost_head\s*\}\}", "<!-- DocFx Head Injection -->", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*ghost_foot\s*\}\}", "<!-- DocFx Foot Injection -->", RegexOptions.IgnoreCase);
+
+        // Prepend docfx.min.css and main.css to head (so they load first and are overridden by custom CSS)
+        if (isLayout && result.Contains("<head>", StringComparison.OrdinalIgnoreCase))
+        {
+            result = Regex.Replace(result, @"<head\b[^>]*>", m =>
+                m.Value + "\n    <link rel=\"stylesheet\" href=\"{{_rel}}public/docfx.min.css\">\n    <link rel=\"stylesheet\" href=\"{{_rel}}public/main.css\">",
+                RegexOptions.IgnoreCase);
+        }
+
+        // Apply injections
+        if (isLayout && !string.IsNullOrWhiteSpace(headerInjection) && result.Contains("</head>", StringComparison.OrdinalIgnoreCase))
+        {
+            result = result.Replace("</head>", $"{headerInjection}\n</head>", StringComparison.OrdinalIgnoreCase);
+        }
+        if (isLayout && !string.IsNullOrWhiteSpace(footerInjection) && result.Contains("</body>", StringComparison.OrdinalIgnoreCase))
+        {
+            result = result.Replace("</body>", $"{footerInjection}\n</body>", StringComparison.OrdinalIgnoreCase);
+        }
 
         // Convert Site Metadata
         result = Regex.Replace(result, @"\{\{\s*@site\.title\s*\}\}", "{{_appTitle}}", RegexOptions.IgnoreCase);
@@ -541,6 +602,24 @@ public static class DocfxGenerator
         result = Regex.Replace(result, @"\{\{\s*@blog\.cover_image\s*\}\}", "{{_appCoverImage}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*@site\.url\s*\}\}", "{{_rel}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*@blog\.url\s*\}\}", "{{_rel}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*@site\.locale\s*\}\}", "{{_lang}}", RegexOptions.IgnoreCase);
+
+        // Convert asset helper: {{asset "path"}} -> {{_rel}}public/path
+        result = Regex.Replace(result, @"\{\{\s*asset\s+""?([^"" }]+)""?\s*\}\}", "{{_rel}}public/$1", RegexOptions.IgnoreCase);
+
+        // Convert branding/other variables
+        result = Regex.Replace(result, @"\{\{\s*body_class\s*\}\}", "tex2jax_ignore", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*meta_title\s*\}\}", "{{title}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*comment_id\s*\}\}", "{{uid}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*url(?:\s+[^}]+)?\s*\}\}", "{{_rel}}{{slug}}.html", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*pagination\s*\}\}", "", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*name\s*\}\}", "{{title}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*profile_image\s*\}\}", "{{avatar}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*cover_image\s*\}\}", "{{image}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*bio\s*\}\}", "{{bio}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*location\s*\}\}", "{{location}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*website\s*\}\}", "{{website}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*description\s*\}\}", "{{description}}", RegexOptions.IgnoreCase);
 
         // Convert Post tags
         result = Regex.Replace(result, @"\{\{\s*title\s*\}\}", "{{title}}", RegexOptions.IgnoreCase);
@@ -568,8 +647,6 @@ public static class DocfxGenerator
         // Convert loops & conditional blocks using a stack for matching tag names
         var tagStack = new System.Collections.Generic.Stack<string>();
 
-        // We combine loop blocks (#foreach), has blocks (#has), and conditionals (#if, #unless)
-        // using matching regex
         result = Regex.Replace(result, @"\{\{\s*(#foreach|#has|#if|#unless|\/foreach|\/has|\/if|\/unless)\s*([^ }]*)\s*\}\}", m =>
         {
             string marker = m.Groups[1].Value.ToLowerInvariant();
@@ -748,5 +825,62 @@ public static class DocfxGenerator
         }
 
         return merged;
+    }
+
+    private static bool IsDevelopmentOrTestFile(string relativePath)
+    {
+        var normalized = "/" + relativePath.Replace('\\', '/').TrimStart('/', '\\').ToLowerInvariant();
+
+        // Check common test folder patterns
+        if (normalized.Contains("/abc/") || 
+            normalized.Contains("/custom/") || 
+            normalized.Contains("/sub/") ||
+            normalized.Contains("/test/"))
+        {
+            return true;
+        }
+
+        // Check common test filename patterns
+        var fileName = Path.GetFileNameWithoutExtension(normalized);
+        if (fileName == "test" || 
+            fileName.StartsWith("test-") || 
+            fileName.StartsWith("test1") || 
+            fileName.StartsWith("test2") || 
+            fileName == "hello" || 
+            fileName == "empty" || 
+            fileName == "partial" || 
+            fileName == "partial-error" || 
+            fileName.StartsWith("rule-") ||
+            fileName == "toggle")
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static void PurgeDirectory(string path)
+    {
+        if (!Directory.Exists(path))
+            return;
+
+        foreach (var file in Directory.GetFiles(path))
+        {
+            try
+            {
+                File.Delete(file);
+            }
+            catch { }
+        }
+
+        foreach (var dir in Directory.GetDirectories(path))
+        {
+            PurgeDirectory(dir);
+            try
+            {
+                Directory.Delete(dir);
+            }
+            catch { }
+        }
     }
 }

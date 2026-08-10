@@ -269,6 +269,7 @@ public class Program
                     Console.WriteLine($"  [Index File]      {config.IndexFile}");
                     Console.WriteLine($"  [Include Drafts]  {config.IncludeDrafts}");
                     Console.WriteLine($"  [Download Theme]  {config.DownloadTheme}");
+                    Console.WriteLine($"  [Purge Template]  {config.MigrateTheme}");
                     Console.WriteLine($"  [Migrate Theme]   {config.MigrateTheme}");
                     Console.ForegroundColor = ConsoleColor.DarkCyan;
                     Console.WriteLine("==========================================================================");
@@ -339,6 +340,28 @@ public class Program
                         }
 
                         return false;
+                    },
+                    onConfirmTemplatePurge: async (targetPath) =>
+                    {
+                        if (Console.IsInputRedirected || autoConfirm || isQuiet)
+                        {
+                            return true; // Auto-confirm in non-interactive/silent modes
+                        }
+
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.Write($"\n[WARN] The template override directory at '{targetPath}' already exists.");
+                        Console.ResetColor();
+                        Console.Write("\nAre you sure you want to purge and start over with a completely empty template? [Y/n]: ");
+                        string? inputStr = Console.ReadLine()?.Trim();
+                        bool confirmed = string.IsNullOrEmpty(inputStr) || inputStr.Equals("y", StringComparison.OrdinalIgnoreCase) || inputStr.Equals("yes", StringComparison.OrdinalIgnoreCase);
+
+                        if (!confirmed)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.WriteLine("[INFO] Template directory purge declined. Skipping theme migration.");
+                            Console.ResetColor();
+                        }
+                        return confirmed;
                     });
 
                 if (!string.IsNullOrEmpty(result.ThemeDownloadWarning) && !isQuiet)
