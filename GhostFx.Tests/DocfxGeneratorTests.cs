@@ -69,8 +69,8 @@ public class DocfxGeneratorTests : IDisposable
         string resultPath = await DocfxGenerator.GenerateDocfxJsonIfNotExistsAsync(_tempDirectory, config);
 
         Assert.Equal(docfxPath, resultPath);
-        string fileContentAfter = await File.ReadAllTextAsync(docfxPath);
-        Assert.Equal(existingContent, fileContentAfter);
+        string jsonContent = await File.ReadAllTextAsync(docfxPath);
+        Assert.Equal("{\n  \"existing\": true\n}", jsonContent);
     }
 
     [Fact]
@@ -108,17 +108,16 @@ public class DocfxGeneratorTests : IDisposable
 
         Assert.Contains("{{!master(layout/_master.tmpl)}}", converted);
         Assert.Contains("{{_appTitle}}", converted);
-        Assert.Contains("<!-- DocFx Head Injection -->", converted);
-        Assert.Contains("<!-- DocFx Foot Injection -->", converted);
-        Assert.Contains("<article class=\"ghost-post-container\">", converted);
-        Assert.Contains("</article>", converted);
+        Assert.Contains("{{>partials/ghost_head}}", converted);
+        Assert.Contains("{{>partials/ghost_foot}}", converted);
         Assert.Contains("{{{conceptual}}}", converted);
+        Assert.DoesNotContain("{{#post}}", converted);
         Assert.Contains("{{! Theme comments should translate }}", converted);
         Assert.Contains("{{#posts}}", converted);
         Assert.Contains("{{/posts}}", converted);
         Assert.Contains("{{#tags}}", converted);
         Assert.Contains("{{/tags}}", converted);
-        Assert.Contains("img src=\"{{feature_image}}\"", converted);
+        Assert.Contains("{{featureImage}}", converted);
     }
 
     [Fact]
@@ -159,7 +158,7 @@ public class DocfxGeneratorTests : IDisposable
         Assert.True(File.Exists(Path.Combine(targetTemplateDir, "layout", "_master.tmpl")));
 
         // Verify partials are generated under partials/ folder
-        Assert.True(File.Exists(Path.Combine(targetTemplateDir, "partials", "site-nav.tmpl")));
+        Assert.True(File.Exists(Path.Combine(targetTemplateDir, "partials", "site-nav.tmpl.partial")));
 
         string screenCss = await File.ReadAllTextAsync(Path.Combine(targetTemplateDir, "public", "css", "screen.css"));
         Assert.Contains("background: #fff", screenCss);
@@ -168,10 +167,16 @@ public class DocfxGeneratorTests : IDisposable
         Assert.Contains("export default", mainJs);
 
         string masterContent = await File.ReadAllTextAsync(Path.Combine(targetTemplateDir, "layout", "_master.tmpl"));
-        Assert.Contains("<script>header</script>", masterContent);
-        Assert.Contains("<script>footer</script>", masterContent);
+        Assert.Contains("{{>partials/code_header}}", masterContent);
+        Assert.Contains("{{>partials/code_footer}}", masterContent);
 
-        string partialContent = await File.ReadAllTextAsync(Path.Combine(targetTemplateDir, "partials", "site-nav.tmpl"));
+        string codeHeader = await File.ReadAllTextAsync(Path.Combine(targetTemplateDir, "partials", "code_header.tmpl.partial"));
+        Assert.Contains("<script>header</script>", codeHeader);
+
+        string codeFooter = await File.ReadAllTextAsync(Path.Combine(targetTemplateDir, "partials", "code_footer.tmpl.partial"));
+        Assert.Contains("<script>footer</script>", codeFooter);
+
+        string partialContent = await File.ReadAllTextAsync(Path.Combine(targetTemplateDir, "partials", "site-nav.tmpl.partial"));
         Assert.Contains("{{_appTitle}}", partialContent);
     }
 
@@ -241,7 +246,15 @@ public class DocfxGeneratorTests : IDisposable
 
         Assert.Contains("No Migrate Site", jsonContent);
         Assert.Contains("\"modern\"", jsonContent);
-        Assert.DoesNotContain("\"ghostfx\"", jsonContent);
+        
+        var node = System.Text.Json.Nodes.JsonNode.Parse(jsonContent);
+        var templates = node["build"]["template"].AsArray();
+        bool hasGhostfx = false;
+        foreach (var t in templates)
+        {
+            if (t.ToString() == "ghostfx") hasGhostfx = true;
+        }
+        Assert.False(hasGhostfx);
     }
 
     [Fact]

@@ -41,7 +41,9 @@ public class GhostAdminClientTests
             "title": "Mock Title",
             "description": "Mock Description",
             "facebook": "mockfacebook",
-            "twitter": "@mocktwitter"
+            "twitter": "@mocktwitter",
+            "codeinjection_head": "<script>JsonObjectHead</script>",
+            "codeinjection_foot": "JsonObjectFoot"
           }
         }
         """;
@@ -54,6 +56,8 @@ public class GhostAdminClientTests
         Assert.Equal("Mock Description", result.Description);
         Assert.Equal("mockfacebook", result.Facebook);
         Assert.Equal("@mocktwitter", result.Twitter);
+        Assert.Equal("<script>JsonObjectHead</script>", result.CodeinjectionHead);
+        Assert.Equal("JsonObjectFoot", result.CodeinjectionFoot);
     }
 
     [Fact]
@@ -65,7 +69,9 @@ public class GhostAdminClientTests
             { "key": "title", "value": "Mock Title" },
             { "key": "description", "value": "Mock Description" },
             { "key": "facebook", "value": "mockfacebook" },
-            { "key": "twitter", "value": "@mocktwitter" }
+            { "key": "twitter", "value": "@mocktwitter" },
+            { "key": "codeinjection_head", "value": "<script>JsonArrayHead</script>" },
+            { "key": "codeinjection_foot", "value": "JsonArrayFoot" }
           ]
         }
         """;
@@ -78,6 +84,48 @@ public class GhostAdminClientTests
         Assert.Equal("Mock Description", result.Description);
         Assert.Equal("mockfacebook", result.Facebook);
         Assert.Equal("@mocktwitter", result.Twitter);
+        Assert.Equal("<script>JsonArrayHead</script>", result.CodeinjectionHead);
+        Assert.Equal("JsonArrayFoot", result.CodeinjectionFoot);
+    }
+
+    [Fact]
+    public async Task GetCodeInjectionsAsync_ParsesJsonArraySuccessfully()
+    {
+        string json = """
+        {
+          "settings": [
+            { "key": "CODEINJECTION_HEAD", "value": "<script>header code</script>" },
+            { "key": "codeinjection_foot", "value": "<script>footer code</script>" }
+          ]
+        }
+        """;
+        var handler = new MockHttpMessageHandler(json);
+        var client = new HttpClient(handler);
+
+        var (head, foot) = await GhostAdminClient.GetCodeInjectionsAsync("http://dummy.com", "640a1b2c3d4e5f6a7b8c9d0e:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef", client);
+
+        Assert.Equal("<script>header code</script>", head);
+        Assert.Equal("<script>footer code</script>", foot);
+    }
+
+    [Fact]
+    public async Task GetCodeInjectionsAsync_ParsesJsonObjectSuccessfully()
+    {
+        string json = """
+        {
+          "settings": {
+            "codeinjection_head": "<script>header code</script>",
+            "codeinjection_foot": "<script>footer code</script>"
+          }
+        }
+        """;
+        var handler = new MockHttpMessageHandler(json);
+        var client = new HttpClient(handler);
+
+        var (head, foot) = await GhostAdminClient.GetCodeInjectionsAsync("http://dummy.com", "640a1b2c3d4e5f6a7b8c9d0e:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef", client);
+
+        Assert.Equal("<script>header code</script>", head);
+        Assert.Equal("<script>footer code</script>", foot);
     }
 
     private class MockHttpMessageHandler : HttpMessageHandler

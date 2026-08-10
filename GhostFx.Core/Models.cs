@@ -31,6 +31,9 @@ public sealed class FrontMatter
     [YamlMember(Alias = "tags")]
     public List<string> Tags { get; set; } = [];
 
+    [YamlMember(Alias = "keywords")]
+    public string Keywords { get; set; } = string.Empty;
+
     [YamlMember(Alias = "metaTitle")]
     public string MetaTitle { get; set; } = string.Empty;
 
@@ -48,6 +51,12 @@ public sealed class FrontMatter
 
     [YamlMember(Alias = "layout")]
     public string Layout { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "bodyClass")]
+    public string BodyClass { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "postClass")]
+    public string PostClass { get; set; } = string.Empty;
 
     [YamlMember(Alias = "isPost")]
     public bool IsPost { get; set; }
@@ -67,6 +76,42 @@ public sealed class FrontMatter
     [YamlMember(Alias = "isTagsIndexPage")]
     public bool IsTagsIndexPage { get; set; }
 
+    [YamlMember(Alias = "isAuthorPage")]
+    public bool IsAuthorPage { get; set; }
+
+    [YamlMember(Alias = "isHome")]
+    public bool IsHome { get; set; }
+
+    [YamlMember(Alias = "author")]
+    public string Author { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "authorTwitter")]
+    public string AuthorTwitter { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "authorFacebook")]
+    public string AuthorFacebook { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "authorImage")]
+    public string AuthorImage { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "authorSlug")]
+    public string AuthorSlug { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "canonicalUrl")]
+    public string CanonicalUrl { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "imageUrl")]
+    public string ImageUrl { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "twitterImageUrl")]
+    public string TwitterImageUrl { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "authorImageUrl")]
+    public string AuthorImageUrl { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "authorPageUrl")]
+    public string AuthorPageUrl { get; set; } = string.Empty;
+
     [YamlMember(Alias = "tagName")]
     public string TagName { get; set; } = string.Empty;
 
@@ -81,6 +126,9 @@ public sealed class FrontMatter
 
     [YamlMember(Alias = "publishedAt")]
     public string PublishedAt { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "updatedAt")]
+    public string UpdatedAt { get; set; } = string.Empty;
 
     [YamlMember(Alias = "excerpt")]
     public string Excerpt { get; set; } = string.Empty;
@@ -147,6 +195,57 @@ public class GhostData
 
     [JsonPropertyName("settings")]
     public List<GhostSetting> Settings { get; set; } = [];
+
+    [JsonPropertyName("users")]
+    public List<GhostUser> Users { get; set; } = [];
+}
+
+public class GhostUser
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("slug")]
+    public string Slug { get; set; } = string.Empty;
+
+    [JsonPropertyName("email")]
+    public string Email { get; set; } = string.Empty;
+
+    [JsonPropertyName("profile_image")]
+    public string ProfileImage { get; set; } = string.Empty;
+
+    [JsonPropertyName("cover_image")]
+    public string CoverImage { get; set; } = string.Empty;
+
+    [JsonPropertyName("bio")]
+    public string Bio { get; set; } = string.Empty;
+
+    [JsonPropertyName("website")]
+    public string Website { get; set; } = string.Empty;
+
+    [JsonPropertyName("location")]
+    public string Location { get; set; } = string.Empty;
+
+    [JsonPropertyName("facebook")]
+    public string Facebook { get; set; } = string.Empty;
+
+    [JsonPropertyName("twitter")]
+    public string Twitter { get; set; } = string.Empty;
+
+    [JsonPropertyName("meta_title")]
+    public string MetaTitle { get; set; } = string.Empty;
+
+    [JsonPropertyName("meta_description")]
+    public string MetaDescription { get; set; } = string.Empty;
+}
+
+public class GhostApiUsersResponse
+{
+    [JsonPropertyName("users")]
+    public List<GhostUser> Users { get; set; } = [];
 }
 
 public class GhostSetting
@@ -187,6 +286,9 @@ public class GhostPost
     [JsonPropertyName("created_at")]
     public DateTime? CreatedAt { get; set; }
 
+    [JsonPropertyName("updated_at")]
+    public DateTime? UpdatedAt { get; set; }
+
     [JsonPropertyName("status")]
     public string Status { get; set; } = "published";
 
@@ -213,6 +315,9 @@ public class GhostPost
 
     [JsonPropertyName("tags")]
     public List<GhostTag> Tags { get; set; } = [];
+
+    [JsonPropertyName("authors")]
+    public List<GhostUser> Authors { get; set; } = [];
 
     [JsonPropertyName("featured")]
     public bool Featured { get; set; }

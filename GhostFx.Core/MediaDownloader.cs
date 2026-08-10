@@ -186,25 +186,25 @@ public static class MediaDownloader
                 if (string.Equals(post.FeatureImage, origUrl, StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(post.FeatureImage, info.FullUrl, StringComparison.OrdinalIgnoreCase))
                 {
-                    post.FeatureImage = relativeSubfolderPath;
+                    post.FeatureImage = relativePublishedPath;
                 }
 
                 if (string.Equals(post.OgImage, origUrl, StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(post.OgImage, info.FullUrl, StringComparison.OrdinalIgnoreCase))
                 {
-                    post.OgImage = relativeSubfolderPath;
+                    post.OgImage = relativePublishedPath;
                 }
 
                 if (string.Equals(post.TwitterImage, origUrl, StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(post.TwitterImage, info.FullUrl, StringComparison.OrdinalIgnoreCase))
                 {
-                    post.TwitterImage = relativeSubfolderPath;
+                    post.TwitterImage = relativePublishedPath;
                 }
 
                 if (string.Equals(post.FacebookImage, origUrl, StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(post.FacebookImage, info.FullUrl, StringComparison.OrdinalIgnoreCase))
                 {
-                    post.FacebookImage = relativeSubfolderPath;
+                    post.FacebookImage = relativePublishedPath;
                 }
             }
         }

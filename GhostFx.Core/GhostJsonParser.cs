@@ -8,7 +8,7 @@ namespace GhostFx.Core;
 
 public class GhostJsonParser
 {
-    public (List<GhostPost> Posts, List<GhostTag> Tags, string? Title, string? Description, string? Icon, string? Logo, string? CoverImage, List<GhostNavItem> NavItems, string? Locale, string? Twitter, string? Facebook) ParseJsonExport(string jsonContent)
+    public (List<GhostPost> Posts, List<GhostTag> Tags, List<GhostUser> Users, string? Title, string? Description, string? Icon, string? Logo, string? CoverImage, List<GhostNavItem> NavItems, string? Locale, string? Twitter, string? Facebook, string? CodeinjectionHead, string? CodeinjectionFoot) ParseJsonExport(string jsonContent)
     {
         if (string.IsNullOrWhiteSpace(jsonContent))
             throw new ArgumentException("JSON content cannot be null or empty.");
@@ -49,6 +49,8 @@ public class GhostJsonParser
         string? locale = data.Settings?.FirstOrDefault(s => string.Equals(s.Key, "locale", StringComparison.OrdinalIgnoreCase) || string.Equals(s.Key, "lang", StringComparison.OrdinalIgnoreCase))?.Value;
         string? twitter = data.Settings?.FirstOrDefault(s => string.Equals(s.Key, "twitter", StringComparison.OrdinalIgnoreCase))?.Value;
         string? facebook = data.Settings?.FirstOrDefault(s => string.Equals(s.Key, "facebook", StringComparison.OrdinalIgnoreCase))?.Value;
+        string? codeinjectionHead = data.Settings?.FirstOrDefault(s => string.Equals(s.Key, "codeinjection_head", StringComparison.OrdinalIgnoreCase))?.Value;
+        string? codeinjectionFoot = data.Settings?.FirstOrDefault(s => string.Equals(s.Key, "codeinjection_foot", StringComparison.OrdinalIgnoreCase))?.Value;
 
         List<GhostNavItem> navItems = [];
         string? navJson = data.Settings?.FirstOrDefault(s => string.Equals(s.Key, "navigation", StringComparison.OrdinalIgnoreCase))?.Value;
@@ -62,6 +64,6 @@ public class GhostJsonParser
             catch { }
         }
 
-        return (data.Posts, data.Tags, title, description, icon, logo, cover, navItems, locale, twitter, facebook);
+        return (data.Posts, data.Tags, data.Users ?? [], title, description, icon, logo, cover, navItems, locale, twitter, facebook, codeinjectionHead, codeinjectionFoot);
     }
 }

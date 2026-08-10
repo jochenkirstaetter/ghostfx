@@ -32,6 +32,7 @@ public class MigrationEngine
         {
             List<GhostPost> allPosts = [];
             List<GhostTag> allTags = [];
+            List<GhostUser> allUsers = [];
             string? siteDescription = null;
             string? siteIcon = null;
             string? siteLogo = null;
@@ -43,9 +44,10 @@ public class MigrationEngine
 
             if (!string.IsNullOrWhiteSpace(jsonContentOverride))
             {
-                var (posts, tags, jsonTitle, jsonDesc, jsonIcon, jsonLogo, jsonCover, jsonNav, jsonLocale, jsonTwitter, jsonFacebook) = _jsonParser.ParseJsonExport(jsonContentOverride);
+                var (posts, tags, users, jsonTitle, jsonDesc, jsonIcon, jsonLogo, jsonCover, jsonNav, jsonLocale, jsonTwitter, jsonFacebook, jsonHead, jsonFoot) = _jsonParser.ParseJsonExport(jsonContentOverride);
                 allPosts = posts;
                 allTags = tags;
+                allUsers = users;
                 if (jsonNav.Count > 0) navItems = jsonNav;
                 if (!string.IsNullOrWhiteSpace(jsonTitle)) config.SiteTitle = jsonTitle;
                 if (!string.IsNullOrWhiteSpace(jsonDesc)) siteDescription = jsonDesc;
@@ -55,13 +57,16 @@ public class MigrationEngine
                 if (!string.IsNullOrWhiteSpace(jsonLocale)) siteLocale = jsonLocale;
                 if (!string.IsNullOrWhiteSpace(jsonTwitter)) twitter = jsonTwitter;
                 if (!string.IsNullOrWhiteSpace(jsonFacebook)) facebook = jsonFacebook;
+                if (!string.IsNullOrWhiteSpace(jsonHead)) result.HeaderCodeInjection = jsonHead;
+                if (!string.IsNullOrWhiteSpace(jsonFoot)) result.FooterCodeInjection = jsonFoot;
             }
             else if (!string.IsNullOrWhiteSpace(config.GhostExportJson) && File.Exists(config.GhostExportJson))
             {
                 string json = await File.ReadAllTextAsync(config.GhostExportJson);
-                var (posts, tags, jsonTitle, jsonDesc, jsonIcon, jsonLogo, jsonCover, jsonNav, jsonLocale, jsonTwitter, jsonFacebook) = _jsonParser.ParseJsonExport(json);
+                var (posts, tags, users, jsonTitle, jsonDesc, jsonIcon, jsonLogo, jsonCover, jsonNav, jsonLocale, jsonTwitter, jsonFacebook, jsonHead, jsonFoot) = _jsonParser.ParseJsonExport(json);
                 allPosts = posts;
                 allTags = tags;
+                allUsers = users;
                 if (jsonNav.Count > 0) navItems = jsonNav;
                 if (!string.IsNullOrWhiteSpace(jsonTitle)) config.SiteTitle = jsonTitle;
                 if (!string.IsNullOrWhiteSpace(jsonDesc)) siteDescription = jsonDesc;
@@ -71,12 +76,14 @@ public class MigrationEngine
                 if (!string.IsNullOrWhiteSpace(jsonLocale)) siteLocale = jsonLocale;
                 if (!string.IsNullOrWhiteSpace(jsonTwitter)) twitter = jsonTwitter;
                 if (!string.IsNullOrWhiteSpace(jsonFacebook)) facebook = jsonFacebook;
+                if (!string.IsNullOrWhiteSpace(jsonHead)) result.HeaderCodeInjection = jsonHead;
+                if (!string.IsNullOrWhiteSpace(jsonFoot)) result.FooterCodeInjection = jsonFoot;
  
                 if (!string.IsNullOrWhiteSpace(config.GhostUrl) && (navItems.Count == 0 || string.IsNullOrWhiteSpace(config.SiteTitle) || string.IsNullOrWhiteSpace(siteIcon) || string.IsNullOrWhiteSpace(siteCover) || string.IsNullOrWhiteSpace(twitter) || string.IsNullOrWhiteSpace(facebook)))
                 {
                     try
                     {
-                        var (apiTitle, apiDesc, apiIcon, apiLogo, apiCover, apiNav, apiLocale, apiTwitter, apiFacebook) =
+                        var (apiTitle, apiDesc, apiIcon, apiLogo, apiCover, apiNav, apiLocale, apiTwitter, apiFacebook, apiHead, apiFoot) =
                             !string.IsNullOrWhiteSpace(config.ContentApiKey)
                                 ? await GhostAdminClient.FetchSiteSettingsViaContentApiAsync(config.GhostUrl, config.ContentApiKey)
                                 : await GhostAdminClient.FetchSiteBrandInfoAsync(config.GhostUrl, config.AdminApiKey ?? "");
@@ -89,6 +96,19 @@ public class MigrationEngine
                         if (string.IsNullOrWhiteSpace(siteLocale) && !string.IsNullOrWhiteSpace(apiLocale)) siteLocale = apiLocale;
                         if (string.IsNullOrWhiteSpace(twitter) && !string.IsNullOrWhiteSpace(apiTwitter)) twitter = apiTwitter;
                         if (string.IsNullOrWhiteSpace(facebook) && !string.IsNullOrWhiteSpace(apiFacebook)) facebook = apiFacebook;
+                        if (!string.IsNullOrWhiteSpace(apiHead)) result.HeaderCodeInjection = apiHead;
+                        if (!string.IsNullOrWhiteSpace(apiFoot)) result.FooterCodeInjection = apiFoot;
+                    }
+                    catch { }
+                }
+
+                if (!string.IsNullOrWhiteSpace(config.GhostUrl) && !string.IsNullOrWhiteSpace(config.AdminApiKey))
+                {
+                    try
+                    {
+                        var (head, foot) = await GhostAdminClient.GetCodeInjectionsAsync(config.GhostUrl, config.AdminApiKey);
+                        if (!string.IsNullOrWhiteSpace(head)) result.HeaderCodeInjection = head;
+                        if (!string.IsNullOrWhiteSpace(foot)) result.FooterCodeInjection = foot;
                     }
                     catch { }
                 }
@@ -104,7 +124,13 @@ public class MigrationEngine
                 result.DetectedGhostVersion = version;
                 allTags = allPosts.SelectMany(p => p.Tags).GroupBy(t => t.Id).Select(g => g.First()).ToList();
 
-                var (apiTitle, apiDesc, apiIcon, apiLogo, apiCover, apiNav, apiLocale, apiTwitter, apiFacebook) =
+                try
+                {
+                    allUsers = await GhostAdminClient.FetchUsersFromApiAsync(config.GhostUrl, config.AdminApiKey);
+                }
+                catch { }
+
+                var (apiTitle, apiDesc, apiIcon, apiLogo, apiCover, apiNav, apiLocale, apiTwitter, apiFacebook, apiHead, apiFoot) =
                     !string.IsNullOrWhiteSpace(config.ContentApiKey)
                         ? await GhostAdminClient.FetchSiteSettingsViaContentApiAsync(config.GhostUrl, config.ContentApiKey)
                         : await GhostAdminClient.FetchSiteBrandInfoAsync(config.GhostUrl, config.AdminApiKey);
@@ -117,6 +143,8 @@ public class MigrationEngine
                 if (!string.IsNullOrWhiteSpace(apiLocale)) siteLocale = apiLocale;
                 if (!string.IsNullOrWhiteSpace(apiTwitter)) twitter = apiTwitter;
                 if (!string.IsNullOrWhiteSpace(apiFacebook)) facebook = apiFacebook;
+                if (!string.IsNullOrWhiteSpace(apiHead)) result.HeaderCodeInjection = apiHead;
+                if (!string.IsNullOrWhiteSpace(apiFoot)) result.FooterCodeInjection = apiFoot;
             }
             else
             {
@@ -207,21 +235,101 @@ public class MigrationEngine
 
                 string titleSuffix = isDraft ? " (Draft)" : (isScheduled ? " (Scheduled)" : "");
 
+                string fallbackExcerpt = ExtractExcerpt(post.Html ?? "");
+
+                var primaryAuthor = post.Authors?.FirstOrDefault();
+                string authorName = primaryAuthor?.Name ?? "";
+                string authorTwitter = primaryAuthor?.Twitter ?? "";
+                if (!string.IsNullOrWhiteSpace(authorTwitter) && !authorTwitter.StartsWith("@"))
+                {
+                    authorTwitter = "@" + authorTwitter;
+                }
+                string authorFacebook = primaryAuthor?.Facebook ?? "";
+                if (!string.IsNullOrWhiteSpace(authorFacebook) && !authorFacebook.StartsWith("http"))
+                {
+                    authorFacebook = "https://facebook.com/" + authorFacebook;
+                }
+                string authorImage = primaryAuthor?.ProfileImage ?? "";
+                string authorSlug = primaryAuthor?.Slug ?? "";
+
+                string appUrl = config.GhostUrl?.TrimEnd('/') ?? "";
+                string canonicalUrl = !string.IsNullOrWhiteSpace(appUrl) && !string.IsNullOrWhiteSpace(post.Slug) ? $"{appUrl}/{post.Slug}/" : "";
+
+                string finalImage = !string.IsNullOrWhiteSpace(post.OgImage) ? post.OgImage : post.FeatureImage ?? "";
+                string imageUrl = string.Empty;
+                if (!string.IsNullOrWhiteSpace(finalImage))
+                {
+                    imageUrl = finalImage.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? finalImage : (string.IsNullOrWhiteSpace(appUrl) ? finalImage : $"{appUrl}/{finalImage.TrimStart('/')}");
+                }
+
+                string finalTwitterImg = !string.IsNullOrWhiteSpace(post.TwitterImage) ? post.TwitterImage : (!string.IsNullOrWhiteSpace(post.FeatureImage) ? post.FeatureImage : (!string.IsNullOrWhiteSpace(post.OgImage) ? post.OgImage : ""));
+                string twitterImageUrl = string.Empty;
+                if (!string.IsNullOrWhiteSpace(finalTwitterImg))
+                {
+                    twitterImageUrl = finalTwitterImg.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? finalTwitterImg : (string.IsNullOrWhiteSpace(appUrl) ? finalTwitterImg : $"{appUrl}/{finalTwitterImg.TrimStart('/')}");
+                }
+
+                string authorImageUrl = string.Empty;
+                if (!string.IsNullOrWhiteSpace(authorImage))
+                {
+                    authorImageUrl = authorImage.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? authorImage : (string.IsNullOrWhiteSpace(appUrl) ? authorImage : $"{appUrl}/{authorImage.TrimStart('/')}");
+                }
+                else if (!string.IsNullOrWhiteSpace(appUrl))
+                {
+                    authorImageUrl = $"{appUrl}/content/images/2018/10/JoKi_StAubin_100px.jpg";
+                }
+
+                string authorPageUrl = !string.IsNullOrWhiteSpace(appUrl) && !string.IsNullOrWhiteSpace(authorSlug) ? $"{appUrl}/author/{authorSlug}/" : "";
+
+                string cleanCustomExcerpt = CleanMetadataText(post.CustomExcerpt);
+                string cleanMetaDesc = CleanMetadataText(post.MetaDescription);
+                string cleanOgDesc = CleanMetadataText(post.OgDescription);
+                string cleanTwitterDesc = CleanMetadataText(post.TwitterDescription);
+                string cleanFacebookDesc = CleanMetadataText(post.FacebookDescription);
+
+                string finalDescription = !string.IsNullOrWhiteSpace(cleanCustomExcerpt) ? cleanCustomExcerpt : (!string.IsNullOrWhiteSpace(cleanMetaDesc) ? cleanMetaDesc : fallbackExcerpt);
+                string finalMetaDesc = !string.IsNullOrWhiteSpace(cleanMetaDesc) ? cleanMetaDesc : (!string.IsNullOrWhiteSpace(cleanCustomExcerpt) ? cleanCustomExcerpt : fallbackExcerpt);
+                string finalOgDesc = !string.IsNullOrWhiteSpace(cleanOgDesc) ? cleanOgDesc : (!string.IsNullOrWhiteSpace(cleanCustomExcerpt) ? cleanCustomExcerpt : fallbackExcerpt);
+                string finalTwitterDesc = !string.IsNullOrWhiteSpace(cleanTwitterDesc) ? cleanTwitterDesc : (!string.IsNullOrWhiteSpace(cleanCustomExcerpt) ? cleanCustomExcerpt : fallbackExcerpt);
+                string finalFacebookDesc = !string.IsNullOrWhiteSpace(cleanFacebookDesc) ? cleanFacebookDesc : (!string.IsNullOrWhiteSpace(cleanCustomExcerpt) ? cleanCustomExcerpt : fallbackExcerpt);
+
+                var classTags = tagNames.Select(t => "tag-" + t.ToLowerInvariant().Replace(" ", "-").Replace("_", "-"));
+                string tagClasses = string.Join(" ", classTags);
+                string calculatedBodyClass = isPage 
+                    ? $"page-template page-{post.Slug} {tagClasses}".Trim() 
+                    : $"post-template {tagClasses}".Trim();
+                string calculatedPostClass = isPage 
+                    ? $"post {tagClasses} page".Trim() 
+                    : $"post {tagClasses}".Trim();
+
                 var frontMatter = new FrontMatter
                 {
                     Uid = post.Slug,
                     Title = post.Title + titleSuffix,
+                    BodyClass = calculatedBodyClass,
+                    PostClass = calculatedPostClass,
                     Slug = post.Slug,
                     Date = dateStr,
                     Status = post.Status ?? (isDraft ? "draft" : (isScheduled ? "scheduled" : "published")),
                     Type = post.Type ?? (isPage ? "page" : "post"),
                     Tags = tagNames,
-                    Description = !string.IsNullOrWhiteSpace(post.CustomExcerpt) ? post.CustomExcerpt : post.MetaDescription,
+                    Keywords = string.Join(", ", tagNames),
+                    Author = authorName,
+                    AuthorTwitter = authorTwitter,
+                    AuthorFacebook = authorFacebook,
+                    AuthorImage = authorImage,
+                    AuthorSlug = authorSlug,
+                    CanonicalUrl = canonicalUrl,
+                    ImageUrl = imageUrl,
+                    TwitterImageUrl = twitterImageUrl,
+                    AuthorImageUrl = authorImageUrl,
+                    AuthorPageUrl = authorPageUrl,
+                    Description = finalDescription,
                     MetaTitle = !string.IsNullOrWhiteSpace(post.MetaTitle) ? post.MetaTitle : post.Title,
-                    MetaDescription = !string.IsNullOrWhiteSpace(post.MetaDescription) ? post.MetaDescription : post.CustomExcerpt,
-                    Image = !string.IsNullOrWhiteSpace(post.OgImage) ? post.OgImage : post.FeatureImage,
+                    MetaDescription = finalMetaDesc,
+                    Image = !string.IsNullOrWhiteSpace(post.OgImage) ? post.OgImage : (post.FeatureImage ?? ""),
                     OgTitle = !string.IsNullOrWhiteSpace(post.OgTitle) ? post.OgTitle : post.Title,
-                    OgDescription = !string.IsNullOrWhiteSpace(post.OgDescription) ? post.OgDescription : post.CustomExcerpt,
+                    OgDescription = finalOgDesc,
                     Layout = isPage ? "page" : "post",
                     IsPost = !isPage,
                     IsPage = isPage,
@@ -230,12 +338,13 @@ public class MigrationEngine
                     FeatureImage = !string.IsNullOrWhiteSpace(post.FeatureImage) ? post.FeatureImage : (!string.IsNullOrWhiteSpace(post.OgImage) ? post.OgImage : ""),
                     Featured = post.Featured,
                     PublishedAt = post.PublishedAt?.ToString("yyyy-MM-ddTHH:mm:ssK") ?? "",
-                    Excerpt = post.CustomExcerpt,
+                    UpdatedAt = post.UpdatedAt?.ToString("yyyy-MM-ddTHH:mm:ssK") ?? post.PublishedAt?.ToString("yyyy-MM-ddTHH:mm:ssK") ?? "",
+                    Excerpt = !string.IsNullOrWhiteSpace(cleanCustomExcerpt) ? cleanCustomExcerpt : fallbackExcerpt,
                     TwitterTitle = !string.IsNullOrWhiteSpace(post.TwitterTitle) ? post.TwitterTitle : post.Title,
-                    TwitterDescription = !string.IsNullOrWhiteSpace(post.TwitterDescription) ? post.TwitterDescription : post.CustomExcerpt,
+                    TwitterDescription = finalTwitterDesc,
                     TwitterImage = post.TwitterImage,
                     FacebookTitle = !string.IsNullOrWhiteSpace(post.FacebookTitle) ? post.FacebookTitle : post.Title,
-                    FacebookDescription = !string.IsNullOrWhiteSpace(post.FacebookDescription) ? post.FacebookDescription : post.CustomExcerpt,
+                    FacebookDescription = finalFacebookDesc,
                     FacebookImage = post.FacebookImage,
                     CodeinjectionHead = post.CodeinjectionHead,
                     CodeinjectionFoot = post.CodeinjectionFoot
@@ -247,16 +356,21 @@ public class MigrationEngine
                 string fullDoc = _converter.BuildFullMarkdownDocument(frontMatter, htmlContent);
 
                 string subDirName = isPage ? "pages" : (isDraft ? "draft" : (isScheduled ? "scheduled" : "published"));
-                string targetSubDir = Path.Combine(config.OutputDir, subDirName);
+                string targetSubDir = config.CleanUrls 
+                    ? Path.Combine(config.OutputDir, subDirName, post.Slug) 
+                    : Path.Combine(config.OutputDir, subDirName);
+                
                 Directory.CreateDirectory(targetSubDir);
 
-                string fileName = $"{post.Slug}.md";
+                string fileName = config.CleanUrls ? "index.md" : $"{post.Slug}.md";
                 string filePath = Path.Combine(targetSubDir, fileName);
 
                 await File.WriteAllTextAsync(filePath, fullDoc);
                 result.GeneratedFiles.Add(filePath);
 
-                string relativePathInToc = $"{subDirName}/{fileName}";
+                string relativePathInToc = config.CleanUrls 
+                    ? $"{subDirName}/{post.Slug}/{fileName}" 
+                    : $"{subDirName}/{fileName}";
 
                 var meta = new BlogPostMetadata
                 {
@@ -343,6 +457,54 @@ public class MigrationEngine
             string mainTagsPath = Path.Combine(config.OutputDir, "tags.md");
             if (!result.GeneratedFiles.Contains(mainTagsPath)) result.GeneratedFiles.Add(mainTagsPath);
 
+            // Generate Author Index Pages inside outputDir/author/
+            if (allUsers.Count == 0)
+            {
+                allUsers = allPosts
+                    .SelectMany(p => p.Authors ?? [])
+                    .GroupBy(u => u.Id)
+                    .Select(g => g.First())
+                    .ToList();
+            }
+
+            if (allUsers.Count > 0)
+            {
+                string authorsOutputDir = Path.Combine(config.OutputDir, "author");
+                Directory.CreateDirectory(authorsOutputDir);
+
+                foreach (var author in allUsers)
+                {
+                    if (string.IsNullOrWhiteSpace(author.Slug)) continue;
+
+                    string authorFilePath = Path.Combine(authorsOutputDir, $"{author.Slug}.md");
+
+                    var authorFrontMatter = new FrontMatter
+                    {
+                        Uid = $"author-{author.Slug}",
+                        Title = author.Name,
+                        Slug = author.Slug,
+                        Layout = "author",
+                        BodyClass = $"author-template author-{author.Slug}",
+                        IsPost = false,
+                        IsPage = true,
+                        IsTagPage = false,
+                        IsTagsIndexPage = false,
+                        IsAuthorPage = true,
+                        MetaTitle = !string.IsNullOrWhiteSpace(author.MetaTitle) ? author.MetaTitle : author.Name,
+                        MetaDescription = author.MetaDescription,
+                        Description = author.Bio,
+                        Image = author.CoverImage,
+                        FeatureImage = author.ProfileImage
+                    };
+
+                    string yaml = _converter.GenerateYamlFrontmatter(authorFrontMatter);
+                    string markdownContent = yaml + $"\n# {author.Name}\n\n{author.Bio}\n";
+
+                    await File.WriteAllTextAsync(authorFilePath, markdownContent);
+                    result.GeneratedFiles.Add(authorFilePath);
+                }
+            }
+
             // Generate Docfx configuration file inside outputDir
             string customTemplatePath = "ghostfx";
             List<IconLink> iconLinks = [
@@ -363,7 +525,33 @@ public class MigrationEngine
                 iconLinks.Add(new IconLink { Icon = "facebook", Href = href, Title = "Facebook" });
             }
 
-            string docfxPath = await DocfxGenerator.GenerateDocfxJsonIfNotExistsAsync(config.OutputDir, config, customTemplatePath, siteLocale ?? "en", iconLinks);
+            foreach (var nav in navItems)
+            {
+                if (string.IsNullOrWhiteSpace(nav.Url)) continue;
+                string url = nav.Url.Trim();
+                if (url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    string iconName = DocfxGenerator.GetSocialIconFromUrl(url);
+                    if (!string.IsNullOrEmpty(iconName))
+                    {
+                        if (!iconLinks.Any(l => string.Equals(l.Icon, iconName, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            iconLinks.Add(new IconLink { Icon = iconName, Href = url, Title = nav.Label ?? iconName });
+                        }
+                    }
+                }
+            }
+
+            string docfxPath = await DocfxGenerator.GenerateDocfxJsonIfNotExistsAsync(
+                config.OutputDir,
+                config,
+                customTemplatePath,
+                siteLocale ?? "en",
+                iconLinks,
+                result.HeaderCodeInjection,
+                result.FooterCodeInjection,
+                twitter,
+                facebook);
             if (!result.GeneratedFiles.Contains(docfxPath))
             {
                 result.GeneratedFiles.Add(docfxPath);
@@ -375,7 +563,7 @@ public class MigrationEngine
             {
                 onProgress?.Invoke(totalPostsCount + 1, totalPostsCount + 1, "Converting active Ghost theme to DocFx template override");
                 string templateDir = Path.Combine(config.OutputDir, customTemplatePath);
-                await DocfxGenerator.ConvertGhostThemeToDocfxTemplateAsync(themePath, templateDir, result.HeaderCodeInjection, result.FooterCodeInjection, onConfirmTemplatePurge);
+                await DocfxGenerator.ConvertGhostThemeToDocfxTemplateAsync(themePath, templateDir, result.HeaderCodeInjection, result.FooterCodeInjection, onConfirmTemplatePurge, iconLinks, navItems, pageMetaList, publishedMetaList);
             }
 
             stopwatch.Stop();
@@ -397,6 +585,12 @@ public class MigrationEngine
     private static void GenerateFrontPage(string indexPath, List<BlogPostMetadata> posts, string siteTitle, string? siteDescription)
     {
         var sb = new System.Text.StringBuilder();
+        sb.AppendLine("---");
+        sb.AppendLine($"title: {siteTitle}");
+        sb.AppendLine("isHome: true");
+        sb.AppendLine("bodyClass: home-template");
+        sb.AppendLine("---");
+        sb.AppendLine();
         sb.AppendLine($"# {siteTitle}");
         sb.AppendLine();
         if (!string.IsNullOrWhiteSpace(siteDescription))
@@ -426,9 +620,14 @@ public class MigrationEngine
         var sb = new System.Text.StringBuilder();
         foreach (var post in posts.OrderByDescending(p => p.Date))
         {
-            string fileName = Path.GetFileName(post.FileName);
+            string href = post.FileName;
+            int slashIndex = href.IndexOf('/');
+            if (slashIndex >= 0)
+            {
+                href = href.Substring(slashIndex + 1);
+            }
             sb.AppendLine($"- name: \"{post.Title.Replace("\"", "\\\"")}\"");
-            sb.AppendLine($"  href: {fileName}");
+            sb.AppendLine($"  href: {href}");
         }
 
         File.WriteAllText(tocPath, sb.ToString());
@@ -485,10 +684,17 @@ public class MigrationEngine
                 string label = nav.Label;
                 string url = nav.Url?.Trim() ?? "";
 
-                string href = ResolveNavHref(url, pages, posts);
+                var (href, uid) = ResolveNavHrefOrUid(url, pages, posts);
                 string safeLabel = label.Contains(':') || label.Contains('#') ? $"\"{label.Replace("\"", "\\\"")}\"" : label;
                 sb.AppendLine($"- name: {safeLabel}");
-                sb.AppendLine($"  href: {href}");
+                if (!string.IsNullOrEmpty(uid))
+                {
+                    sb.AppendLine($"  uid: {uid}");
+                }
+                else
+                {
+                    sb.AppendLine($"  href: {href}");
+                }
             }
         }
         else if (pages != null && pages.Count > 0)
@@ -498,7 +704,7 @@ public class MigrationEngine
                 string cleanLabel = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(page.Slug.Replace("-", " ").Replace("_", " "));
                 string safeLabel = cleanLabel.Contains(':') || cleanLabel.Contains('#') ? $"\"{cleanLabel.Replace("\"", "\\\"")}\"" : cleanLabel;
                 sb.AppendLine($"- name: {safeLabel}");
-                sb.AppendLine($"  href: {page.FileName}");
+                sb.AppendLine($"  uid: {page.Slug}");
             }
         }
         else
@@ -512,11 +718,11 @@ public class MigrationEngine
         File.WriteAllText(rootTocPath, sb.ToString());
     }
 
-    private static string ResolveNavHref(string url, List<BlogPostMetadata> pages, List<BlogPostMetadata> posts)
+    private static (string? href, string? uid) ResolveNavHrefOrUid(string url, List<BlogPostMetadata> pages, List<BlogPostMetadata> posts)
     {
         if (string.IsNullOrWhiteSpace(url) || url == "/" || url.Equals("home", StringComparison.OrdinalIgnoreCase))
         {
-            return "index.md";
+            return ("index.md", null);
         }
 
         string path = url;
@@ -529,31 +735,31 @@ public class MigrationEngine
             }
             catch
             {
-                return url;
+                return (url, null);
             }
         }
 
         string slug = path.Trim('/').Split('/').LastOrDefault() ?? "";
-        if (string.IsNullOrEmpty(slug)) return "index.md";
+        if (string.IsNullOrEmpty(slug)) return ("index.md", null);
 
         var matchingPage = pages.FirstOrDefault(p => string.Equals(p.Slug, slug, StringComparison.OrdinalIgnoreCase));
         if (matchingPage != null)
         {
-            return matchingPage.FileName;
+            return (null, matchingPage.Slug);
         }
 
         var matchingPost = posts.FirstOrDefault(p => string.Equals(p.Slug, slug, StringComparison.OrdinalIgnoreCase));
         if (matchingPost != null)
         {
-            return matchingPost.FileName;
+            return (null, matchingPost.Slug);
         }
 
         if (slug.Equals("blog", StringComparison.OrdinalIgnoreCase) || slug.Equals("articles", StringComparison.OrdinalIgnoreCase))
         {
-            return "published/toc.yml";
+            return ("published/toc.yml", null);
         }
 
-        return $"published/{slug}.md";
+        return (null, slug);
     }
 
     private static void GenerateTagPages(string tagsDir, string outputDir, List<BlogPostMetadata> posts, List<GhostTag> allTags)
@@ -576,6 +782,7 @@ public class MigrationEngine
             sb.AppendLine($"title: \"Tag: {tag.Name.Replace("\"", "\\\"")}\"");
             sb.AppendLine("layout: tag");
             sb.AppendLine("isTagPage: true");
+            sb.AppendLine($"bodyClass: \"tag-template tag-{tag.Slug}\"");
             sb.AppendLine($"tagName: \"{tag.Name.Replace("\"", "\\\"")}\"");
             if (!string.IsNullOrWhiteSpace(tag.Description))
             {
@@ -624,6 +831,7 @@ public class MigrationEngine
         mainTagsSb.AppendLine("title: \"Browse by Tag\"");
         mainTagsSb.AppendLine("layout: tags");
         mainTagsSb.AppendLine("isTagsIndexPage: true");
+        mainTagsSb.AppendLine("bodyClass: \"tag-template tag-index-template\"");
         mainTagsSb.AppendLine("---");
         mainTagsSb.AppendLine();
         mainTagsSb.AppendLine("# Browse Content by Tag");
@@ -639,5 +847,51 @@ public class MigrationEngine
         }
 
         File.WriteAllText(mainTagsPath, mainTagsSb.ToString());
+    }
+
+    private static string CleanMetadataText(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return string.Empty;
+
+        // Replace newlines/carriage returns and multiple spaces with a single space
+        string clean = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
+        
+        // Replace double quotes with single quotes to be safe in HTML attributes and JSON-LD
+        clean = clean.Replace("\"", "'");
+
+        return clean;
+    }
+
+    private static string ExtractExcerpt(string html, int maxLength = 160)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+            return string.Empty;
+
+        // Strip HTML tags using regex
+        string clean = System.Text.RegularExpressions.Regex.Replace(html, "<.*?>", string.Empty);
+        
+        // Replace multiple spaces/newlines with single space
+        clean = System.Text.RegularExpressions.Regex.Replace(clean, @"\s+", " ").Trim();
+
+        // Decode HTML entities
+        clean = System.Net.WebUtility.HtmlDecode(clean);
+
+        if (clean.Length > maxLength)
+        {
+            clean = clean.Substring(0, maxLength).Trim();
+            // Try to truncate at last space
+            int lastSpace = clean.LastIndexOf(' ');
+            if (lastSpace > maxLength - 30 && lastSpace > 0)
+            {
+                clean = clean.Substring(0, lastSpace) + "...";
+            }
+            else
+            {
+                clean = clean + "...";
+            }
+        }
+
+        return clean;
     }
 }

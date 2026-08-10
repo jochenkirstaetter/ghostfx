@@ -91,6 +91,7 @@ public static class GhostAdminClient
 
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Authorization = new AuthenticationHeaderValue("Ghost", jwt);
+            request.Headers.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
             if (!string.IsNullOrEmpty(acceptVersion))
             {
                 request.Headers.TryAddWithoutValidation("Accept-Version", acceptVersion);
@@ -136,11 +137,11 @@ public static class GhostAdminClient
             foreach (var setting in settingsArray)
             {
                 string? key = setting?["key"]?.ToString();
-                if (key == "codeinjection_head")
+                if (string.Equals(key, "codeinjection_head", StringComparison.OrdinalIgnoreCase))
                 {
                     headerCode = setting?["value"]?.ToString() ?? string.Empty;
                 }
-                else if (key == "codeinjection_foot")
+                else if (string.Equals(key, "codeinjection_foot", StringComparison.OrdinalIgnoreCase))
                 {
                     footerCode = setting?["value"]?.ToString() ?? string.Empty;
                 }
@@ -148,8 +149,17 @@ public static class GhostAdminClient
         }
         else if (settingsNode is JsonObject settingsObj)
         {
-            headerCode = settingsObj["codeinjection_head"]?.ToString() ?? string.Empty;
-            footerCode = settingsObj["codeinjection_foot"]?.ToString() ?? string.Empty;
+            foreach (var kvp in settingsObj)
+            {
+                if (string.Equals(kvp.Key, "codeinjection_head", StringComparison.OrdinalIgnoreCase))
+                {
+                    headerCode = kvp.Value?.ToString() ?? string.Empty;
+                }
+                else if (string.Equals(kvp.Key, "codeinjection_foot", StringComparison.OrdinalIgnoreCase))
+                {
+                    footerCode = kvp.Value?.ToString() ?? string.Empty;
+                }
+            }
         }
 
         return (headerCode, footerCode);
@@ -202,7 +212,7 @@ public static class GhostAdminClient
         return links;
     }
 
-    public static async Task<(string? Title, string? Description, string? IconUrl, string? LogoUrl, string? CoverUrl, List<GhostNavItem> NavItems, string? Locale, string? Twitter, string? Facebook)> FetchSiteBrandInfoAsync(string ghostUrl, string adminApiKey, HttpClient? customClient = null)
+    public static async Task<(string? Title, string? Description, string? IconUrl, string? LogoUrl, string? CoverUrl, List<GhostNavItem> NavItems, string? Locale, string? Twitter, string? Facebook, string? CodeinjectionHead, string? CodeinjectionFoot)> FetchSiteBrandInfoAsync(string ghostUrl, string adminApiKey, HttpClient? customClient = null)
     {
         bool disposeClient = customClient == null;
         var client = customClient ?? new HttpClient();
@@ -215,6 +225,8 @@ public static class GhostAdminClient
         string? locale = null;
         string? twitter = null;
         string? facebook = null;
+        string? codeinjectionHead = null;
+        string? codeinjectionFoot = null;
 
         try
         {
@@ -246,6 +258,8 @@ public static class GhostAdminClient
                             if (string.Equals(key, "locale", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "lang", StringComparison.OrdinalIgnoreCase)) locale = val;
                             if (string.Equals(key, "twitter", StringComparison.OrdinalIgnoreCase)) twitter = val;
                             if (string.Equals(key, "facebook", StringComparison.OrdinalIgnoreCase)) facebook = val;
+                            if (string.Equals(key, "codeinjection_head", StringComparison.OrdinalIgnoreCase)) codeinjectionHead = val;
+                            if (string.Equals(key, "codeinjection_foot", StringComparison.OrdinalIgnoreCase)) codeinjectionFoot = val;
                             if (string.Equals(key, "navigation", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(val))
                             {
                                 try
@@ -268,6 +282,8 @@ public static class GhostAdminClient
                         locale ??= settingsObj["locale"]?.ToString() ?? settingsObj["lang"]?.ToString();
                         twitter ??= settingsObj["twitter"]?.ToString();
                         facebook ??= settingsObj["facebook"]?.ToString();
+                        codeinjectionHead ??= settingsObj["codeinjection_head"]?.ToString();
+                        codeinjectionFoot ??= settingsObj["codeinjection_foot"]?.ToString();
                         var navNode = settingsObj["navigation"];
                         if (navNode != null)
                         {
@@ -378,10 +394,10 @@ public static class GhostAdminClient
             }
         }
 
-        return (title, description, icon, logo, cover, navItems, locale, twitter, facebook);
+        return (title, description, icon, logo, cover, navItems, locale, twitter, facebook, codeinjectionHead, codeinjectionFoot);
     }
 
-    public static async Task<(string? Title, string? Description, string? IconUrl, string? LogoUrl, string? CoverUrl, List<GhostNavItem> NavItems, string? Locale, string? Twitter, string? Facebook)> FetchSiteSettingsViaContentApiAsync(string ghostUrl, string contentApiKey, HttpClient? customClient = null)
+    public static async Task<(string? Title, string? Description, string? IconUrl, string? LogoUrl, string? CoverUrl, List<GhostNavItem> NavItems, string? Locale, string? Twitter, string? Facebook, string? CodeinjectionHead, string? CodeinjectionFoot)> FetchSiteSettingsViaContentApiAsync(string ghostUrl, string contentApiKey, HttpClient? customClient = null)
     {
         using var client = customClient ?? new HttpClient();
         if (!client.DefaultRequestHeaders.Contains("User-Agent"))
@@ -406,7 +422,7 @@ public static class GhostAdminClient
                     var settingsNode = root?["settings"];
                     if (settingsNode is JsonArray settingsArr)
                     {
-                        string? title = null, desc = null, icon = null, logo = null, cover = null, locale = null, twitter = null, facebook = null;
+                        string? title = null, desc = null, icon = null, logo = null, cover = null, locale = null, twitter = null, facebook = null, codeinjectionHead = null, codeinjectionFoot = null;
                         List<GhostNavItem> navItems = [];
                         foreach (var setting in settingsArr)
                         {
@@ -420,6 +436,8 @@ public static class GhostAdminClient
                             if (string.Equals(key, "locale", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "lang", StringComparison.OrdinalIgnoreCase)) locale = val;
                             if (string.Equals(key, "twitter", StringComparison.OrdinalIgnoreCase)) twitter = val;
                             if (string.Equals(key, "facebook", StringComparison.OrdinalIgnoreCase)) facebook = val;
+                            if (string.Equals(key, "codeinjection_head", StringComparison.OrdinalIgnoreCase)) codeinjectionHead = val;
+                            if (string.Equals(key, "codeinjection_foot", StringComparison.OrdinalIgnoreCase)) codeinjectionFoot = val;
                             if (string.Equals(key, "navigation", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(val))
                             {
                                 try
@@ -431,7 +449,7 @@ public static class GhostAdminClient
                                 catch { }
                             }
                         }
-                        return (title, desc, icon, logo, cover, navItems, locale, twitter, facebook);
+                        return (title, desc, icon, logo, cover, navItems, locale, twitter, facebook, codeinjectionHead, codeinjectionFoot);
                     }
                     else if (settingsNode is JsonObject settingsObj)
                     {
@@ -443,6 +461,8 @@ public static class GhostAdminClient
                         string? locale = settingsObj["locale"]?.ToString() ?? settingsObj["lang"]?.ToString();
                         string? twitter = settingsObj["twitter"]?.ToString();
                         string? facebook = settingsObj["facebook"]?.ToString();
+                        string? codeinjectionHead = settingsObj["codeinjection_head"]?.ToString();
+                        string? codeinjectionFoot = settingsObj["codeinjection_foot"]?.ToString();
                         List<GhostNavItem> navItems = [];
                         var navNode = settingsObj["navigation"];
                         if (navNode != null)
@@ -455,14 +475,14 @@ public static class GhostAdminClient
                             }
                             catch { }
                         }
-                        return (title, desc, icon, logo, cover, navItems, locale, twitter, facebook);
+                        return (title, desc, icon, logo, cover, navItems, locale, twitter, facebook, codeinjectionHead, codeinjectionFoot);
                     }
                 }
             }
             catch { }
         }
 
-        return (null, null, null, null, null, [], null, null, null);
+        return (null, null, null, null, null, [], null, null, null, null, null);
     }
 
     public static async Task<(string? FaviconFile, string? LogoFile, string? CoverFile)> DownloadSiteBrandAssetsAsync(
@@ -493,7 +513,7 @@ public static class GhostAdminClient
         {
             try
             {
-                var (_, _, apiIcon, apiLogo, apiCover, _, _, _, _) = await FetchSiteBrandInfoAsync(ghostUrl ?? "", adminApiKey, client);
+                var (_, _, apiIcon, apiLogo, apiCover, _, _, _, _, _, _) = await FetchSiteBrandInfoAsync(ghostUrl ?? "", adminApiKey, client);
                 iconUrl ??= apiIcon;
                 logoUrl ??= apiLogo;
                 coverUrl ??= apiCover;
@@ -655,5 +675,20 @@ public static class GhostAdminClient
 
         await using var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None);
         await response.Content.CopyToAsync(fs);
+    }
+
+    public static async Task<List<GhostUser>> FetchUsersFromApiAsync(string ghostUrl, string adminApiKey, HttpClient? customClient = null)
+    {
+        using var client = customClient ?? new HttpClient();
+        var (response, _) = await SendWithFallbackAsync(client, ghostUrl, "users/?limit=all", adminApiKey);
+        if (!response.IsSuccessStatusCode)
+        {
+            return [];
+        }
+
+        string jsonString = await response.Content.ReadAsStringAsync();
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var result = JsonSerializer.Deserialize<GhostApiUsersResponse>(jsonString, options);
+        return result?.Users ?? [];
     }
 }

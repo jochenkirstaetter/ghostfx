@@ -30,7 +30,6 @@ public static class DocfxGenerator
       {{#description}}<meta name="description" content="{{description}}">{{/description}}
       <link rel="icon" href="{{_rel}}{{{_appFaviconPath}}}{{^_appFaviconPath}}favicon.ico{{/_appFaviconPath}}">
       <link rel="stylesheet" href="{{_rel}}public/docfx.min.css">
-      <link rel="stylesheet" href="{{_rel}}public/main.css">
       <meta name="docfx:navrel" content="{{_navRel}}">
       <meta name="docfx:tocrel" content="{{_tocRel}}">
       {{#_noindex}}<meta name="searchOption" content="noindex">{{/_noindex}}
@@ -68,6 +67,9 @@ public static class DocfxGenerator
       </script>
       {{/_googleAnalyticsTagId}}
     {{/redirect_url}}
+    {{>partials/ghost_head}}
+    {{>partials/code_header}}
+    <link rel="stylesheet" href="{{_rel}}public/main.css">
   </head>
 
   {{^redirect_url}}
@@ -169,6 +171,9 @@ public static class DocfxGenerator
         </div>
       </div>
     </footer>
+    {{>partials/ghost_foot}}
+    {{>partials/code_footer}}
+    
   </body>
   {{/redirect_url}}
 </html>
@@ -177,17 +182,21 @@ public static class DocfxGenerator
     public static async Task<string> GenerateDocfxJsonIfNotExistsAsync(
         string rootDir,
         GhostFxConfig config,
-        string customTemplatePath = "ghostfx",
+        string? customTemplatePath = null,
         string siteLocale = "en",
-        List<IconLink>? iconLinks = null)
+        List<IconLink>? iconLinks = null,
+        string? headerCodeInjection = null,
+        string? footerCodeInjection = null,
+        string? siteTwitter = null,
+        string? siteFacebook = null)
     {
-        await EnsureDocfxTemplateOverridesExistAsync(rootDir, customTemplatePath, iconLinks);
+        string templatePath = customTemplatePath ?? "ghostfx";
+        var links = await EnsureDocfxTemplateOverridesExistAsync(rootDir, templatePath, iconLinks);
 
-        string docfxPath = Path.Combine(rootDir, "docfx.json");
-        if (File.Exists(docfxPath))
-        {
-            return docfxPath;
-        }
+        string partialsDir = Path.Combine(rootDir, templatePath, "partials");
+        Directory.CreateDirectory(partialsDir);
+        await File.WriteAllTextAsync(Path.Combine(partialsDir, "code_header.tmpl.partial"), headerCodeInjection ?? "", System.Text.Encoding.UTF8);
+        await File.WriteAllTextAsync(Path.Combine(partialsDir, "code_footer.tmpl.partial"), footerCodeInjection ?? "", System.Text.Encoding.UTF8);
 
         string fullOutputDir = Path.GetFullPath(config.OutputDir);
         string fullRootDir = Path.GetFullPath(rootDir);
@@ -219,7 +228,170 @@ public static class DocfxGenerator
         else if (File.Exists(Path.Combine(fullOutputDir, "logo.svg"))) logoPath = string.IsNullOrEmpty(relOutputDir) ? "logo.svg" : $"{relOutputDir}/logo.svg";
         else if (!string.IsNullOrEmpty(faviconPath)) logoPath = faviconPath;
 
-        var excludePatterns = new string[] { "_site/**", "**/_site/**" };
+        bool useCustomTemplate = config.MigrateTheme;
+        string templateExclude = $"{Path.GetFileName(templatePath)}/**";
+
+        string docfxPath = Path.Combine(rootDir, "docfx.json");
+        if (File.Exists(docfxPath))
+        {
+            try
+            {
+                string existingJson = await File.ReadAllTextAsync(docfxPath);
+                var node = System.Text.Json.Nodes.JsonNode.Parse(existingJson);
+                if (node != null)
+                {
+                    var buildNode = node["build"];
+                    if (buildNode != null)
+                    {
+                        // 1. Ensure template list includes custom template name
+                        var templateArray = buildNode["template"] as System.Text.Json.Nodes.JsonArray;
+                        if (templateArray == null)
+                        {
+                            buildNode["template"] = new System.Text.Json.Nodes.JsonArray("default", "modern");
+                            templateArray = buildNode["template"] as System.Text.Json.Nodes.JsonArray;
+                        }
+                        if (templateArray != null)
+                        {
+                            string targetTemplateName = Path.GetFileName(templatePath);
+                            if (!useCustomTemplate)
+                            {
+                                for (int i = templateArray.Count - 1; i >= 0; i--)
+                                {
+                                    if (templateArray[i]?.ToString() == targetTemplateName)
+                                    {
+                                        templateArray.RemoveAt(i);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                bool hasTemplate = false;
+                                foreach (var item in templateArray)
+                                {
+                                    if (item?.ToString() == targetTemplateName)
+                                    {
+                                        hasTemplate = true;
+                                        break;
+                                    }
+                                }
+                                if (!hasTemplate)
+                                {
+                                    templateArray.Add(targetTemplateName);
+                                }
+                            }
+                        }
+
+                        // 2. Ensure content and resource exclusions include the custom template folder
+                        
+                        var contentNode = buildNode["content"] as System.Text.Json.Nodes.JsonArray;
+                        if (contentNode != null)
+                        {
+                            foreach (var entry in contentNode)
+                            {
+                                if (entry?["exclude"] != null)
+                                {
+                                    var excludeArray = entry["exclude"] as System.Text.Json.Nodes.JsonArray;
+                                    if (excludeArray != null)
+                                    {
+                                        bool hasExclude = false;
+                                        foreach (var item in excludeArray)
+                                        {
+                                            if (item?.ToString() == templateExclude)
+                                            {
+                                                hasExclude = true;
+                                                break;
+                                            }
+                                        }
+                                        if (!hasExclude)
+                                        {
+                                            excludeArray.Add(templateExclude);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        var resourceNode = buildNode["resource"] as System.Text.Json.Nodes.JsonArray;
+                        if (resourceNode != null)
+                        {
+                            foreach (var entry in resourceNode)
+                            {
+                                if (entry?["exclude"] != null)
+                                {
+                                    var excludeArray = entry["exclude"] as System.Text.Json.Nodes.JsonArray;
+                                    if (excludeArray != null)
+                                    {
+                                        bool hasExclude = false;
+                                        foreach (var item in excludeArray)
+                                        {
+                                            if (item?.ToString() == templateExclude)
+                                            {
+                                                hasExclude = true;
+                                                break;
+                                            }
+                                        }
+                                        if (!hasExclude)
+                                        {
+                                            excludeArray.Add(templateExclude);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 3. Update globalMetadata
+                        var globalMetadataNode = buildNode["globalMetadata"];
+                        if (globalMetadataNode == null)
+                        {
+                            buildNode["globalMetadata"] = new System.Text.Json.Nodes.JsonObject();
+                            globalMetadataNode = buildNode["globalMetadata"];
+                        }
+                        
+                        if (globalMetadataNode != null)
+                        {
+                            globalMetadataNode["_currentYear"] = DateTime.UtcNow.Year;
+                            if (!string.IsNullOrWhiteSpace(config.GhostUrl))
+                            {
+                                globalMetadataNode["_appUrl"] = config.GhostUrl.TrimEnd('/');
+                            }
+                            if (!string.IsNullOrWhiteSpace(siteTwitter))
+                            {
+                                globalMetadataNode["_siteTwitter"] = siteTwitter.StartsWith("@") ? siteTwitter : "@" + siteTwitter;
+                            }
+                            if (!string.IsNullOrWhiteSpace(siteFacebook))
+                            {
+                                globalMetadataNode["_siteFacebook"] = siteFacebook.StartsWith("http") ? siteFacebook : "https://facebook.com/" + siteFacebook;
+                            }
+
+                            globalMetadataNode["_disableContribution"] = true;
+                            globalMetadataNode["_disableBreadcrumb"] = true;
+                            globalMetadataNode["_lang"] = string.IsNullOrWhiteSpace(siteLocale) ? "en" : siteLocale;
+                            globalMetadataNode["_enableSearch"] = true;
+                            globalMetadataNode["_appTitle"] = config.SiteTitle;
+                            globalMetadataNode["_appName"] = config.SiteTitle;
+                            globalMetadataNode["_appFaviconPath"] = faviconPath ?? "favicon.png";
+                            if (config.LogoPath)
+                            {
+                                globalMetadataNode["_appLogoPath"] = logoPath ?? faviconPath ?? "favicon.png";
+                            }
+                            else
+                            {
+                                globalMetadataNode.AsObject().Remove("_appLogoPath");
+                            }
+
+                            globalMetadataNode.AsObject().Remove("_siteNavigation");
+                            globalMetadataNode.AsObject().Remove("_siteSocialLinks");
+                        }
+                    }
+                    
+                    var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
+                    await File.WriteAllTextAsync(docfxPath, node.ToJsonString(jsonOptions), System.Text.Encoding.UTF8);
+                }
+            }
+            catch { }
+            return docfxPath;
+        }
+
 
         var contentEntries = new List<object>
         {
@@ -238,7 +410,7 @@ public static class DocfxGenerator
             new
             {
                 files = new string[] { "**.md", "**/toc.yml" },
-                exclude = new string[] { "published/**", "pages/**", "_site/**", "**/_site/**" }
+                exclude = new string[] { "draft/**", "published/**", "pages/**", templateExclude, "_site/**", "**/_site/**" }
             }
         };
 
@@ -246,7 +418,7 @@ public static class DocfxGenerator
         {
             ["_appTitle"] = config.SiteTitle,
             ["_appName"] = config.SiteTitle,
-            ["_appFaviconPath"] = faviconPath ?? "favicon.png",
+            ["_appFaviconPath"] = faviconPath ?? "favicon.ico",
             ["_enableSearch"] = true,
             ["_disableContribution"] = true,
             ["_disableBreadcrumb"] = true,
@@ -256,12 +428,27 @@ public static class DocfxGenerator
 
         if (config.LogoPath)
         {
-            globalMetadata["_appLogoPath"] = logoPath ?? faviconPath ?? "favicon.png";
+            globalMetadata["_appLogoPath"] = logoPath ?? faviconPath ?? "favicon.ico";
         }
 
         if (!string.IsNullOrWhiteSpace(config.GoogleAnalyticsTag))
         {
             globalMetadata["_googleAnalyticsTagId"] = config.GoogleAnalyticsTag;
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.GhostUrl))
+        {
+            globalMetadata["_appUrl"] = config.GhostUrl.TrimEnd('/');
+        }
+
+        if (!string.IsNullOrWhiteSpace(siteTwitter))
+        {
+            globalMetadata["_siteTwitter"] = siteTwitter.StartsWith("@") ? siteTwitter : "@" + siteTwitter;
+        }
+
+        if (!string.IsNullOrWhiteSpace(siteFacebook))
+        {
+            globalMetadata["_siteFacebook"] = siteFacebook.StartsWith("http") ? siteFacebook : "https://facebook.com/" + siteFacebook;
         }
 
         var docfxConfig = new
@@ -284,18 +471,19 @@ public static class DocfxGenerator
                         },
                         exclude = new string[]
                         {
+                            templateExclude,
                             "_site/**",
                             "**/_site/**"
                         }
                     }
                 },
                 output = "_site",
-                template = config.MigrateTheme
+                template = useCustomTemplate
                     ? new string[]
                     {
                         "default",
                         "modern",
-                        Path.GetFileName(customTemplatePath)
+                        Path.GetFileName(templatePath)
                     }
                     : new string[]
                     {
@@ -324,7 +512,11 @@ public static class DocfxGenerator
         string targetTemplateDir, 
         string headerInjection = "", 
         string footerInjection = "",
-        Func<string, Task<bool>>? onConfirmTemplatePurge = null)
+        Func<string, Task<bool>>? onConfirmTemplatePurge = null,
+        List<IconLink>? iconLinks = null,
+        List<GhostNavItem>? navItems = null,
+        List<BlogPostMetadata>? pages = null,
+        List<BlogPostMetadata>? posts = null)
     {
         if (string.IsNullOrWhiteSpace(themePath))
             return;
@@ -356,7 +548,7 @@ public static class DocfxGenerator
         string publicDir = Path.Combine(targetTemplateDir, "public");
         Directory.CreateDirectory(publicDir);
 
-        await ConvertGhostThemeFolderAsync(themePath, targetTemplateDir, headerInjection, footerInjection);
+        await ConvertGhostThemeFolderAsync(themePath, targetTemplateDir, headerInjection, footerInjection, iconLinks, navItems, pages, posts);
     }
 
     private static void CopyDirectory(string source, string target)
@@ -374,7 +566,7 @@ public static class DocfxGenerator
         }
     }
 
-    private static async Task ConvertGhostThemeFolderAsync(string themePath, string targetTemplateDir, string headerInjection = "", string footerInjection = "")
+    private static async Task ConvertGhostThemeFolderAsync(string themePath, string targetTemplateDir, string headerInjection = "", string footerInjection = "", List<IconLink>? iconLinks = null, List<GhostNavItem>? navItems = null, List<BlogPostMetadata>? pages = null, List<BlogPostMetadata>? posts = null)
     {
         string publicDir = Path.Combine(targetTemplateDir, "public");
         Directory.CreateDirectory(publicDir);
@@ -439,24 +631,28 @@ public static class DocfxGenerator
             string mainCssPath = Path.Combine(publicDir, "main.css");
             if (!File.Exists(mainCssPath))
             {
-                string defaultCss = """
-                /* GhostFx Auto-Generated DocFx Theme Overrides */
-                :root {
-                    --docfx-primary: #15171a;
-                    --docfx-accent: #30b1ff;
-                }
-
-                .ghost-post-container {
-                    max-width: 840px;
-                    margin: 0 auto;
-                    padding: 1.5rem 0;
-                }
-                """;
-                await File.WriteAllTextAsync(mainCssPath, defaultCss);
+                await File.WriteAllTextAsync(mainCssPath, "");
             }
 
             // 4. Ensure public/main.js exists & strictly adheres to specifications
-            await EnsureDocfxTemplateOverridesExistAsync(rootDir, Path.GetFileName(targetTemplateDir));
+            await EnsureDocfxTemplateOverridesExistAsync(rootDir, Path.GetFileName(targetTemplateDir), iconLinks, navItems, pages, posts);
+
+            // Overwrite ghost_head.tmpl and ghost_foot.tmpl
+            string destPartialsDir = Path.Combine(targetTemplateDir, "partials");
+            Directory.CreateDirectory(destPartialsDir);
+
+            string ghostHeadContent = "{{>partials/meta}}\n{{>partials/opengraph}}\n{{>partials/twitter}}\n{{>partials/schema}}\n" +
+                                      "{{#codeinjectionHead}}{{{codeinjectionHead}}}{{/codeinjectionHead}}\n";
+            await File.WriteAllTextAsync(Path.Combine(destPartialsDir, "ghost_head.tmpl.partial"), ghostHeadContent, System.Text.Encoding.UTF8);
+
+            string ghostFootContent = "{{#codeinjectionFoot}}{{{codeinjectionFoot}}}{{/codeinjectionFoot}}\n";
+            await File.WriteAllTextAsync(Path.Combine(destPartialsDir, "ghost_foot.tmpl.partial"), ghostFootContent, System.Text.Encoding.UTF8);
+
+            await File.WriteAllTextAsync(Path.Combine(destPartialsDir, "code_header.tmpl.partial"), headerInjection ?? "", System.Text.Encoding.UTF8);
+            await File.WriteAllTextAsync(Path.Combine(destPartialsDir, "code_footer.tmpl.partial"), footerInjection ?? "", System.Text.Encoding.UTF8);
+
+            string siteNavContent = GenerateSiteNavPartialContent(navItems, pages, posts, iconLinks);
+            await File.WriteAllTextAsync(Path.Combine(destPartialsDir, "site-nav.tmpl.partial"), siteNavContent, System.Text.Encoding.UTF8);
 
             // 5. Process Handlebars (.hbs) template files into converted DocFX Mustache templates
             foreach (var hbsFile in Directory.GetFiles(sourceDir, "*.hbs", SearchOption.AllDirectories))
@@ -465,6 +661,11 @@ public static class DocfxGenerator
                 string hbsName = Path.GetFileNameWithoutExtension(hbsFile);
                 string hbsNameLower = hbsName.ToLowerInvariant();
 
+                if (hbsNameLower == "site-nav")
+                {
+                    continue;
+                }
+
                 bool isPartial = hbsFile.Contains("/partials/", StringComparison.OrdinalIgnoreCase) || 
                                  hbsFile.Contains("\\partials\\", StringComparison.OrdinalIgnoreCase) ||
                                  hbsFile.Contains("/partials\\", StringComparison.OrdinalIgnoreCase) ||
@@ -472,7 +673,7 @@ public static class DocfxGenerator
                                  Path.GetDirectoryName(hbsFile)?.EndsWith("partials", StringComparison.OrdinalIgnoreCase) == true;
 
                 bool isLayout = hbsNameLower == "default";
-                string converted = ConvertHandlebarsToDocfx(hbsContent, isLayout, headerInjection, footerInjection);
+                string converted = ConvertHandlebarsToDocfx(hbsContent, isLayout, headerInjection, footerInjection, iconLinks);
 
                 string targetPath;
 
@@ -486,7 +687,7 @@ public static class DocfxGenerator
                         continue;
                     }
 
-                    string relName = Path.ChangeExtension(relativePart, ".tmpl");
+                    string relName = Path.ChangeExtension(relativePart, ".tmpl.partial");
                     targetPath = Path.Combine(targetTemplateDir, "partials", relName);
                 }
                 else
@@ -494,10 +695,6 @@ public static class DocfxGenerator
                     if (isLayout)
                     {
                         targetPath = Path.Combine(targetTemplateDir, "layout", "_master.tmpl");
-                        if (File.Exists(targetPath))
-                        {
-                            continue;
-                        }
                     }
                     else if (hbsNameLower == "post")
                     {
@@ -548,8 +745,245 @@ public static class DocfxGenerator
                     Directory.CreateDirectory(parentDir);
                 }
 
-                await File.WriteAllTextAsync(targetPath, converted);
+                await File.WriteAllTextAsync(targetPath, converted, System.Text.Encoding.UTF8);
+
+                // For primary templates (excluding layout and partials), also generate a layout partial copy
+                if (!isPartial && !isLayout)
+                {
+                    string partialLayoutDir = Path.Combine(targetTemplateDir, "partials");
+                    Directory.CreateDirectory(partialLayoutDir);
+                    string partialLayoutPath = Path.Combine(partialLayoutDir, $"{hbsNameLower}_layout.tmpl.partial");
+                    // Strip the master inheritance directive to prevent layout nesting issues inside partials
+                    string partialContent = Regex.Replace(converted, @"^\{\{!master\([^)]+\)\}\}\s*\r?\n?", "", RegexOptions.IgnoreCase);
+                    await File.WriteAllTextAsync(partialLayoutPath, partialContent);
+                }
             }
+
+            // Write conceptual.html.primary.tmpl layout router
+            string conceptualPath = Path.Combine(targetTemplateDir, "conceptual.html.primary.tmpl");
+            string conceptualContent = @"{{!master(layout/_master.tmpl)}}
+{{#isPost}}
+{{>partials/post_layout}}
+{{/isPost}}
+{{#isPage}}
+{{>partials/page_layout}}
+{{/isPage}}
+{{#isTagPage}}
+{{>partials/tag_layout}}
+{{/isTagPage}}
+{{#isTagsIndexPage}}
+{{>partials/tag_layout}}
+{{/isTagsIndexPage}}
+{{#isAuthorPage}}
+{{>partials/author_layout}}
+{{/isAuthorPage}}
+{{#isHome}}
+{{>partials/index_layout}}
+{{/isHome}}
+{{^isPost}}
+{{^isPage}}
+{{^isTagPage}}
+{{^isTagsIndexPage}}
+{{^isAuthorPage}}
+{{^isHome}}
+{{{conceptual}}}
+{{/isHome}}
+{{/isAuthorPage}}
+{{/isTagsIndexPage}}
+{{/isTagPage}}
+{{/isPage}}
+{{/isPost}}";
+            await File.WriteAllTextAsync(conceptualPath, conceptualContent);
+
+            // Write metadata partial templates in partials/
+            string pDir = Path.Combine(targetTemplateDir, "partials");
+            Directory.CreateDirectory(pDir);
+
+            string metaContent = @"{{#_appFaviconPath}}
+<link rel=""icon"" href=""{{_rel}}{{_appFaviconPath}}"" type=""image/png"">
+{{/_appFaviconPath}}
+{{^_appFaviconPath}}
+<link rel=""icon"" href=""{{_rel}}favicon.png"" type=""image/png"">
+{{/_appFaviconPath}}
+{{#canonicalUrl}}
+<link rel=""canonical"" href=""{{canonicalUrl}}"">
+{{/canonicalUrl}}
+<meta name=""referrer"" content=""no-referrer-when-downgrade"">
+{{#metaTitle}}
+<meta name=""title"" content=""{{metaTitle}}"">
+{{/metaTitle}}
+{{^metaTitle}}
+{{#title}}
+<meta name=""title"" content=""{{title}}"">
+{{/title}}
+{{/metaTitle}}
+{{#metaDescription}}
+<meta name=""description"" content=""{{metaDescription}}"">
+{{/metaDescription}}
+{{^metaDescription}}
+{{#description}}
+<meta name=""description"" content=""{{description}}"">
+{{/description}}
+{{^description}}
+{{#summary}}
+<meta name=""description"" content=""{{summary}}"">
+{{/summary}}
+{{/description}}
+{{/metaDescription}}";
+
+            string opengraphContent = @"<meta property=""og:site_name"" content=""{{#_appTitle}}{{_appTitle}}{{/_appTitle}}{{^_appTitle}}Get Blogged by JoKi{{/_appTitle}}"">
+<meta property=""og:type"" content=""{{#isPost}}article{{/isPost}}{{^isPost}}website{{/isPost}}"">
+{{#ogTitle}}
+<meta property=""og:title"" content=""{{ogTitle}}"">
+{{/ogTitle}}
+{{^ogTitle}}
+{{#title}}
+<meta property=""og:title"" content=""{{title}}"">
+{{/title}}
+{{/ogTitle}}
+{{#ogDescription}}
+<meta property=""og:description"" content=""{{ogDescription}}"">
+{{/ogDescription}}
+{{^ogDescription}}
+{{#description}}
+<meta property=""og:description"" content=""{{description}}"">
+{{/description}}
+{{^description}}
+{{#summary}}
+<meta property=""og:description"" content=""{{summary}}"">
+{{/summary}}
+{{/description}}
+{{/ogDescription}}
+{{#canonicalUrl}}
+<meta property=""og:url"" content=""{{canonicalUrl}}"">
+{{/canonicalUrl}}
+{{#imageUrl}}
+<meta property=""og:image"" content=""{{imageUrl}}"">
+<meta property=""og:image:width"" content=""1920"">
+<meta property=""og:image:height"" content=""1277"">
+{{/imageUrl}}
+{{#publishedAt}}
+<meta property=""article:published_time"" content=""{{publishedAt}}"">
+{{/publishedAt}}
+{{#updatedAt}}
+<meta property=""article:modified_time"" content=""{{updatedAt}}"">
+{{/updatedAt}}
+{{^updatedAt}}
+{{#publishedAt}}
+<meta property=""article:modified_time"" content=""{{publishedAt}}"">
+{{/publishedAt}}
+{{/updatedAt}}
+{{#tags}}
+<meta property=""article:tag"" content=""{{.}}"">
+{{/tags}}
+{{#_siteFacebook}}
+<meta property=""article:publisher"" content=""{{_siteFacebook}}"">
+{{/_siteFacebook}}
+{{#authorFacebook}}
+<meta property=""article:author"" content=""{{authorFacebook}}"">
+{{/authorFacebook}}";
+
+            string twitterContent = @"<meta name=""twitter:card"" content=""summary_large_image"">
+{{#twitterTitle}}
+<meta name=""twitter:title"" content=""{{twitterTitle}}"">
+{{/twitterTitle}}
+{{^twitterTitle}}
+{{#title}}
+<meta name=""twitter:title"" content=""{{title}}"">
+{{/title}}
+{{/twitterTitle}}
+{{#twitterDescription}}
+<meta name=""twitter:description"" content=""{{twitterDescription}}"">
+{{/twitterDescription}}
+{{^twitterDescription}}
+{{#description}}
+<meta name=""twitter:description"" content=""{{description}}"">
+{{/description}}
+{{^description}}
+{{#summary}}
+<meta name=""twitter:description"" content=""{{summary}}"">
+{{/summary}}
+{{/description}}
+{{/twitterDescription}}
+{{#canonicalUrl}}
+<meta name=""twitter:url"" content=""{{canonicalUrl}}"">
+{{/canonicalUrl}}
+{{#twitterImageUrl}}
+<meta name=""twitter:image"" content=""{{twitterImageUrl}}"">
+{{/twitterImageUrl}}
+{{#_siteTwitter}}
+<meta name=""twitter:site"" content=""{{_siteTwitter}}"">
+{{/_siteTwitter}}
+{{#authorTwitter}}
+<meta name=""twitter:creator"" content=""{{authorTwitter}}"">
+{{/authorTwitter}}
+{{#author}}
+<meta name=""twitter:label1"" content=""Written by"">
+<meta name=""twitter:data1"" content=""{{author}}"">
+{{/author}}
+{{#keywords}}
+<meta name=""twitter:label2"" content=""Filed under"">
+<meta name=""twitter:data2"" content=""{{keywords}}"">
+{{/keywords}}";
+
+            string schemaContent = @"<script type=""application/ld+json"">
+{
+    ""@context"": ""https://schema.org"",
+    ""@type"": ""Article"",
+    ""publisher"": {
+        ""@type"": ""Organization"",
+        ""name"": ""{{#_appTitle}}{{_appTitle}}{{/_appTitle}}{{^_appTitle}}Get Blogged by JoKi{{/_appTitle}}"",
+        ""url"": ""{{#_appUrl}}{{_appUrl}}/{{/_appUrl}}"",
+        ""logo"": {
+            ""@type"": ""ImageObject"",
+            ""url"": ""{{#_appUrl}}{{#_appLogoPath}}{{_appUrl}}/{{_appLogoPath}}{{/_appLogoPath}}{{^_appLogoPath}}{{_appUrl}}/favicon.png{{/_appLogoPath}}{{/_appUrl}}{{^_appUrl}}favicon.png{{/_appUrl}}"",
+            ""width"": 60,
+            ""height"": 60
+        }
+    },
+    ""author"": {
+        ""@type"": ""Person"",
+        ""name"": ""{{#author}}{{author}}{{/author}}{{^author}}Jochen Kirstätter{{/author}}"",
+        ""image"": {
+            ""@type"": ""ImageObject"",
+            ""url"": ""{{authorImageUrl}}"",
+            ""width"": 100,
+            ""height"": 100
+        },
+        ""url"": ""{{authorPageUrl}}"",
+        ""sameAs"": [
+            ""{{#_appUrl}}{{_appUrl}}/{{/_appUrl}}""
+            {{#authorFacebook}},
+            ""{{authorFacebook}}""
+            {{/authorFacebook}}
+            {{#authorTwitter}},
+            ""https://x.com/{{authorTwitter}}""
+            {{/authorTwitter}}
+        ]
+    },
+    ""headline"": ""{{#title}}{{title}}{{/title}}"",
+    ""url"": ""{{canonicalUrl}}"",
+    ""datePublished"": ""{{#publishedAt}}{{publishedAt}}{{/publishedAt}}"",
+    ""dateModified"": ""{{#updatedAt}}{{updatedAt}}{{/updatedAt}}{{^updatedAt}}{{#publishedAt}}{{publishedAt}}{{/publishedAt}}{{/updatedAt}}"",
+    ""image"": {
+        ""@type"": ""ImageObject"",
+        ""url"": ""{{imageUrl}}"",
+        ""width"": 1920,
+        ""height"": 1277
+    },
+    ""keywords"": ""{{#keywords}}{{keywords}}{{/keywords}}"",
+    ""description"": ""{{#description}}{{description}}{{/description}}{{^description}}{{#summary}}{{summary}}{{/summary}}{{/description}}"",
+    ""mainEntityOfPage"": {
+        ""@type"": ""WebPage"",
+        ""@id"": ""{{#_appUrl}}{{_appUrl}}/{{/_appUrl}}""
+    }
+}
+</script>";
+
+            await File.WriteAllTextAsync(Path.Combine(pDir, "meta.tmpl.partial"), metaContent);
+            await File.WriteAllTextAsync(Path.Combine(pDir, "opengraph.tmpl.partial"), opengraphContent);
+            await File.WriteAllTextAsync(Path.Combine(pDir, "twitter.tmpl.partial"), twitterContent);
+            await File.WriteAllTextAsync(Path.Combine(pDir, "schema.tmpl.partial"), schemaContent);
         }
         finally
         {
@@ -560,33 +994,85 @@ public static class DocfxGenerator
         }
     }
 
-    public static string ConvertHandlebarsToDocfx(string hbsContent, bool isLayout = false, string? headerInjection = null, string? footerInjection = null)
+    public static string ConvertHandlebarsToDocfx(string hbsContent, bool isLayout = false, string? headerInjection = null, string? footerInjection = null, List<IconLink>? iconLinks = null)
     {
         if (string.IsNullOrWhiteSpace(hbsContent))
             return string.Empty;
 
         string result = hbsContent;
 
-        // Convert Ghost Head & Foot
-        result = Regex.Replace(result, @"\{\{\s*ghost_head\s*\}\}", "<!-- DocFx Head Injection -->", RegexOptions.IgnoreCase);
-        result = Regex.Replace(result, @"\{\{\s*ghost_foot\s*\}\}", "<!-- DocFx Foot Injection -->", RegexOptions.IgnoreCase);
-
-        // Prepend docfx.min.css and main.css to head (so they load first and are overridden by custom CSS)
-        if (isLayout && result.Contains("<head>", StringComparison.OrdinalIgnoreCase))
+        if (isLayout)
         {
-            result = Regex.Replace(result, @"<head\b[^>]*>", m =>
-                m.Value + "\n    <link rel=\"stylesheet\" href=\"{{_rel}}public/docfx.min.css\">\n    <link rel=\"stylesheet\" href=\"{{_rel}}public/main.css\">",
-                RegexOptions.IgnoreCase);
+            result = "{{!include(/^public/.*/)}}\n{{!include(favicon.ico)}}\n{{!include(logo.svg)}}\n" + result;
+        }
+
+        // Convert Ghost Head & Foot using partial templates
+        result = Regex.Replace(result, @"\{\{\s*ghost_head\s*\}\}", "{{>partials/ghost_head}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*ghost_foot\s*\}\}", "{{>partials/ghost_foot}}", RegexOptions.IgnoreCase);
+
+        // Place docfx.min.css after viewport meta tag, or fall back to head if not present
+        if (isLayout)
+        {
+            var viewportRegex = new Regex(@"<meta\s+name=[""']viewport[""'][^>]*>", RegexOptions.IgnoreCase);
+            var docfxMeta = @"
+    <link rel=""stylesheet"" href=""{{_rel}}public/docfx.min.css"">
+    <meta name=""docfx:navrel"" content=""{{_navRel}}"">
+    <meta name=""docfx:tocrel"" content=""{{_tocRel}}"">
+    {{#_noindex}}<meta name=""searchOption"" content=""noindex"">{{/_noindex}}
+    {{#_enableSearch}}<meta name=""docfx:rel"" content=""{{_rel}}"">{{/_enableSearch}}
+    {{#_disableNewTab}}<meta name=""docfx:disablenewtab"" content=""true"">{{/_disableNewTab}}
+    {{#_disableTocFilter}}<meta name=""docfx:disabletocfilter"" content=""true"">{{/_disableTocFilter}}
+    {{#docurl}}<meta name=""docfx:docurl"" content=""{{docurl}}"">{{/docurl}}
+    <meta name=""loc:inThisArticle"" content=""{{__global.inThisArticle}}"">
+    <meta name=""loc:searchResultsCount"" content=""{{__global.searchResultsCount}}"">
+    <meta name=""loc:searchNoResults"" content=""{{__global.searchNoResults}}"">
+    <meta name=""loc:tocFilter"" content=""{{__global.tocFilter}}"">
+    <meta name=""loc:nextArticle"" content=""{{__global.nextArticle}}"">
+    <meta name=""loc:prevArticle"" content=""{{__global.prevArticle}}"">
+    <meta name=""loc:themeLight"" content=""{{__global.themeLight}}"">
+    <meta name=""loc:themeDark"" content=""{{__global.themeDark}}"">
+    <meta name=""loc:themeAuto"" content=""{{__global.themeAuto}}"">
+    <meta name=""loc:changeTheme"" content=""{{__global.changeTheme}}"">
+    <meta name=""loc:copy"" content=""{{__global.copy}}"">
+    <meta name=""loc:downloadPdf"" content=""{{__global.downloadPdf}}"">
+    {{#_enableSearch}}
+    <style>
+        #search-results-container {
+            display: none;
+        }
+        body[data-search=true] #site-main {
+            display: none !important;
+        }
+        body[data-search=true] #search-results-container {
+            display: block !important;
+        }
+    </style>
+    {{/_enableSearch}}";
+
+            if (viewportRegex.IsMatch(result))
+            {
+                result = viewportRegex.Replace(result, m => m.Value + docfxMeta, 1);
+            }
+            else if (result.Contains("<head>", StringComparison.OrdinalIgnoreCase))
+            {
+                result = Regex.Replace(result, @"<head\b[^>]*>", m => m.Value + docfxMeta, RegexOptions.IgnoreCase);
+            }
+
+            if (result.Contains("jquery.fitvids.js", StringComparison.OrdinalIgnoreCase))
+            {
+                var fitvidsRegex = new Regex(@"<script\s+[^>]*src=[""'][^""']*jquery\.fitvids\.js[""'][^>]*></script>", RegexOptions.IgnoreCase);
+                result = fitvidsRegex.Replace(result, m => m.Value + "\n    <script>\n        $(function() {\n            var $postContent = $(\".post-full-content\");\n            if ($postContent.length) $postContent.fitVids();\n        });\n    </script>");
+            }
         }
 
         // Apply injections
-        if (isLayout && !string.IsNullOrWhiteSpace(headerInjection) && result.Contains("</head>", StringComparison.OrdinalIgnoreCase))
+        if (isLayout && result.Contains("</head>", StringComparison.OrdinalIgnoreCase))
         {
-            result = result.Replace("</head>", $"{headerInjection}\n</head>", StringComparison.OrdinalIgnoreCase);
+            result = result.Replace("</head>", "{{>partials/code_header}}\n</head>", StringComparison.OrdinalIgnoreCase);
         }
-        if (isLayout && !string.IsNullOrWhiteSpace(footerInjection) && result.Contains("</body>", StringComparison.OrdinalIgnoreCase))
+        if (isLayout && result.Contains("</body>", StringComparison.OrdinalIgnoreCase))
         {
-            result = result.Replace("</body>", $"{footerInjection}\n</body>", StringComparison.OrdinalIgnoreCase);
+            result = result.Replace("</body>", "{{>partials/code_footer}}\n</body>", StringComparison.OrdinalIgnoreCase);
         }
 
         // Convert Site Metadata
@@ -600,15 +1086,23 @@ public static class DocfxGenerator
         result = Regex.Replace(result, @"\{\{\s*@blog\.icon\s*\}\}", "{{_appFaviconPath}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*@site\.cover_image\s*\}\}", "{{_appCoverImage}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*@blog\.cover_image\s*\}\}", "{{_appCoverImage}}", RegexOptions.IgnoreCase);
-        result = Regex.Replace(result, @"\{\{\s*@site\.url\s*\}\}", "{{_rel}}", RegexOptions.IgnoreCase);
-        result = Regex.Replace(result, @"\{\{\s*@blog\.url\s*\}\}", "{{_rel}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*@site\.url\s*\}\}", "{{#_appUrl}}{{_appUrl}}{{/_appUrl}}{{^_appUrl}}{{_rel}}{{/_appUrl}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*@blog\.url\s*\}\}", "{{#_appUrl}}{{_appUrl}}{{/_appUrl}}{{^_appUrl}}{{_rel}}{{/_appUrl}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*@site\.locale\s*\}\}", "{{_lang}}", RegexOptions.IgnoreCase);
+
+        // Convert copyright current year date helper
+        result = Regex.Replace(result, @"\{\{\s*date\s+format=[""']YYYY[""']\s*\}\}", "{{_currentYear}}", RegexOptions.IgnoreCase);
 
         // Convert asset helper: {{asset "path"}} -> {{_rel}}public/path
         result = Regex.Replace(result, @"\{\{\s*asset\s+""?([^"" }]+)""?\s*\}\}", "{{_rel}}public/$1", RegexOptions.IgnoreCase);
 
+        // Convert legacy Facebook/Twitter footer links to dynamic _siteSocialLinks
+        result = Regex.Replace(result, @"\{\{#(?:if\s+@blog\.facebook|@blog\.facebook)\}\}.*?\{\{\/(?:if|@blog\.facebook)\}\}", "{{#_siteSocialLinks}}<a href=\"{{href}}\" target=\"_blank\" rel=\"noreferrer noopener\">{{title}}</a>{{/_siteSocialLinks}}", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+        result = Regex.Replace(result, @"\{\{#(?:if\s+@blog\.twitter|@blog\.twitter)\}\}.*?\{\{\/(?:if|@blog\.twitter)\}\}", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+
         // Convert branding/other variables
-        result = Regex.Replace(result, @"\{\{\s*body_class\s*\}\}", "tex2jax_ignore", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*body_class\s*\}\}", "tex2jax_ignore {{bodyClass}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*post_class\s*\}\}", "{{postClass}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*meta_title\s*\}\}", "{{title}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*comment_id\s*\}\}", "{{uid}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*url(?:\s+[^}]+)?\s*\}\}", "{{_rel}}{{slug}}.html", RegexOptions.IgnoreCase);
@@ -624,12 +1118,13 @@ public static class DocfxGenerator
         // Convert Post tags
         result = Regex.Replace(result, @"\{\{\s*title\s*\}\}", "{{title}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*content\s*\}\}", "{{{conceptual}}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\{\s*content\s*\}\}\}", "{{{conceptual}}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*excerpt\s*\}\}", "{{summary}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*custom_excerpt\s*\}\}", "{{summary}}", RegexOptions.IgnoreCase);
 
         // Convert Block Helpers {{#post}} ... {{/post}}
-        result = Regex.Replace(result, @"\{\{\s*#post\s*\}\}", "<article class=\"ghost-post-container\">", RegexOptions.IgnoreCase);
-        result = Regex.Replace(result, @"\{\{\s*/post\s*\}\}", "</article>", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*#post\s*\}\}", "", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*/post\s*\}\}", "", RegexOptions.IgnoreCase);
 
         // Convert layouts references
         result = Regex.Replace(result, @"\{\{\!<\s*([^ }]+)\s*\}\}", m =>
@@ -637,7 +1132,7 @@ public static class DocfxGenerator
             string layoutName = m.Groups[1].Value.Trim().ToLowerInvariant();
             if (layoutName == "default")
                 return "{{!master(layout/_master.tmpl)}}";
-            return $"{{!master(layout/_{layoutName}.tmpl)}}";
+            return "{{!master(layout/_" + layoutName + ".tmpl)}}";
         }, RegexOptions.IgnoreCase);
 
         // Convert comments
@@ -647,19 +1142,19 @@ public static class DocfxGenerator
         // Convert loops & conditional blocks using a stack for matching tag names
         var tagStack = new System.Collections.Generic.Stack<string>();
 
-        result = Regex.Replace(result, @"\{\{\s*(#foreach|#has|#if|#unless|\/foreach|\/has|\/if|\/unless)\s*([^ }]*)\s*\}\}", m =>
+        result = Regex.Replace(result, @"\{\{\s*(#foreach|#has|#if|#unless|#is|\^is|\/foreach|\/has|\/if|\/unless|\/is)\s*([^}]*?)\s*\}\}", m =>
         {
             string marker = m.Groups[1].Value.ToLowerInvariant();
             string arg = m.Groups[2].Value.Trim();
 
-            if (marker.StartsWith('#'))
+            if (marker.StartsWith('#') || marker.StartsWith('^'))
             {
                 string propertyName = arg;
                 if (marker == "#foreach")
                 {
                     propertyName = arg;
                     tagStack.Push(propertyName);
-                    return $"{{#{propertyName}}}";
+                    return "{{" + "#" + propertyName + "}}";
                 }
                 else if (marker == "#has")
                 {
@@ -669,28 +1164,61 @@ public static class DocfxGenerator
                         propertyName = "hasMultipleAuthors";
                     }
                     tagStack.Push(propertyName);
-                    return $"{{#{propertyName}}}";
+                    return "{{" + "#" + propertyName + "}}";
+                }
+                else if (marker == "#is" || marker == "^is")
+                {
+                    propertyName = "isHome";
+                    string cleanArg = arg.Replace("\"", "").Replace("'", "");
+                    if (cleanArg.Equals("post", StringComparison.OrdinalIgnoreCase))
+                        propertyName = "isPost";
+                    else if (cleanArg.Equals("page", StringComparison.OrdinalIgnoreCase))
+                        propertyName = "isPage";
+                    else if (cleanArg.Equals("tag", StringComparison.OrdinalIgnoreCase))
+                        propertyName = "isTagPage";
+                    else if (cleanArg.Equals("author", StringComparison.OrdinalIgnoreCase))
+                        propertyName = "isAuthorPage";
+                    else if (cleanArg.Equals("home", StringComparison.OrdinalIgnoreCase))
+                        propertyName = "isHome";
+
+                    tagStack.Push(propertyName);
+                    char prefix = marker[0];
+                    return "{{" + prefix + propertyName + "}}";
                 }
                 else if (marker == "#if")
                 {
                     tagStack.Push(propertyName);
-                    return $"{{#{propertyName}}}";
+                    return "{{" + "#" + propertyName + "}}";
                 }
                 else // #unless
                 {
                     tagStack.Push(propertyName);
-                    return $"{{^{propertyName}}}";
+                    return "{{" + "^" + propertyName + "}}";
                 }
             }
             else // closing tag
             {
                 if (tagStack.Count > 0)
                 {
-                    return $"{{/{tagStack.Pop()}}}";
+                    return "{{" + "/" + tagStack.Pop() + "}}";
                 }
                 return "{{/posts}}"; // fallback
             }
         }, RegexOptions.IgnoreCase);
+
+        // Remove Ghost {{#get ...}} tags along with their closing tags
+        result = Regex.Replace(result, @"\{\{\s*#get\b(?:[^{}]|\{\{[^{}]*\}\})*\}\}", "", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*\/get\s*\}\}", "", RegexOptions.IgnoreCase);
+
+        // Remove Ghost {{#contentFor ...}} and {{{block ...}}} tags
+        result = Regex.Replace(result, @"\{\{\s*#contentFor\b(?:[^{}]|\{\{[^{}]*\}\})*\}\}", "", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*\/contentFor\s*\}\}", "", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\{\s*block\s+[^}]+\}\}\}", "", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*block\s+[^}]+\s*\}\}", "", RegexOptions.IgnoreCase);
+
+        // Replace Ghost {{> header ...}} partial tags (and any surrounding conditional header wrappers in author/tag templates) with <header class="site-header outer">
+        result = Regex.Replace(result, @"\{\{#if\s+feature_image\}\}\s*\{\{>\s*header\b[^}]*\}\}\s*\{\{else\}\}\s*\{\{>\s*header\b[^}]*\}\}\s*\{\{/if\}\}", "<header class=\"site-header outer\">", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{>\s*header\b[^}]*\}\}", "<header class=\"site-header outer\">", RegexOptions.IgnoreCase);
 
         // Convert partials
         result = Regex.Replace(result, @"\{\{>\s*""?([^"" }]+)""?\s*\}\}", m =>
@@ -698,22 +1226,114 @@ public static class DocfxGenerator
             string path = m.Groups[1].Value;
             if (path.StartsWith("partials/", StringComparison.OrdinalIgnoreCase) || path.StartsWith("partials\\", StringComparison.OrdinalIgnoreCase))
             {
-                return $"{{{{> {path}}}}}";
+                return $"{{{{>{path}}}}}";
             }
-            return $"{{{{> partials/{path}}}}}";
+            return $"{{{{>partials/{path}}}}}";
         }, RegexOptions.IgnoreCase);
 
-        // Master layout content injection spot
         result = Regex.Replace(result, @"\{\{\{\s*body\s*\}\}\}", "{{!body}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*body\s*\}\}", "{{!body}}", RegexOptions.IgnoreCase);
 
-        // Convert img_url custom helper references
-        result = Regex.Replace(result, @"\{\{\s*img_url\s+""?([^"" }]+)""?(?:\s+[^}]+)?\s*\}\}", "{{$1}}", RegexOptions.IgnoreCase);
+        if (isLayout)
+        {
+            if (!result.Contains("docfx.min.js", StringComparison.OrdinalIgnoreCase))
+            {
+                result = Regex.Replace(result, @"</head\s*>", "    <script type=\"module\" src=\"{{_rel}}public/docfx.min.js\"></script>\n    <link rel=\"stylesheet\" href=\"{{_rel}}public/main.css\">\n</head>", RegexOptions.IgnoreCase);
+            }
+            if (!result.Contains("id=\"search-results\"", StringComparison.OrdinalIgnoreCase))
+            {
+                result = result.Replace("{{!body}}", @"{{!body}}
+        {{#_enableSearch}}
+        <main id=""search-results-container"" class=""site-main outer"">
+            <div class=""inner"">
+                <div id=""search-results"" class=""search-results""></div>
+            </div>
+        </main>
+        <script>
+            document.addEventListener('click', function(e) {
+                var a = e.target.closest('#search-results .sr-item a');
+                if (a) { a.removeAttribute('target'); }
+            });
+        </script>
+        {{/_enableSearch}}");
+            }
+        }
+
+        // Convert img_url custom helper references to use _rel prefix for path safety
+        result = Regex.Replace(result, @"\{\{\s*img_url\s+""?([^"" }]+)""?(?:\s+[^}]+)?\s*\}\}", "{{_rel}}{{$1}}", RegexOptions.IgnoreCase);
+
+        // Map snake_case variables to camelCase frontmatter names
+        result = Regex.Replace(result, @"\bfeature_image\b", "featureImage", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\bog_title\b", "ogTitle", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\bog_description\b", "ogDescription", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\btwitter_title\b", "twitterTitle", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\btwitter_description\b", "twitterDescription", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\btwitter_image\b", "twitterImage", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\bfacebook_title\b", "facebookTitle", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\bfacebook_description\b", "facebookDescription", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\bfacebook_image\b", "facebookImage", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\bpublished_at\b", "publishedAt", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\bcodeinjection_head\b", "codeinjectionHead", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\bcodeinjection_foot\b", "codeinjectionFoot", RegexOptions.IgnoreCase);
+
+        // Replace Ghost Handlebars date helpers with client-side dynamic year span
+        result = Regex.Replace(result, @"\{\{\s*date\s+format=[""']YYYY[""']\s*\}\}", "<span class=\"js-current-year\"></span>", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*date\s*\}\}", "<span class=\"js-current-year\"></span>", RegexOptions.IgnoreCase);
+
+        // Replace Ghost footer social links with compiled iconLinks
+        var sbFooterSocial = new System.Text.StringBuilder();
+        if (iconLinks != null && iconLinks.Count > 0)
+        {
+            foreach (var link in iconLinks)
+            {
+                if (string.IsNullOrWhiteSpace(link.Href)) continue;
+                string title = !string.IsNullOrWhiteSpace(link.Title) ? link.Title : link.Icon;
+                sbFooterSocial.AppendLine($"                    <a href=\"{link.Href}\" target=\"_blank\" rel=\"noreferrer noopener\">{title}</a>");
+            }
+        }
+        string footerSocialMarkup = sbFooterSocial.ToString();
+        if (!string.IsNullOrWhiteSpace(footerSocialMarkup))
+        {
+            result = Regex.Replace(result,
+                @"(<nav\s+class=[""']site-footer-nav[""']\s*>[\s\S]*?<a\s+href=[""'][^""']*[""']>Latest Posts</a>)\s*[\s\S]*?(</nav>)",
+                "$1\n" + footerSocialMarkup + "                $2",
+                RegexOptions.IgnoreCase);
+        }
+
+        // Prepend {{_rel}} to template image variables inside html attributes to make them path-agnostic
+        result = Regex.Replace(result, @"(src|srcset)\s*=\s*([""'])\{\{\s*(featureImage|image)\s*\}\}", "$1=$2{{_rel}}{{$3}}", RegexOptions.IgnoreCase);
+
+        // Remove redundant fitVids inline script caller from post/page templates
+        result = Regex.Replace(result, @"<script>\s*\$\(function\(\)\s*\{\s*var\s+\$postContent\s*=\s*\$\(\s*['""]\.post-full-content['""]\s*\);\s*\$postContent\.fitVids\(\);\s*\}\);\s*</script>", "", RegexOptions.IgnoreCase);
+
+        if (!isLayout && !result.Contains("{{{conceptual}}}"))
+        {
+            if (result.Contains("{{{content}}}"))
+            {
+                result = result.Replace("{{{content}}}", "{{{conceptual}}}");
+            }
+            else if (result.Contains("{{content}}"))
+            {
+                result = result.Replace("{{content}}", "{{{conceptual}}}");
+            }
+            else if (result.Contains("{{#posts}}"))
+            {
+                result = Regex.Replace(result, @"\{\{#posts\}\}[\s\S]*?\{\{/posts\}\}", "<div class=\"conceptual-content\" style=\"width: 100%;\">{{{conceptual}}}</div>", RegexOptions.IgnoreCase);
+            }
+            else if (result.Contains("class=\"post-feed\""))
+            {
+                result = Regex.Replace(result, @"<div\s+class=[""']post-feed[""'][^>]*>", m => m.Value + "\n<div class=\"conceptual-content\" style=\"width: 100%;\">{{{conceptual}}}</div>", RegexOptions.IgnoreCase);
+            }
+            else if (result.Contains("<main"))
+            {
+                result = Regex.Replace(result, @"<main\b[^>]*>", m => m.Value + "\n<div class=\"conceptual-content\" style=\"width: 100%;\">{{{conceptual}}}</div>", RegexOptions.IgnoreCase);
+            }
+        }
 
         return result;
     }
 
-    public static async Task EnsureDocfxTemplateOverridesExistAsync(string rootDir, string customTemplatePath = "ghostfx", List<IconLink>? iconLinks = null)
+    public static async Task<List<IconLink>> EnsureDocfxTemplateOverridesExistAsync(string rootDir, string customTemplatePath = "ghostfx", List<IconLink>? iconLinks = null, List<GhostNavItem>? navItems = null, List<BlogPostMetadata>? pages = null, List<BlogPostMetadata>? posts = null)
     {
         string layoutDir = Path.Combine(rootDir, customTemplatePath, "layout");
         Directory.CreateDirectory(layoutDir);
@@ -724,26 +1344,50 @@ public static class DocfxGenerator
             await File.WriteAllTextAsync(masterPath, DefaultMasterTemplate, System.Text.Encoding.UTF8);
         }
 
+        string partialsDir = Path.Combine(rootDir, customTemplatePath, "partials");
+        Directory.CreateDirectory(partialsDir);
+
+        string ghostHeadPath = Path.Combine(partialsDir, "ghost_head.tmpl.partial");
+        if (!File.Exists(ghostHeadPath))
+        {
+            string defaultHead = "{{>partials/meta}}\n{{>partials/opengraph}}\n{{>partials/twitter}}\n{{>partials/schema}}\n" +
+                                 "{{#codeinjectionHead}}{{{codeinjectionHead}}}{{/codeinjectionHead}}\n";
+            await File.WriteAllTextAsync(ghostHeadPath, defaultHead, System.Text.Encoding.UTF8);
+        }
+
+        string ghostFootPath = Path.Combine(partialsDir, "ghost_foot.tmpl.partial");
+        if (!File.Exists(ghostFootPath))
+        {
+            string defaultFoot = "{{#codeinjectionFoot}}{{{codeinjectionFoot}}}{{/codeinjectionFoot}}\n";
+            await File.WriteAllTextAsync(ghostFootPath, defaultFoot, System.Text.Encoding.UTF8);
+        }
+
+        string codeHeaderPath = Path.Combine(partialsDir, "code_header.tmpl.partial");
+        if (!File.Exists(codeHeaderPath))
+        {
+            await File.WriteAllTextAsync(codeHeaderPath, "", System.Text.Encoding.UTF8);
+        }
+
+        string codeFooterPath = Path.Combine(partialsDir, "code_footer.tmpl.partial");
+        if (!File.Exists(codeFooterPath))
+        {
+            await File.WriteAllTextAsync(codeFooterPath, "", System.Text.Encoding.UTF8);
+        }
+
+        string siteNavPath = Path.Combine(partialsDir, "site-nav.tmpl.partial");
+        if (!File.Exists(siteNavPath) || navItems != null || iconLinks != null)
+        {
+            string defaultSiteNav = GenerateSiteNavPartialContent(navItems, pages, posts, iconLinks);
+            await File.WriteAllTextAsync(siteNavPath, defaultSiteNav, System.Text.Encoding.UTF8);
+        }
+
         string publicDir = Path.Combine(rootDir, customTemplatePath, "public");
         Directory.CreateDirectory(publicDir);
 
         string cssPath = Path.Combine(publicDir, "main.css");
         if (!File.Exists(cssPath))
         {
-            string defaultCss = """
-            /* GhostFx Auto-Generated DocFx Theme Overrides */
-            :root {
-                --docfx-primary: #15171a;
-                --docfx-accent: #30b1ff;
-            }
-
-            .ghost-post-container {
-                max-width: 840px;
-                margin: 0 auto;
-                padding: 1.5rem 0;
-            }
-            """;
-            await File.WriteAllTextAsync(cssPath, defaultCss);
+            await File.WriteAllTextAsync(cssPath, "");
         }
 
         var links = iconLinks ?? [
@@ -786,12 +1430,6 @@ public static class DocfxGenerator
                 mainContent = regex.Replace(mainContent, $"iconLinks: {jsonLinks}");
             }
 
-            bool hasGhostJs = File.Exists(Path.Combine(publicDir, "ghost.js"));
-            if (hasGhostJs && !mainContent.Contains("import './ghost.js';"))
-            {
-                mainContent = "import './ghost.js';\n\n" + mainContent.TrimStart();
-            }
-
             await File.WriteAllTextAsync(jsPath, mainContent, System.Text.Encoding.UTF8);
         }
         else
@@ -809,6 +1447,7 @@ public static class DocfxGenerator
             """;
             await File.WriteAllTextAsync(jsPath, defaultJs, System.Text.Encoding.UTF8);
         }
+        return links;
     }
 
     private static List<IconLink> MergeIconLinks(List<IconLink> existingLinks, List<IconLink> newLinks)
@@ -857,6 +1496,126 @@ public static class DocfxGenerator
         }
 
         return false;
+    }
+
+    public static string GetSocialIconFromUrl(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return string.Empty;
+        string lower = url.ToLowerInvariant();
+        if (lower.Contains("github.com")) return "github";
+        if (lower.Contains("twitter.com") || lower.Contains("x.com")) return "twitter";
+        if (lower.Contains("facebook.com")) return "facebook";
+        if (lower.Contains("linkedin.com")) return "linkedin";
+        if (lower.Contains("youtube.com")) return "youtube";
+        if (lower.Contains("instagram.com")) return "instagram";
+        if (lower.Contains("mastodon")) return "mastodon";
+        if (lower.Contains("threads.net")) return "threads";
+        if (lower.Contains("discord")) return "discord";
+        if (lower.Contains("reddit.com")) return "reddit";
+        return string.Empty;
+    }
+
+    public static string GenerateSiteNavPartialContent(List<GhostNavItem>? navItems = null, List<BlogPostMetadata>? pages = null, List<BlogPostMetadata>? posts = null, List<IconLink>? iconLinks = null)
+    {
+        var sbNav = new System.Text.StringBuilder();
+        if (navItems != null && navItems.Count > 0)
+        {
+            foreach (var nav in navItems)
+            {
+                if (string.IsNullOrWhiteSpace(nav.Label)) continue;
+                string label = nav.Label;
+                string url = nav.Url?.Trim() ?? "";
+                string slug = label.ToLowerInvariant().Replace(" ", "-").Replace("_", "-");
+
+                string href;
+                if (string.IsNullOrWhiteSpace(url) || url == "/" || url.Equals("home", StringComparison.OrdinalIgnoreCase))
+                {
+                    href = "{{_rel}}index.html";
+                }
+                else if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                {
+                    href = url;
+                }
+                else
+                {
+                    string pathSlug = url.Trim('/').Split('/').LastOrDefault() ?? "";
+                    if (string.IsNullOrEmpty(pathSlug))
+                    {
+                        href = "{{_rel}}index.html";
+                    }
+                    else
+                    {
+                        href = "{{_rel}}" + pathSlug + ".html";
+                    }
+                }
+
+                sbNav.AppendLine($"            <li class=\"nav-{slug}\" role=\"menuitem\"><a href=\"{href}\">{label}</a></li>");
+            }
+        }
+
+        var sbSocial = new System.Text.StringBuilder();
+        if (iconLinks != null && iconLinks.Count > 0)
+        {
+            foreach (var link in iconLinks)
+            {
+                if (string.IsNullOrWhiteSpace(link.Href)) continue;
+                string iconLower = (link.Icon ?? "").ToLowerInvariant();
+                string iconPartial = iconLower switch
+                {
+                    "facebook" => "{{>partials/icons/facebook}}",
+                    "twitter" or "x" => "{{>partials/icons/twitter}}",
+                    "linkedin" => "{{>partials/icons/linkedin}}",
+                    "youtube" => "{{>partials/icons/youtube}}",
+                    "reddit" => "{{>partials/icons/reddit}}",
+                    "rss" => "{{>partials/icons/rss}}",
+                    "email" or "mail" => "{{>partials/icons/email}}",
+                    "github" => "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><path d=\"M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z\"/></svg>",
+                    _ => link.Title ?? link.Icon ?? ""
+                };
+                sbSocial.AppendLine($"            <a class=\"social-link social-link-{iconLower}\" href=\"{link.Href}\" title=\"{link.Title}\" target=\"_blank\" rel=\"noreferrer noopener\">{iconPartial}</a>");
+            }
+        }
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("<nav class=\"site-nav\">");
+        sb.AppendLine("    <div class=\"site-nav-left\">");
+        sb.AppendLine("        {{^isHome}}");
+        sb.AppendLine("            {{#_appLogoPath}}");
+        sb.AppendLine("                <a class=\"site-nav-logo\" href=\"{{#_appUrl}}{{_appUrl}}{{/_appUrl}}{{^_appUrl}}{{_rel}}{{/_appUrl}}\"><img src=\"{{_rel}}{{_appLogoPath}}\" alt=\"{{_appTitle}}\" /></a>");
+        sb.AppendLine("            {{/_appLogoPath}}");
+        sb.AppendLine("            {{^_appLogoPath}}");
+        sb.AppendLine("                <a class=\"site-nav-logo\" href=\"{{#_appUrl}}{{_appUrl}}{{/_appUrl}}{{^_appUrl}}{{_rel}}{{/_appUrl}}\">{{_appTitle}}</a>");
+        sb.AppendLine("            {{/_appLogoPath}}");
+        sb.AppendLine("        {{/isHome}}");
+        sb.AppendLine("        <ul class=\"nav\" role=\"menu\">");
+        sb.Append(sbNav.ToString());
+        sb.AppendLine("        </ul>");
+        sb.AppendLine("    </div>");
+        sb.AppendLine("    <div class=\"site-nav-right\">");
+        sb.AppendLine("        {{#_enableSearch}}");
+        sb.AppendLine("        <form class=\"search\" role=\"search\" id=\"search\" style=\"margin-right: 15px;\">");
+        sb.AppendLine("            <input class=\"form-control\" id=\"search-query\" type=\"search\" disabled placeholder=\"Search\" autocomplete=\"off\" aria-label=\"Search\" style=\"border-radius: 20px; padding: 4px 12px; background: rgba(255,255,255,0.15); border: none; color: #fff;\">");
+        sb.AppendLine("        </form>");
+        sb.AppendLine("        {{/_enableSearch}}");
+        sb.AppendLine("        <div class=\"social-links\">");
+        sb.Append(sbSocial.ToString());
+        sb.AppendLine("        </div>");
+        sb.AppendLine("        {{#_appUrl}}");
+        sb.AppendLine("        <a class=\"rss-button\" href=\"https://feedly.com/i/subscription/feed/{{_appUrl}}/rss/\" title=\"RSS\" target=\"_blank\" rel=\"noreferrer noopener\">{{>partials/icons/rss}}</a>");
+        sb.AppendLine("        {{/_appUrl}}");
+        sb.AppendLine("        <div class=\"dropdown\" style=\"display: inline-block; margin-left: 10px;\">");
+        sb.AppendLine("            <a title=\"Change theme\" class=\"btn border-0 dropdown-toggle\" data-bs-toggle=\"dropdown\" aria-expanded=\"false\" style=\"color: #fff; text-decoration: none; padding: 0 5px;\">");
+        sb.AppendLine("                <i class=\"bi bi-circle-half\" style=\"font-size: 1.6rem;\"></i>");
+        sb.AppendLine("            </a>");
+        sb.AppendLine("            <ul class=\"dropdown-menu dropdown-menu-end\">");
+        sb.AppendLine("                <li><a class=\"dropdown-item\" href=\"#\" onclick=\"localStorage.setItem('theme','light');document.documentElement.setAttribute('data-bs-theme','light');return false;\"><i class=\"bi bi-sun\"></i> Light</a></li>");
+        sb.AppendLine("                <li><a class=\"dropdown-item\" href=\"#\" onclick=\"localStorage.setItem('theme','dark');document.documentElement.setAttribute('data-bs-theme','dark');return false;\"><i class=\"bi bi-moon\"></i> Dark</a></li>");
+        sb.AppendLine("                <li><a class=\"dropdown-item\" href=\"#\" onclick=\"localStorage.setItem('theme','auto');document.documentElement.setAttribute('data-bs-theme',window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');return false;\"><i class=\"bi bi-circle-half\"></i> Auto</a></li>");
+        sb.AppendLine("            </ul>");
+        sb.AppendLine("        </div>");
+        sb.AppendLine("    </div>");
+        sb.AppendLine("</nav>");
+        return sb.ToString();
     }
 
     private static void PurgeDirectory(string path)

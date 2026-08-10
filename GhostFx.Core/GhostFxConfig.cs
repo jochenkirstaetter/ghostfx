@@ -48,6 +48,9 @@ public class GhostFxConfig
     [JsonPropertyName("includeDrafts")]
     public bool IncludeDrafts { get; set; } = false;
 
+    [JsonPropertyName("cleanUrls")]
+    public bool CleanUrls { get; set; } = false;
+
     [JsonPropertyName("downloadTheme")]
     public bool DownloadTheme { get; set; } = false;
 
@@ -78,4 +81,7 @@ public class GhostFxConfig
 
     [JsonPropertyName("migrateTheme")]
     public bool MigrateTheme { get; set; } = true;
+
+    [JsonPropertyName("purgeTemplate")]
+    public bool? PurgeTemplate { get; set; } = null;
 }

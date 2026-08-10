@@ -238,7 +238,7 @@ public class MigrationEngineTests : IDisposable
 
         string tocContent = await File.ReadAllTextAsync(rootTocFile);
         Assert.Contains("- name: Blog", tocContent);
-        Assert.Contains("href: pages/blog.md", tocContent);
+        Assert.Contains("uid: blog", tocContent);
         Assert.DoesNotContain("published/toc.yml", tocContent);
     }
 }

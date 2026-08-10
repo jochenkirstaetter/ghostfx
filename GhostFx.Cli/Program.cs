@@ -68,6 +68,11 @@ public class Program
             name: "--ga-tag",
             description: "Google Analytics Tag ID to inject into docfx.json.");
 
+        var cleanUrlsOption = new Option<bool?>(
+            name: "--clean-urls",
+            description: "If true, generates {slug}/index.md for extension-less URLs.");
+
+
         var migrateThemeOption = new Option<bool?>(
             name: "--migrate-theme",
             description: "If true, migrates and converts the Ghost theme/template. (Defaults to true).");
@@ -76,6 +81,9 @@ public class Program
             name: "--content-api-key",
             description: "The Ghost Content API key.");
 
+        var purgeTemplateOption = new Option<bool?>(
+            name: "--purge-template",
+            description: "If true, purges the template folder. If false, skips purging.");
 
         var rootCommand = new RootCommand("GhostFx: Live-migrate from Ghost to DocFx.")
         {
@@ -93,8 +101,10 @@ public class Program
             logoPathOption,
             yesOption,
             gaTagOption,
+            cleanUrlsOption,
             migrateThemeOption,
-            contentApiKeyOption
+            contentApiKeyOption,
+            purgeTemplateOption
         };
 
         rootCommand.SetHandler(async (InvocationContext context) =>
@@ -114,8 +124,10 @@ public class Program
             var logoPathCli = parseResult.GetValueForOption(logoPathOption);
             var autoConfirm = parseResult.GetValueForOption(yesOption);
             var gaTag = parseResult.GetValueForOption(gaTagOption);
+            var cleanUrlsCli = parseResult.GetValueForOption(cleanUrlsOption);
             var migrateThemeCli = parseResult.GetValueForOption(migrateThemeOption);
             var contentApiKeyCli = parseResult.GetValueForOption(contentApiKeyOption);
+            var purgeTemplateCli = parseResult.GetValueForOption(purgeTemplateOption);
 
             string? tempPipedFile = null;
 
@@ -163,12 +175,14 @@ public class Program
                 if (!string.IsNullOrWhiteSpace(siteTitle)) config.SiteTitle = siteTitle;
                 if (includeDrafts.HasValue) config.IncludeDrafts = includeDrafts.Value;
                 if (downloadTheme.HasValue) config.DownloadTheme = downloadTheme.Value;
+                if (cleanUrlsCli.HasValue) config.CleanUrls = cleanUrlsCli.Value;
                 if (!string.IsNullOrWhiteSpace(themePath)) config.ThemePath = themePath;
                 if (quietCli) config.Quiet = true;
                 if (logoPathCli.HasValue) config.LogoPath = logoPathCli.Value;
                 if (!string.IsNullOrWhiteSpace(gaTag)) config.GoogleAnalyticsTag = gaTag;
                 if (migrateThemeCli.HasValue) config.MigrateTheme = migrateThemeCli.Value;
                 if (!string.IsNullOrWhiteSpace(contentApiKeyCli)) config.ContentApiKey = contentApiKeyCli;
+                if (purgeTemplateCli.HasValue) config.PurgeTemplate = purgeTemplateCli.Value;
 
                 bool isQuiet = config.Quiet || Console.IsOutputRedirected;
                 if (Console.IsInputRedirected)
@@ -193,6 +207,7 @@ public class Program
                                 if (!string.IsNullOrWhiteSpace(parsedConfig.IndexFile)) config.IndexFile = parsedConfig.IndexFile;
                                 if (!string.IsNullOrWhiteSpace(parsedConfig.SiteTitle)) config.SiteTitle = parsedConfig.SiteTitle;
                                 config.IncludeDrafts = parsedConfig.IncludeDrafts;
+                                config.CleanUrls = parsedConfig.CleanUrls;
                                 config.DownloadTheme = parsedConfig.DownloadTheme;
                                 if (!string.IsNullOrWhiteSpace(parsedConfig.ThemePath)) config.ThemePath = parsedConfig.ThemePath;
                                 if (parsedConfig.Quiet) config.Quiet = true;
@@ -200,6 +215,7 @@ public class Program
                                 config.MigrateTheme = parsedConfig.MigrateTheme;
                                 if (!string.IsNullOrWhiteSpace(parsedConfig.GoogleAnalyticsTag)) config.GoogleAnalyticsTag = parsedConfig.GoogleAnalyticsTag;
                                 if (!string.IsNullOrWhiteSpace(parsedConfig.ContentApiKey)) config.ContentApiKey = parsedConfig.ContentApiKey;
+                                if (parsedConfig.PurgeTemplate.HasValue) config.PurgeTemplate = parsedConfig.PurgeTemplate.Value;
                             }
                             else
                             {
@@ -343,6 +359,11 @@ public class Program
                     },
                     onConfirmTemplatePurge: async (targetPath) =>
                     {
+                        if (config.PurgeTemplate.HasValue)
+                        {
+                            return config.PurgeTemplate.Value;
+                        }
+
                         if (Console.IsInputRedirected || autoConfirm || isQuiet)
                         {
                             return true; // Auto-confirm in non-interactive/silent modes
