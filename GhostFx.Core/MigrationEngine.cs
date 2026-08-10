@@ -235,7 +235,7 @@ public class MigrationEngine
 
                 string titleSuffix = isDraft ? " (Draft)" : (isScheduled ? " (Scheduled)" : "");
 
-                string fallbackExcerpt = ExtractExcerpt(post.Html ?? "", _config.ExcerptMaxLength);
+                string fallbackExcerpt = ExtractExcerpt(post.Html ?? "", config.ExcerptMaxLength);
 
                 var primaryAuthor = post.Authors?.FirstOrDefault();
                 string authorName = primaryAuthor?.Name ?? "";
@@ -895,7 +895,7 @@ public class MigrationEngine
         return clean;
     }
 
-    private static string ExtractExcerpt(string html, int softLimit = 190)
+    private static string ExtractExcerpt(string html, int softLimit = 200)
     {
         if (string.IsNullOrWhiteSpace(html))
             return string.Empty;
