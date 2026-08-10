@@ -115,4 +115,5 @@ posts/
 __pycache__
 jwt_gen.py
 _exported_templates/
+_ghost_templates/
 _site
