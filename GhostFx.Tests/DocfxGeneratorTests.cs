@@ -362,4 +362,59 @@ public class DocfxGeneratorTests : IDisposable
         Assert.DoesNotContain("https://github.com/old/ghostfx", content);
         Assert.Contains("https://jochen.kirstaetter.name/rss/", content);
     }
+
+    [Fact]
+    public void ParseTocYml_ParsesYamlItemsCorrectly()
+    {
+        string tocYaml = """
+        - name: About
+          uid: about
+        - name: Blog
+          uid: blog
+        - name: Community
+          uid: community
+        - name: Speaking
+          uid: speaking
+        """;
+        File.WriteAllText(Path.Combine(_tempDirectory, "toc.yml"), tocYaml);
+
+        var items = DocfxGenerator.ParseTocYml(_tempDirectory);
+
+        Assert.Equal(4, items.Count);
+        Assert.Equal("About", items[0].Label);
+        Assert.Equal("about.html", items[0].Url);
+        Assert.Equal("Blog", items[1].Label);
+        Assert.Equal("blog.html", items[1].Url);
+        Assert.Equal("Community", items[2].Label);
+        Assert.Equal("community.html", items[2].Url);
+        Assert.Equal("Speaking", items[3].Label);
+        Assert.Equal("speaking.html", items[3].Url);
+    }
+
+    [Fact]
+    public async Task EnsureDocfxTemplateOverridesExistAsync_PopulatesSiteNavFromTocYmlWhenNavItemsEmpty()
+    {
+        string tocYaml = """
+        - name: About
+          uid: about
+        - name: Blog
+          uid: blog
+        - name: Community
+          uid: community
+        - name: Speaking
+          uid: speaking
+        """;
+        File.WriteAllText(Path.Combine(_tempDirectory, "toc.yml"), tocYaml);
+
+        await DocfxGenerator.EnsureDocfxTemplateOverridesExistAsync(_tempDirectory, "ghostfx");
+
+        string navPartialPath = Path.Combine(_tempDirectory, "ghostfx", "partials", "site-nav.tmpl.partial");
+        Assert.True(File.Exists(navPartialPath));
+
+        string navContent = await File.ReadAllTextAsync(navPartialPath);
+        Assert.Contains("<li class=\"nav-about\" role=\"menuitem\"><a href=\"{{_rel}}about.html\">About</a></li>", navContent);
+        Assert.Contains("<li class=\"nav-blog\" role=\"menuitem\"><a href=\"{{_rel}}blog.html\">Blog</a></li>", navContent);
+        Assert.Contains("<li class=\"nav-community\" role=\"menuitem\"><a href=\"{{_rel}}community.html\">Community</a></li>", navContent);
+        Assert.Contains("<li class=\"nav-speaking\" role=\"menuitem\"><a href=\"{{_rel}}speaking.html\">Speaking</a></li>", navContent);
+    }
 }

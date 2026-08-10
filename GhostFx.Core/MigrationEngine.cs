@@ -551,7 +551,10 @@ public class MigrationEngine
                 result.HeaderCodeInjection,
                 result.FooterCodeInjection,
                 twitter,
-                facebook);
+                facebook,
+                navItems,
+                pageMetaList,
+                publishedMetaList);
             if (!result.GeneratedFiles.Contains(docfxPath))
             {
                 result.GeneratedFiles.Add(docfxPath);

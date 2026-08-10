@@ -188,10 +188,13 @@ public static class DocfxGenerator
         string? headerCodeInjection = null,
         string? footerCodeInjection = null,
         string? siteTwitter = null,
-        string? siteFacebook = null)
+        string? siteFacebook = null,
+        List<GhostNavItem>? navItems = null,
+        List<BlogPostMetadata>? pages = null,
+        List<BlogPostMetadata>? posts = null)
     {
         string templatePath = customTemplatePath ?? "ghostfx";
-        var links = await EnsureDocfxTemplateOverridesExistAsync(rootDir, templatePath, iconLinks);
+        var links = await EnsureDocfxTemplateOverridesExistAsync(rootDir, templatePath, iconLinks, navItems, pages, posts);
 
         string partialsDir = Path.Combine(rootDir, templatePath, "partials");
         Directory.CreateDirectory(partialsDir);
@@ -633,7 +636,11 @@ public static class DocfxGenerator
             await File.WriteAllTextAsync(Path.Combine(destPartialsDir, "code_header.tmpl.partial"), headerInjection ?? "", System.Text.Encoding.UTF8);
             await File.WriteAllTextAsync(Path.Combine(destPartialsDir, "code_footer.tmpl.partial"), footerInjection ?? "", System.Text.Encoding.UTF8);
 
-            string siteNavContent = GenerateSiteNavPartialContent(navItems, pages, posts, iconLinks);
+            if (navItems == null || navItems.Count == 0)
+            {
+                navItems = ParseTocYml(rootDir);
+            }
+            string siteNavContent = GenerateSiteNavPartialContent(navItems, pages, posts, iconLinks, rootDir);
             await File.WriteAllTextAsync(Path.Combine(destPartialsDir, "site-nav.tmpl.partial"), siteNavContent, System.Text.Encoding.UTF8);
 
             // 5. Process Handlebars (.hbs) template files into converted DocFX Mustache templates
@@ -1356,10 +1363,25 @@ public static class DocfxGenerator
             await File.WriteAllTextAsync(codeFooterPath, "", System.Text.Encoding.UTF8);
         }
 
-        string siteNavPath = Path.Combine(partialsDir, "site-nav.tmpl.partial");
-        if (!File.Exists(siteNavPath) || navItems != null || iconLinks != null)
+        if (navItems == null || navItems.Count == 0)
         {
-            string defaultSiteNav = GenerateSiteNavPartialContent(navItems, pages, posts, iconLinks);
+            navItems = ParseTocYml(rootDir);
+        }
+
+        string siteNavPath = Path.Combine(partialsDir, "site-nav.tmpl.partial");
+        bool isNavEmpty = false;
+        if (File.Exists(siteNavPath))
+        {
+            string currentSiteNav = await File.ReadAllTextAsync(siteNavPath);
+            if (!currentSiteNav.Contains("<li class=\"nav-") && !currentSiteNav.Contains("role=\"menuitem\""))
+            {
+                isNavEmpty = true;
+            }
+        }
+
+        if (!File.Exists(siteNavPath) || isNavEmpty || (navItems != null && navItems.Count > 0))
+        {
+            string defaultSiteNav = GenerateSiteNavPartialContent(navItems, pages, posts, iconLinks, rootDir);
             await File.WriteAllTextAsync(siteNavPath, defaultSiteNav, System.Text.Encoding.UTF8);
         }
 
@@ -1502,9 +1524,84 @@ public static class DocfxGenerator
         return string.Empty;
     }
 
-    public static string GenerateSiteNavPartialContent(List<GhostNavItem>? navItems = null, List<BlogPostMetadata>? pages = null, List<BlogPostMetadata>? posts = null, List<IconLink>? iconLinks = null)
+    public static List<GhostNavItem> ParseTocYml(string rootDir)
+    {
+        var items = new List<GhostNavItem>();
+        string tocPath = Path.Combine(rootDir, "toc.yml");
+        if (!File.Exists(tocPath)) return items;
+
+        try
+        {
+            string yaml = File.ReadAllText(tocPath);
+            string? currentName = null;
+            string? currentHref = null;
+
+            foreach (var rawLine in yaml.Replace("\r", "").Split('\n'))
+            {
+                string line = rawLine.Trim();
+                if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#")) continue;
+
+                if (line.StartsWith("- name:", StringComparison.OrdinalIgnoreCase) || line.StartsWith("name:", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!string.IsNullOrEmpty(currentName))
+                    {
+                        items.Add(new GhostNavItem { Label = currentName, Url = currentHref ?? $"{currentName.ToLowerInvariant().Replace(" ", "-")}.html" });
+                        currentHref = null;
+                    }
+                    int idx = line.IndexOf(':');
+                    currentName = idx >= 0 && idx < line.Length - 1 ? line.Substring(idx + 1).Trim(' ', '\t', '"', '\'') : string.Empty;
+                }
+                else if (line.StartsWith("uid:", StringComparison.OrdinalIgnoreCase))
+                {
+                    int idx = line.IndexOf(':');
+                    if (idx >= 0 && idx < line.Length - 1)
+                    {
+                        string uid = line.Substring(idx + 1).Trim(' ', '\t', '"', '\'');
+                        currentHref = uid.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ? uid : uid + ".html";
+                    }
+                }
+                else if (line.StartsWith("href:", StringComparison.OrdinalIgnoreCase))
+                {
+                    int idx = line.IndexOf(':');
+                    if (idx >= 0 && idx < line.Length - 1)
+                    {
+                        string href = line.Substring(idx + 1).Trim(' ', '\t', '"', '\'');
+                        currentHref = href.EndsWith(".md", StringComparison.OrdinalIgnoreCase) ? href.Substring(0, href.Length - 3) + ".html" : href;
+                    }
+                }
+            }
+
+            if (!string.IsNullOrEmpty(currentName))
+            {
+                items.Add(new GhostNavItem { Label = currentName, Url = currentHref ?? $"{currentName.ToLowerInvariant().Replace(" ", "-")}.html" });
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[ParseTocYml Error] {ex.Message}");
+        }
+
+        return items;
+    }
+
+    public static string GenerateSiteNavPartialContent(List<GhostNavItem>? navItems = null, List<BlogPostMetadata>? pages = null, List<BlogPostMetadata>? posts = null, List<IconLink>? iconLinks = null, string? rootDir = null)
     {
         var sbNav = new System.Text.StringBuilder();
+
+        if ((navItems == null || navItems.Count == 0) && !string.IsNullOrEmpty(rootDir))
+        {
+            navItems = ParseTocYml(rootDir);
+        }
+
+        if ((navItems == null || navItems.Count == 0) && pages != null && pages.Count > 0)
+        {
+            navItems = pages.Select(p => new GhostNavItem
+            {
+                Label = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(p.Slug.Replace("-", " ").Replace("_", " ")),
+                Url = $"{p.Slug}.html"
+            }).ToList();
+        }
+
         if (navItems != null && navItems.Count > 0)
         {
             foreach (var nav in navItems)
@@ -1526,9 +1623,34 @@ public static class DocfxGenerator
                 else
                 {
                     string pathSlug = url.Trim('/').Split('/').LastOrDefault() ?? "";
-                    if (string.IsNullOrEmpty(pathSlug))
+                    if (string.IsNullOrEmpty(pathSlug) || pathSlug.Equals("index.md", StringComparison.OrdinalIgnoreCase) || pathSlug.Equals("index.html", StringComparison.OrdinalIgnoreCase))
                     {
                         href = "{{_rel}}index.html";
+                    }
+                    else if (pathSlug.EndsWith("toc.yml", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string[] parts = url.Trim('/').Split('/');
+                        string dir = parts.Length > 1 ? parts[0] : "";
+                        if (dir.Equals("published", StringComparison.OrdinalIgnoreCase) || dir.Equals("posts", StringComparison.OrdinalIgnoreCase))
+                        {
+                            href = "{{_rel}}blog.html";
+                        }
+                        else if (!string.IsNullOrEmpty(dir))
+                        {
+                            href = "{{_rel}}" + dir + ".html";
+                        }
+                        else
+                        {
+                            href = "{{_rel}}index.html";
+                        }
+                    }
+                    else if (pathSlug.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+                    {
+                        href = "{{_rel}}" + pathSlug;
+                    }
+                    else if (pathSlug.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
+                    {
+                        href = "{{_rel}}" + pathSlug.Substring(0, pathSlug.Length - 3) + ".html";
                     }
                     else
                     {
