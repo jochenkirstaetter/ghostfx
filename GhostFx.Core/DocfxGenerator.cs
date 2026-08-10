@@ -1606,6 +1606,31 @@ public static class DocfxGenerator
             background-repeat: no-repeat !important;
         }
 
+        /* Milky Frosted-Glass Box for Site Title & Description */
+        .site-header-content {
+            background: rgba(255, 255, 255, 0.33) !important;
+            backdrop-filter: blur(1rem) !important;
+            -webkit-backdrop-filter: blur(1rem) !important;
+            border-radius: 0.75rem !important;
+            box-shadow: 0 0.8rem 2rem rgba(39, 44, 49, 0.12) !important;
+            border: 1px solid rgba(255, 255, 255, 0.6) !important;
+            margin: 3rem auto !important;
+            padding: 3rem 4rem !important;
+            max-width: 800px !important;
+            position: relative !important;
+            z-index: 100 !important;
+        }
+
+        .site-header-content .site-title {
+            color: #15171a !important;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8) !important;
+        }
+
+        .site-header-content .site-description {
+            color: #3c484e !important;
+            font-weight: 400 !important;
+        }
+
         /* Pure CSS 1-3-2 Post Card Grid Repeat Pattern */
         @media (min-width: 795px) {
             .post-feed .post-card:nth-child(6n+1) {
@@ -1938,12 +1963,12 @@ public static class DocfxGenerator
                 string iconLower = (link.Icon ?? "").ToLowerInvariant();
                 string iconPartial = iconLower switch
                 {
-                    "facebook" => "{{>partials/icons/facebook}}",
-                    "twitter" or "x" => "{{>partials/icons/twitter}}",
+                    "facebook" => "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><path d=\"M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z\"/></svg>",
+                    "twitter" or "x" => "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><path d=\"M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z\"/></svg>",
                     "linkedin" => "{{>partials/icons/linkedin}}",
                     "youtube" => "{{>partials/icons/youtube}}",
                     "reddit" => "{{>partials/icons/reddit}}",
-                    "rss" => "{{>partials/icons/rss}}",
+                    "rss" => "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><circle cx=\"6.18\" cy=\"17.82\" r=\"2.18\"/><path d=\"M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z\"/></svg>",
                     "email" or "mail" => "{{>partials/icons/email}}",
                     "github" => "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><path d=\"M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z\"/></svg>",
                     _ => link.Title ?? link.Icon ?? ""
