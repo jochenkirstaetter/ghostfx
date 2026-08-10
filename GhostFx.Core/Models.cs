@@ -175,6 +175,66 @@ public sealed class BlogPostMetadata
     public string AuthorImage { get; set; } = string.Empty;
 }
 
+public sealed class PostCardItem
+{
+    [YamlMember(Alias = "title")]
+    public string Title { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "slug")]
+    public string Slug { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "date")]
+    public string Date { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "formattedDate")]
+    public string FormattedDate { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "featureImage")]
+    public string FeatureImage { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "excerpt")]
+    public string Excerpt { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "authorName")]
+    public string AuthorName { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "authorSlug")]
+    public string AuthorSlug { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "authorImage")]
+    public string AuthorImage { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "primaryTag")]
+    public string PrimaryTag { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "tagClass")]
+    public string TagClass { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "imageClass")]
+    public string ImageClass { get; set; } = string.Empty;
+}
+
+public sealed class IndexFrontMatter
+{
+    [YamlMember(Alias = "title")]
+    public string Title { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "description")]
+    public string Description { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "coverImage")]
+    public string CoverImage { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "isHome")]
+    public bool IsHome { get; set; } = true;
+
+    [YamlMember(Alias = "bodyClass")]
+    public string BodyClass { get; set; } = "home-template";
+
+    [YamlMember(Alias = "posts")]
+    public List<PostCardItem> Posts { get; set; } = [];
+}
+
 public class GhostExport
 {
     [JsonPropertyName("db")]

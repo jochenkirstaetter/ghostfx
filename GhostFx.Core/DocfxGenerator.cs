@@ -678,6 +678,74 @@ public static class DocfxGenerator
 
                     string relName = Path.ChangeExtension(relativePart, ".tmpl.partial");
                     targetPath = Path.Combine(targetTemplateDir, "partials", relName);
+
+                    if (hbsNameLower == "post-card")
+                    {
+                        converted = """
+                        <article class="post-card post {{tagClass}} {{imageClass}}">
+
+                            {{#featureImage}}
+                            <a class="post-card-image-link" href="{{_rel}}{{href}}" aria-label="{{title}}">
+                                <img class="post-card-image"
+                                    srcset="{{_rel}}{{.}} 300w,
+                                            {{_rel}}{{.}} 600w,
+                                            {{_rel}}{{.}} 1000w,
+                                            {{_rel}}{{.}} 2000w"
+                                    sizes="(max-width: 1000px) 400px, 700px"
+                                    src="{{_rel}}{{.}}"
+                                    alt="{{title}}"
+                                />
+                            </a>
+                            {{/featureImage}}
+
+                            <div class="post-card-content">
+                                <a class="post-card-content-link" href="{{_rel}}{{href}}">
+                                    <header class="post-card-header">
+                                        {{#primaryTag}}
+                                            <span class="post-card-tags">{{.}}</span>
+                                        {{/primaryTag}}
+                                        <h2 class="post-card-title">{{title}}</h2>
+                                    </header>
+                                    {{#excerpt}}
+                                    <section class="post-card-excerpt">
+                                        <p>{{.}}</p>
+                                    </section>
+                                    {{/excerpt}}
+                                </a>
+                                <footer class="post-card-meta">
+
+                                    <ul class="author-list">
+                                    {{#authorName}}
+                                        <li class="author-list-item">
+
+                                            <div class="author-name-tooltip">
+                                                {{.}}
+                                            </div>
+
+                                            {{#authorImage}}
+                                                <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar">
+                                                    <img class="author-profile-image" src="{{_rel}}{{.}}" alt="{{authorName}}" />
+                                                </a>
+                                            {{/authorImage}}
+                                            {{^authorImage}}
+                                                <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar author-profile-image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></a>
+                                            {{/authorImage}}
+                                        </li>
+                                    {{/authorName}}
+                                    </ul>
+
+                                    <div class="post-card-byline-content">
+                                        {{#authorName}}<span><a href="{{_rel}}author/{{authorSlug}}.html">{{.}}</a></span>{{/authorName}}
+                                        <span class="post-card-byline-date"><time datetime="{{date}}">{{formattedDate}}</time></span>
+                                    </div>
+
+                                </footer>
+
+                            </div>
+
+                        </article>
+                        """;
+                    }
                 }
                 else
                 {
@@ -704,6 +772,41 @@ public static class DocfxGenerator
                     else if (hbsNameLower == "index")
                     {
                         targetPath = Path.Combine(targetTemplateDir, "index.html.primary.tmpl");
+                        converted = """
+                        {{!master(layout/_master.tmpl)}}
+
+                        <header class="site-home-header">
+                            <div class="outer site-header-background {{#coverImage}}responsive-header-img{{/coverImage}}{{^coverImage}}{{#_appCoverImage}}responsive-header-img{{/_appCoverImage}}{{/coverImage}}" style="{{#coverImage}}background-image: url('{{_rel}}{{.}}');{{/coverImage}}{{^coverImage}}{{#_appCoverImage}}background-image: url('{{_rel}}{{.}}');{{/_appCoverImage}}{{/coverImage}}">
+                                <div class="inner">
+                                    {{>partials/site-nav}}
+                                    <div class="site-header-content">
+                                        <h1 class="site-title">
+                                            {{#_appLogoPath}}
+                                                <img class="site-logo" src="{{_rel}}{{.}}" alt="{{#title}}{{title}}{{/title}}{{^title}}{{_appTitle}}{{/title}}" />
+                                            {{/_appLogoPath}}
+                                            {{^_appLogoPath}}
+                                                {{#title}}{{title}}{{/title}}{{^title}}{{_appTitle}}{{/title}}
+                                            {{/_appLogoPath}}
+                                        </h1>
+                                        <h2 class="site-description">{{#description}}{{description}}{{/description}}{{^description}}{{_appDescription}}{{/description}}</h2>
+                                    </div>
+                                </div>
+                            </div>
+                        </header>
+
+                        <main id="site-main" class="site-main outer">
+                            <div class="inner">
+
+                                <div class="post-feed">
+                                    {{#posts}}
+                                        {{>partials/post-card}}
+                                    {{/posts}}
+                                    {{{conceptual}}}
+                                </div>
+
+                            </div>
+                        </main>
+                        """;
                     }
                     else if (hbsNameLower == "error-404")
                     {
@@ -1305,10 +1408,6 @@ public static class DocfxGenerator
             {
                 result = result.Replace("{{content}}", "{{{conceptual}}}");
             }
-            else if (result.Contains("{{#posts}}"))
-            {
-                result = Regex.Replace(result, @"\{\{#posts\}\}[\s\S]*?\{\{/posts\}\}", "<div class=\"conceptual-content\" style=\"width: 100%;\">{{{conceptual}}}</div>", RegexOptions.IgnoreCase);
-            }
             else if (result.Contains("class=\"post-feed\""))
             {
                 result = Regex.Replace(result, @"<div\s+class=[""']post-feed[""'][^>]*>", m => m.Value + "\n{{{conceptual}}}", RegexOptions.IgnoreCase);
@@ -1385,13 +1484,182 @@ public static class DocfxGenerator
             await File.WriteAllTextAsync(siteNavPath, defaultSiteNav, System.Text.Encoding.UTF8);
         }
 
+        string postCardPath = Path.Combine(partialsDir, "post-card.tmpl.partial");
+        if (!File.Exists(postCardPath))
+        {
+            string defaultPostCard = """
+            <article class="post-card post {{tagClass}} {{imageClass}}">
+
+                {{#featureImage}}
+                <a class="post-card-image-link" href="{{_rel}}{{href}}" aria-label="{{title}}">
+                    <img class="post-card-image"
+                        srcset="{{_rel}}{{featureImage}} 300w,
+                                {{_rel}}{{featureImage}} 600w,
+                                {{_rel}}{{featureImage}} 1000w,
+                                {{_rel}}{{featureImage}} 2000w"
+                        sizes="(max-width: 1000px) 400px, 700px"
+                        src="{{_rel}}{{featureImage}}"
+                        alt="{{title}}"
+                    />
+                </a>
+                {{/featureImage}}
+
+                <div class="post-card-content">
+                    <a class="post-card-content-link" href="{{_rel}}{{href}}">
+                        <header class="post-card-header">
+                            {{#primaryTag}}
+                                <span class="post-card-tags">{{.}}</span>
+                            {{/primaryTag}}
+                            <h2 class="post-card-title">{{title}}</h2>
+                        </header>
+                        {{#excerpt}}
+                        <section class="post-card-excerpt">
+                            <p>{{.}}</p>
+                        </section>
+                        {{/excerpt}}
+                    </a>
+                    <footer class="post-card-meta">
+
+                        <ul class="author-list">
+                        {{#authorName}}
+                            <li class="author-list-item">
+
+                                <div class="author-name-tooltip">
+                                    {{.}}
+                                </div>
+
+                                {{#authorImage}}
+                                    <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar">
+                                        <img class="author-profile-image" src="{{_rel}}{{.}}" alt="{{authorName}}" />
+                                    </a>
+                                {{else}}
+                                    <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar author-profile-image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></a>
+                                {{/authorImage}}
+                            </li>
+                        {{/authorName}}
+                        </ul>
+
+                        <div class="post-card-byline-content">
+                            {{#authorName}}<span><a href="{{_rel}}author/{{authorSlug}}.html">{{.}}</a></span>{{/authorName}}
+                            <span class="post-card-byline-date"><time datetime="{{date}}">{{formattedDate}}</time></span>
+                        </div>
+
+                    </footer>
+
+                </div>
+
+            </article>
+            """;
+            await File.WriteAllTextAsync(postCardPath, defaultPostCard, System.Text.Encoding.UTF8);
+        }
+
+        string indexTmplPath = Path.Combine(rootDir, customTemplatePath, "index.html.primary.tmpl");
+        if (!File.Exists(indexTmplPath))
+        {
+            string defaultIndexTmpl = """
+            {{!master(layout/_master.tmpl)}}
+
+            <header class="site-home-header">
+                <div class="outer site-header-background {{#coverImage}}responsive-header-img{{/coverImage}}{{^coverImage}}{{#_appCoverImage}}responsive-header-img{{/_appCoverImage}}{{/coverImage}}" style="{{#coverImage}}background-image: url('{{_rel}}{{.}}');{{/coverImage}}{{^coverImage}}{{#_appCoverImage}}background-image: url('{{_rel}}{{.}}');{{/_appCoverImage}}{{/coverImage}}">
+                    <div class="inner">
+                        {{>partials/site-nav}}
+                        <div class="site-header-content">
+                            <h1 class="site-title">
+                                {{#_appLogoPath}}
+                                    <img class="site-logo" src="{{_rel}}{{.}}" alt="{{#title}}{{title}}{{/title}}{{^title}}{{_appTitle}}{{/title}}" />
+                                {{/_appLogoPath}}
+                                {{^_appLogoPath}}
+                                    {{#title}}{{title}}{{/title}}{{^title}}{{_appTitle}}{{/title}}
+                                {{/_appLogoPath}}
+                            </h1>
+                            <h2 class="site-description">{{#description}}{{description}}{{/description}}{{^description}}{{_appDescription}}{{/description}}</h2>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <main id="site-main" class="site-main outer">
+                <div class="inner">
+
+                    <div class="post-feed">
+                        {{#posts}}
+                            {{>partials/post-card}}
+                        {{/posts}}
+                        {{{conceptual}}}
+                    </div>
+
+                </div>
+            </main>
+            """;
+            await File.WriteAllTextAsync(indexTmplPath, defaultIndexTmpl, System.Text.Encoding.UTF8);
+        }
+
         string publicDir = Path.Combine(rootDir, customTemplatePath, "public");
         Directory.CreateDirectory(publicDir);
 
         string cssPath = Path.Combine(publicDir, "main.css");
+        string defaultCssOverrides = """
+        /* Hero Banner Header Cover Image Styling (non-repeating cover) */
+        .site-header-background,
+        .responsive-header-img {
+            background-size: cover !important;
+            background-position: center center !important;
+            background-repeat: no-repeat !important;
+        }
+
+        /* Pure CSS 1-3-2 Post Card Grid Repeat Pattern */
+        @media (min-width: 795px) {
+            .post-feed .post-card:nth-child(6n+1) {
+                flex: 1 1 100% !important;
+                flex-direction: row !important;
+            }
+
+            .post-feed .post-card:nth-child(6n+1) .post-card-image-link {
+                position: relative !important;
+                flex: 1 1 auto !important;
+                border-radius: 5px 0 0 5px !important;
+            }
+
+            .post-feed .post-card:nth-child(6n+1) .post-card-image {
+                position: absolute !important;
+                width: 100% !important;
+                height: 100% !important;
+            }
+
+            .post-feed .post-card:nth-child(6n+1) .post-card-content {
+                flex: 0 1 357px !important;
+            }
+
+            .post-feed .post-card:nth-child(6n+1) h2 {
+                font-size: 2.6rem !important;
+            }
+
+            .post-feed .post-card:nth-child(6n+1) p {
+                font-size: 1.8rem !important;
+                line-height: 1.55em !important;
+            }
+
+            .post-feed .post-card:nth-child(6n+1) .post-card-content-link {
+                padding: 30px 40px 0 !important;
+            }
+
+            .post-feed .post-card:nth-child(6n+1) .post-card-meta {
+                padding: 0 40px 30px !important;
+            }
+        }
+        """;
+
         if (!File.Exists(cssPath))
         {
-            await File.WriteAllTextAsync(cssPath, "");
+            await File.WriteAllTextAsync(cssPath, defaultCssOverrides, System.Text.Encoding.UTF8);
+        }
+        else
+        {
+            string existingCss = await File.ReadAllTextAsync(cssPath);
+            if (!existingCss.Contains(".responsive-header-img"))
+            {
+                await File.AppendAllTextAsync(cssPath, "\n\n" + defaultCssOverrides, System.Text.Encoding.UTF8);
+            }
         }
 
         var links = iconLinks ?? [

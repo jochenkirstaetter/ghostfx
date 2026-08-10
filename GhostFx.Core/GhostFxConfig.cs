@@ -87,4 +87,20 @@ public class GhostFxConfig
 
     [JsonPropertyName("indexPostCount")]
     public int IndexPostCount { get; set; } = 12;
+
+    private int _excerptMaxLength = 190;
+
+    [JsonPropertyName("excerptMaxLength")]
+    public int ExcerptMaxLength
+    {
+        get => _excerptMaxLength;
+        set => _excerptMaxLength = value;
+    }
+
+    [JsonPropertyName("excerptLength")]
+    public int ExcerptLength
+    {
+        get => _excerptMaxLength;
+        set => _excerptMaxLength = value;
+    }
 }

@@ -77,7 +77,8 @@ dotnet run --project GhostFx.Cli/GhostFx.Cli.csproj -- --help
   "downloadTheme": false,
   "themePath": "ghostfx.zip",
   "quiet": false,
-  "logoPath": true
+  "logoPath": true,
+  "excerptMaxLength": 190
 }
 ```
 

@@ -235,7 +235,7 @@ public class MigrationEngine
 
                 string titleSuffix = isDraft ? " (Draft)" : (isScheduled ? " (Scheduled)" : "");
 
-                string fallbackExcerpt = ExtractExcerpt(post.Html ?? "");
+                string fallbackExcerpt = ExtractExcerpt(post.Html ?? "", _config.ExcerptMaxLength);
 
                 var primaryAuthor = post.Authors?.FirstOrDefault();
                 string authorName = primaryAuthor?.Name ?? "";
@@ -414,7 +414,7 @@ public class MigrationEngine
             // Generate Front Page (index.md) inside outputDir
             string indexFileName = Path.GetFileName(config.IndexFile);
             string indexPath = Path.Combine(config.OutputDir, indexFileName);
-            GenerateFrontPage(indexPath, publishedMetaList, config.SiteTitle, siteDescription, config.IndexPostCount);
+            GenerateFrontPage(indexPath, publishedMetaList, config.SiteTitle, siteDescription, siteCover, config.IndexPostCount);
             result.GeneratedFiles.Add(indexPath);
 
             // Generate subfolder Table of Contents files
@@ -590,84 +590,59 @@ public class MigrationEngine
         }
     }
 
-    private static void GenerateFrontPage(string indexPath, List<BlogPostMetadata> posts, string siteTitle, string? siteDescription, int indexPostCount = 12)
+    private static void GenerateFrontPage(string indexPath, List<BlogPostMetadata> posts, string siteTitle, string? siteDescription, string? siteCoverImage, int indexPostCount = 12)
     {
+        var cardItems = new List<PostCardItem>();
+        var recentPosts = posts.OrderByDescending(p => p.Date).Take(indexPostCount).ToList();
+        foreach (var post in recentPosts)
+        {
+            string primaryTag = post.Tags.FirstOrDefault() ?? "";
+            string tagClass = !string.IsNullOrEmpty(primaryTag) ? $"tag-{primaryTag.ToLowerInvariant().Replace(" ", "-").Replace("_", "-")}" : "";
+            string imageClass = !string.IsNullOrWhiteSpace(post.FeatureImage) ? "with-image" : "no-image";
+
+            cardItems.Add(new PostCardItem
+            {
+                Title = post.Title,
+                Slug = post.Slug,
+                Date = post.Date.ToString("yyyy-MM-dd"),
+                FormattedDate = post.Date.ToString("MMM d, yyyy"),
+                FeatureImage = post.FeatureImage,
+                Excerpt = post.Excerpt,
+                AuthorName = post.AuthorName,
+                AuthorSlug = post.AuthorSlug,
+                AuthorImage = post.AuthorImage,
+                PrimaryTag = primaryTag,
+                TagClass = tagClass,
+                ImageClass = imageClass
+            });
+        }
+
+        string coverRel = siteCoverImage ?? "";
+        if (!string.IsNullOrWhiteSpace(coverRel))
+        {
+            coverRel = coverRel.Replace('\\', '/');
+            if (coverRel.StartsWith("posts/")) coverRel = coverRel.Substring(6);
+        }
+
+        var indexFm = new IndexFrontMatter
+        {
+            Title = siteTitle,
+            Description = siteDescription ?? "",
+            CoverImage = coverRel,
+            IsHome = true,
+            BodyClass = "home-template",
+            Posts = cardItems
+        };
+
+        var serializer = new YamlDotNet.Serialization.SerializerBuilder()
+            .ConfigureDefaultValuesHandling(YamlDotNet.Serialization.DefaultValuesHandling.OmitEmptyCollections | YamlDotNet.Serialization.DefaultValuesHandling.OmitNull)
+            .Build();
+
         var sb = new System.Text.StringBuilder();
         sb.AppendLine("---");
-        sb.AppendLine($"title: {siteTitle}");
-        sb.AppendLine("isHome: true");
-        sb.AppendLine("bodyClass: home-template");
+        sb.AppendLine(serializer.Serialize(indexFm).Trim());
         sb.AppendLine("---");
         sb.AppendLine();
-
-        var recentPosts = posts.OrderByDescending(p => p.Date).Take(indexPostCount).ToList();
-        if (recentPosts.Count > 0)
-        {
-            bool isFirst = true;
-            foreach (var post in recentPosts)
-            {
-                string href = post.FileName.Replace('\\', '/');
-                string authorHref = !string.IsNullOrWhiteSpace(post.AuthorSlug)
-                    ? $"author/{post.AuthorSlug}.md"
-                    : "#";
-
-                string primaryTag = post.Tags.FirstOrDefault() ?? "";
-                string tagClass = !string.IsNullOrEmpty(primaryTag) ? $"tag-{primaryTag.ToLowerInvariant().Replace(" ", "-").Replace("_", "-")}" : "";
-                string imageClass = !string.IsNullOrWhiteSpace(post.FeatureImage) ? "with-image" : "no-image";
-                string largeClass = isFirst ? "post-card-large" : "";
-                isFirst = false;
-
-                sb.AppendLine($"<article class=\"post-card post {tagClass} {imageClass} {largeClass}\">");
-                if (!string.IsNullOrWhiteSpace(post.FeatureImage))
-                {
-                    sb.AppendLine($"    <a class=\"post-card-image-link\" href=\"{href}\" aria-label=\"{post.Title.Replace("\"", "&quot;")}\">");
-                    sb.AppendLine($"        <img class=\"post-card-image\" src=\"{post.FeatureImage}\" alt=\"{post.Title.Replace("\"", "&quot;")}\" />");
-                    sb.AppendLine("    </a>");
-                }
-                sb.AppendLine("    <div class=\"post-card-content\">");
-                sb.AppendLine($"        <a class=\"post-card-content-link\" href=\"{href}\">");
-                sb.AppendLine("            <header class=\"post-card-header\">");
-                if (!string.IsNullOrEmpty(primaryTag))
-                {
-                    sb.AppendLine($"                <span class=\"post-card-tags\">{primaryTag}</span>");
-                }
-                sb.AppendLine($"                <h2 class=\"post-card-title\">{post.Title}</h2>");
-                sb.AppendLine("            </header>");
-                if (!string.IsNullOrWhiteSpace(post.Excerpt))
-                {
-                    sb.AppendLine("            <section class=\"post-card-excerpt\">");
-                    sb.AppendLine($"                <p>{post.Excerpt}</p>");
-                    sb.AppendLine("            </section>");
-                }
-                sb.AppendLine("        </a>");
-                sb.AppendLine("        <footer class=\"post-card-meta\">");
-                sb.AppendLine("            <ul class=\"author-list\">");
-                if (!string.IsNullOrWhiteSpace(post.AuthorName))
-                {
-                    sb.AppendLine("                <li class=\"author-list-item\">");
-                    sb.AppendLine($"                    <div class=\"author-name-tooltip\">{post.AuthorName}</div>");
-                    if (!string.IsNullOrWhiteSpace(post.AuthorImage))
-                    {
-                        sb.AppendLine($"                    <a href=\"{authorHref}\" class=\"static-avatar\">");
-                        sb.AppendLine($"                        <img class=\"author-profile-image\" src=\"{post.AuthorImage}\" alt=\"{post.AuthorName.Replace("\"", "&quot;")}\" />");
-                        sb.AppendLine("                    </a>");
-                    }
-                    sb.AppendLine("                </li>");
-                }
-                sb.AppendLine("            </ul>");
-                sb.AppendLine("            <div class=\"post-card-byline-content\">");
-                if (!string.IsNullOrWhiteSpace(post.AuthorName))
-                {
-                    sb.AppendLine($"                <span><a href=\"{authorHref}\">{post.AuthorName}</a></span>");
-                }
-                sb.AppendLine($"                <span class=\"post-card-byline-date\"><time datetime=\"{post.Date:yyyy-MM-dd}\">{post.Date:MMM d, yyyy}</time></span>");
-                sb.AppendLine("            </div>");
-                sb.AppendLine("        </footer>");
-                sb.AppendLine("    </div>");
-                sb.AppendLine("</article>");
-                sb.AppendLine();
-            }
-        }
 
         File.WriteAllText(indexPath, sb.ToString());
     }
@@ -920,13 +895,32 @@ public class MigrationEngine
         return clean;
     }
 
-    private static string ExtractExcerpt(string html, int maxLength = 160)
+    private static string ExtractExcerpt(string html, int softLimit = 190)
     {
         if (string.IsNullOrWhiteSpace(html))
             return string.Empty;
 
+        string targetHtml = html;
+
+        // Extract first paragraph <p>...</p> if present
+        var match = System.Text.RegularExpressions.Regex.Match(html, @"<p\b[^>]*>(.*?)</p>", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline);
+        if (match.Success && !string.IsNullOrWhiteSpace(match.Groups[1].Value))
+        {
+            targetHtml = match.Groups[1].Value;
+        }
+        else
+        {
+            // Truncate at double line break or multiple <br> breaks
+            string normalizedBreak = System.Text.RegularExpressions.Regex.Replace(html, @"(<br\s*/?>\s*){2,}", "\n\n", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            int breakIdx = normalizedBreak.IndexOf("\n\n", StringComparison.Ordinal);
+            if (breakIdx > 0)
+            {
+                targetHtml = normalizedBreak.Substring(0, breakIdx);
+            }
+        }
+
         // Strip HTML tags using regex
-        string clean = System.Text.RegularExpressions.Regex.Replace(html, "<.*?>", string.Empty);
+        string clean = System.Text.RegularExpressions.Regex.Replace(targetHtml, "<.*?>", string.Empty);
         
         // Replace multiple spaces/newlines with single space
         clean = System.Text.RegularExpressions.Regex.Replace(clean, @"\s+", " ").Trim();
@@ -934,21 +928,13 @@ public class MigrationEngine
         // Decode HTML entities
         clean = System.Net.WebUtility.HtmlDecode(clean);
 
-        if (clean.Length > maxLength)
-        {
-            clean = clean.Substring(0, maxLength).Trim();
-            // Try to truncate at last space
-            int lastSpace = clean.LastIndexOf(' ');
-            if (lastSpace > maxLength - 30 && lastSpace > 0)
-            {
-                clean = clean.Substring(0, lastSpace) + "...";
-            }
-            else
-            {
-                clean = clean + "...";
-            }
-        }
+        if (clean.Length <= softLimit)
+            return clean;
 
-        return clean;
+        // Truncate at last complete word boundary on or before softLimit
+        int lastSpace = clean.LastIndexOf(' ', softLimit);
+        int truncateIndex = lastSpace > 0 ? lastSpace : softLimit;
+
+        return clean.Substring(0, truncateIndex).TrimEnd('.', ',', ';', ':', '!', '?', ' ') + "...";
     }
 }

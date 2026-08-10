@@ -445,14 +445,14 @@ public class DocfxGeneratorTests : IDisposable
 
         string indexPath = Path.Combine(_tempDirectory, "index.md");
         var method = typeof(MigrationEngine).GetMethod("GenerateFrontPage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        method!.Invoke(null, [indexPath, posts, "Test Site", "Description", 12]);
+        method!.Invoke(null, [indexPath, posts, "Test Site", "Description", "cover.jpg", 12]);
 
         Assert.True(File.Exists(indexPath));
         string content = File.ReadAllText(indexPath);
-        Assert.Contains("class=\"post-card post tag-development no-image post-card-large\"", content);
-        Assert.Contains("href=\"published/post-1.md\"", content);
-        Assert.Contains("Post 1", content);
-        Assert.Contains("Post 12", content);
-        Assert.DoesNotContain("Post 13", content);
+        Assert.Contains("tagClass: tag-development", content);
+        Assert.Contains("slug: post-1", content);
+        Assert.Contains("title: Post 1", content);
+        Assert.Contains("title: Post 12", content);
+        Assert.DoesNotContain("title: Post 13", content);
     }
 }
