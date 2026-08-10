@@ -330,8 +330,6 @@ public class DocfxGeneratorTests : IDisposable
         Directory.CreateDirectory(publicDir);
 
         string existingJs = """
-        import './ghost.js';
-
         export default {
           iconLinks: [
             {

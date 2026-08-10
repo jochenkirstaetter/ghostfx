@@ -228,7 +228,6 @@ public static class DocfxGenerator
         else if (File.Exists(Path.Combine(fullOutputDir, "logo.svg"))) logoPath = string.IsNullOrEmpty(relOutputDir) ? "logo.svg" : $"{relOutputDir}/logo.svg";
         else if (!string.IsNullOrEmpty(faviconPath)) logoPath = faviconPath;
 
-        bool useCustomTemplate = config.MigrateTheme;
         string templateExclude = $"{Path.GetFileName(templatePath)}/**";
 
         string docfxPath = Path.Combine(rootDir, "docfx.json");
@@ -253,31 +252,18 @@ public static class DocfxGenerator
                         if (templateArray != null)
                         {
                             string targetTemplateName = Path.GetFileName(templatePath);
-                            if (!useCustomTemplate)
+                            bool hasTemplate = false;
+                            foreach (var item in templateArray)
                             {
-                                for (int i = templateArray.Count - 1; i >= 0; i--)
+                                if (item?.ToString() == targetTemplateName)
                                 {
-                                    if (templateArray[i]?.ToString() == targetTemplateName)
-                                    {
-                                        templateArray.RemoveAt(i);
-                                    }
+                                    hasTemplate = true;
+                                    break;
                                 }
                             }
-                            else
+                            if (!hasTemplate)
                             {
-                                bool hasTemplate = false;
-                                foreach (var item in templateArray)
-                                {
-                                    if (item?.ToString() == targetTemplateName)
-                                    {
-                                        hasTemplate = true;
-                                        break;
-                                    }
-                                }
-                                if (!hasTemplate)
-                                {
-                                    templateArray.Add(targetTemplateName);
-                                }
+                                templateArray.Add(targetTemplateName);
                             }
                         }
 
@@ -478,18 +464,12 @@ public static class DocfxGenerator
                     }
                 },
                 output = "_site",
-                template = useCustomTemplate
-                    ? new string[]
-                    {
-                        "default",
-                        "modern",
-                        Path.GetFileName(templatePath)
-                    }
-                    : new string[]
-                    {
-                        "default",
-                        "modern"
-                    },
+                template = new string[]
+                {
+                    "default",
+                    "modern",
+                    Path.GetFileName(templatePath)
+                },
                 globalMetadata
             }
         };
@@ -598,12 +578,14 @@ public static class DocfxGenerator
             // Also copy any individual asset files located in the root of sourceDir
             foreach (var file in Directory.GetFiles(sourceDir))
             {
+                string fileName = Path.GetFileName(file);
+                if (fileName.Equals("main.js", StringComparison.OrdinalIgnoreCase)) continue;
                 string ext = Path.GetExtension(file).ToLowerInvariant();
                 if (ext == ".css" || ext == ".js" || ext == ".png" || ext == ".jpg" || ext == ".svg" || ext == ".ico")
                 {
                     try
-                     {
-                        File.Copy(file, Path.Combine(publicDir, Path.GetFileName(file)), true);
+                    {
+                        File.Copy(file, Path.Combine(publicDir, fileName), true);
                     }
                     catch { }
                 }
@@ -1429,6 +1411,14 @@ public static class DocfxGenerator
             {
                 mainContent = regex.Replace(mainContent, $"iconLinks: {jsonLinks}");
             }
+            else
+            {
+                mainContent = $$"""
+                export default {
+                  iconLinks: {{jsonLinks}}
+                }
+                """;
+            }
 
             await File.WriteAllTextAsync(jsPath, mainContent, System.Text.Encoding.UTF8);
         }
@@ -1437,11 +1427,8 @@ public static class DocfxGenerator
             var options = new JsonSerializerOptions { WriteIndented = true };
             string jsonLinks = JsonSerializer.Serialize(links, options);
 
-            bool hasGhostJs = File.Exists(Path.Combine(publicDir, "ghost.js"));
-            string importGhost = hasGhostJs ? "import './ghost.js';\n\n" : "";
-
             string defaultJs = $$"""
-            {{importGhost}}export default {
+            export default {
               iconLinks: {{jsonLinks}}
             }
             """;
