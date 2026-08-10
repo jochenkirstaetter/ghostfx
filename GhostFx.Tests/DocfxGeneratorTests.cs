@@ -417,4 +417,42 @@ public class DocfxGeneratorTests : IDisposable
         Assert.Contains("<li class=\"nav-community\" role=\"menuitem\"><a href=\"{{_rel}}community.html\">Community</a></li>", navContent);
         Assert.Contains("<li class=\"nav-speaking\" role=\"menuitem\"><a href=\"{{_rel}}speaking.html\">Speaking</a></li>", navContent);
     }
+
+    [Fact]
+    public void GhostFxConfig_IndexPostCount_DefaultsToTwelve()
+    {
+        var config = new GhostFxConfig();
+        Assert.Equal(12, config.IndexPostCount);
+    }
+
+    [Fact]
+    public void GenerateFrontPage_RespectsIndexPostCount_AndOutputsPostCards()
+    {
+        var posts = new List<BlogPostMetadata>();
+        for (int i = 1; i <= 20; i++)
+        {
+            posts.Add(new BlogPostMetadata
+            {
+                Title = $"Post {i}",
+                Slug = $"post-{i}",
+                Date = DateTime.UtcNow.AddDays(-i),
+                FileName = $"published/post-{i}.md",
+                Tags = ["Development"],
+                AuthorName = "Jochen Kirstätter",
+                AuthorSlug = "joki"
+            });
+        }
+
+        string indexPath = Path.Combine(_tempDirectory, "index.md");
+        var method = typeof(MigrationEngine).GetMethod("GenerateFrontPage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        method!.Invoke(null, [indexPath, posts, "Test Site", "Description", 12]);
+
+        Assert.True(File.Exists(indexPath));
+        string content = File.ReadAllText(indexPath);
+        Assert.Contains("class=\"post-card post tag-development no-image post-card-large\"", content);
+        Assert.Contains("href=\"published/post-1.md\"", content);
+        Assert.Contains("Post 1", content);
+        Assert.Contains("Post 12", content);
+        Assert.DoesNotContain("Post 13", content);
+    }
 }

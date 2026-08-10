@@ -168,6 +168,11 @@ public sealed class BlogPostMetadata
     public bool IsDraft { get; set; }
     public bool IsScheduled { get; set; }
     public string Type { get; set; } = "post";
+    public string FeatureImage { get; set; } = string.Empty;
+    public string Excerpt { get; set; } = string.Empty;
+    public string AuthorName { get; set; } = string.Empty;
+    public string AuthorSlug { get; set; } = string.Empty;
+    public string AuthorImage { get; set; } = string.Empty;
 }
 
 public class GhostExport

@@ -381,7 +381,12 @@ public class MigrationEngine
                     Tags = tagNames,
                     IsDraft = isDraft,
                     IsScheduled = isScheduled,
-                    Type = post.Type ?? (isPage ? "page" : "post")
+                    Type = post.Type ?? (isPage ? "page" : "post"),
+                    FeatureImage = post.FeatureImage ?? string.Empty,
+                    Excerpt = !string.IsNullOrWhiteSpace(post.CustomExcerpt) ? post.CustomExcerpt : (frontMatter.Description ?? string.Empty),
+                    AuthorName = authorName ?? string.Empty,
+                    AuthorSlug = authorSlug ?? string.Empty,
+                    AuthorImage = authorImage ?? string.Empty
                 };
 
                 if (isPage)
@@ -409,7 +414,7 @@ public class MigrationEngine
             // Generate Front Page (index.md) inside outputDir
             string indexFileName = Path.GetFileName(config.IndexFile);
             string indexPath = Path.Combine(config.OutputDir, indexFileName);
-            GenerateFrontPage(indexPath, publishedMetaList, config.SiteTitle, siteDescription);
+            GenerateFrontPage(indexPath, publishedMetaList, config.SiteTitle, siteDescription, config.IndexPostCount);
             result.GeneratedFiles.Add(indexPath);
 
             // Generate subfolder Table of Contents files
@@ -480,7 +485,7 @@ public class MigrationEngine
 
                     var authorFrontMatter = new FrontMatter
                     {
-                        Uid = $"author-{author.Slug}",
+                        Uid = author.Slug,
                         Title = author.Name,
                         Slug = author.Slug,
                         Layout = "author",
@@ -585,7 +590,7 @@ public class MigrationEngine
         }
     }
 
-    private static void GenerateFrontPage(string indexPath, List<BlogPostMetadata> posts, string siteTitle, string? siteDescription)
+    private static void GenerateFrontPage(string indexPath, List<BlogPostMetadata> posts, string siteTitle, string? siteDescription, int indexPostCount = 12)
     {
         var sb = new System.Text.StringBuilder();
         sb.AppendLine("---");
@@ -594,25 +599,74 @@ public class MigrationEngine
         sb.AppendLine("bodyClass: home-template");
         sb.AppendLine("---");
         sb.AppendLine();
-        sb.AppendLine($"# {siteTitle}");
-        sb.AppendLine();
-        if (!string.IsNullOrWhiteSpace(siteDescription))
-        {
-            sb.AppendLine(siteDescription);
-            sb.AppendLine();
-        }
-        else
-        {
-            sb.AppendLine("Welcome to our documentation and articles blog repository.");
-            sb.AppendLine();
-        }
-        sb.AppendLine("## Recent Articles");
-        sb.AppendLine();
 
-        foreach (var post in posts.OrderByDescending(p => p.Date).Take(10))
+        var recentPosts = posts.OrderByDescending(p => p.Date).Take(indexPostCount).ToList();
+        if (recentPosts.Count > 0)
         {
-            string link = post.FileName.Replace('\\', '/');
-            sb.AppendLine($"- [{post.Title}]({link}) - *{post.Date:yyyy-MM-dd}*");
+            bool isFirst = true;
+            foreach (var post in recentPosts)
+            {
+                string href = post.FileName.Replace('\\', '/');
+                string authorHref = !string.IsNullOrWhiteSpace(post.AuthorSlug)
+                    ? $"author/{post.AuthorSlug}.md"
+                    : "#";
+
+                string primaryTag = post.Tags.FirstOrDefault() ?? "";
+                string tagClass = !string.IsNullOrEmpty(primaryTag) ? $"tag-{primaryTag.ToLowerInvariant().Replace(" ", "-").Replace("_", "-")}" : "";
+                string imageClass = !string.IsNullOrWhiteSpace(post.FeatureImage) ? "with-image" : "no-image";
+                string largeClass = isFirst ? "post-card-large" : "";
+                isFirst = false;
+
+                sb.AppendLine($"<article class=\"post-card post {tagClass} {imageClass} {largeClass}\">");
+                if (!string.IsNullOrWhiteSpace(post.FeatureImage))
+                {
+                    sb.AppendLine($"    <a class=\"post-card-image-link\" href=\"{href}\" aria-label=\"{post.Title.Replace("\"", "&quot;")}\">");
+                    sb.AppendLine($"        <img class=\"post-card-image\" src=\"{post.FeatureImage}\" alt=\"{post.Title.Replace("\"", "&quot;")}\" />");
+                    sb.AppendLine("    </a>");
+                }
+                sb.AppendLine("    <div class=\"post-card-content\">");
+                sb.AppendLine($"        <a class=\"post-card-content-link\" href=\"{href}\">");
+                sb.AppendLine("            <header class=\"post-card-header\">");
+                if (!string.IsNullOrEmpty(primaryTag))
+                {
+                    sb.AppendLine($"                <span class=\"post-card-tags\">{primaryTag}</span>");
+                }
+                sb.AppendLine($"                <h2 class=\"post-card-title\">{post.Title}</h2>");
+                sb.AppendLine("            </header>");
+                if (!string.IsNullOrWhiteSpace(post.Excerpt))
+                {
+                    sb.AppendLine("            <section class=\"post-card-excerpt\">");
+                    sb.AppendLine($"                <p>{post.Excerpt}</p>");
+                    sb.AppendLine("            </section>");
+                }
+                sb.AppendLine("        </a>");
+                sb.AppendLine("        <footer class=\"post-card-meta\">");
+                sb.AppendLine("            <ul class=\"author-list\">");
+                if (!string.IsNullOrWhiteSpace(post.AuthorName))
+                {
+                    sb.AppendLine("                <li class=\"author-list-item\">");
+                    sb.AppendLine($"                    <div class=\"author-name-tooltip\">{post.AuthorName}</div>");
+                    if (!string.IsNullOrWhiteSpace(post.AuthorImage))
+                    {
+                        sb.AppendLine($"                    <a href=\"{authorHref}\" class=\"static-avatar\">");
+                        sb.AppendLine($"                        <img class=\"author-profile-image\" src=\"{post.AuthorImage}\" alt=\"{post.AuthorName.Replace("\"", "&quot;")}\" />");
+                        sb.AppendLine("                    </a>");
+                    }
+                    sb.AppendLine("                </li>");
+                }
+                sb.AppendLine("            </ul>");
+                sb.AppendLine("            <div class=\"post-card-byline-content\">");
+                if (!string.IsNullOrWhiteSpace(post.AuthorName))
+                {
+                    sb.AppendLine($"                <span><a href=\"{authorHref}\">{post.AuthorName}</a></span>");
+                }
+                sb.AppendLine($"                <span class=\"post-card-byline-date\"><time datetime=\"{post.Date:yyyy-MM-dd}\">{post.Date:MMM d, yyyy}</time></span>");
+                sb.AppendLine("            </div>");
+                sb.AppendLine("        </footer>");
+                sb.AppendLine("    </div>");
+                sb.AppendLine("</article>");
+                sb.AppendLine();
+            }
         }
 
         File.WriteAllText(indexPath, sb.ToString());
@@ -805,7 +859,7 @@ public class MigrationEngine
             sb.AppendLine();
             foreach (var post in tagPosts.OrderByDescending(p => p.Date))
             {
-                sb.AppendLine($"- [{post.Title}](../{post.FileName}) - *{post.Date:yyyy-MM-dd}*");
+                sb.AppendLine($"- [{post.Title}](xref:{post.Slug}) - *{post.Date:yyyy-MM-dd}*");
             }
 
             File.WriteAllText(tagFilePath, sb.ToString());

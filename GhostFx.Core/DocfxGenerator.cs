@@ -1311,7 +1311,7 @@ public static class DocfxGenerator
             }
             else if (result.Contains("class=\"post-feed\""))
             {
-                result = Regex.Replace(result, @"<div\s+class=[""']post-feed[""'][^>]*>", m => m.Value + "\n<div class=\"conceptual-content\" style=\"width: 100%;\">{{{conceptual}}}</div>", RegexOptions.IgnoreCase);
+                result = Regex.Replace(result, @"<div\s+class=[""']post-feed[""'][^>]*>", m => m.Value + "\n{{{conceptual}}}", RegexOptions.IgnoreCase);
             }
             else if (result.Contains("<main"))
             {

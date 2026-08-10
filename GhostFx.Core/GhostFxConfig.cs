@@ -84,4 +84,7 @@ public class GhostFxConfig
 
     [JsonPropertyName("purgeTemplate")]
     public bool? PurgeTemplate { get; set; } = null;
+
+    [JsonPropertyName("indexPostCount")]
+    public int IndexPostCount { get; set; } = 12;
 }
