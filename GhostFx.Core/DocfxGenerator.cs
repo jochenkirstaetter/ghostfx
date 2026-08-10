@@ -1519,31 +1519,30 @@ public static class DocfxGenerator
                         {{/excerpt}}
                     </a>
                     <footer class="post-card-meta">
+                        <div class="post-card-byline-wrapper" style="display: flex; align-items: center; gap: 10px;">
+                            <ul class="author-list" style="margin: 0; padding: 0;">
+                            {{#authorName}}
+                                <li class="author-list-item">
+                                    <div class="author-name-tooltip">
+                                        {{.}}
+                                    </div>
 
-                        <ul class="author-list">
-                        {{#authorName}}
-                            <li class="author-list-item">
+                                    {{#authorImage}}
+                                        <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar">
+                                            <img class="author-profile-image" src="{{_rel}}{{.}}" alt="{{authorName}}" />
+                                        </a>
+                                    {{else}}
+                                        <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar author-profile-image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></a>
+                                    {{/authorImage}}
+                                </li>
+                            {{/authorName}}
+                            </ul>
 
-                                <div class="author-name-tooltip">
-                                    {{.}}
-                                </div>
-
-                                {{#authorImage}}
-                                    <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar">
-                                        <img class="author-profile-image" src="{{_rel}}{{.}}" alt="{{authorName}}" />
-                                    </a>
-                                {{else}}
-                                    <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar author-profile-image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></a>
-                                {{/authorImage}}
-                            </li>
-                        {{/authorName}}
-                        </ul>
-
-                        <div class="post-card-byline-content">
-                            {{#authorName}}<span><a href="{{_rel}}author/{{authorSlug}}.html">{{.}}</a></span>{{/authorName}}
-                            <span class="post-card-byline-date"><time datetime="{{date}}">{{formattedDate}}</time></span>
+                            <div class="post-card-byline-content">
+                                {{#authorName}}<span><a href="{{_rel}}author/{{authorSlug}}.html" style="font-weight: 600;">{{.}}</a></span>{{/authorName}}
+                                <span class="post-card-byline-date" style="display: block; font-size: 1.2rem; color: #738a94;"><time datetime="{{date}}">{{formattedDate}}</time></span>
+                            </div>
                         </div>
-
                     </footer>
 
                 </div>
