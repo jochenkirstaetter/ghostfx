@@ -713,32 +713,31 @@ public static class DocfxGenerator
                                     {{/excerpt}}
                                 </a>
                                 <footer class="post-card-meta">
+                                    <div class="post-card-byline-wrapper">
+                                        <ul class="author-list">
+                                        {{#authorName}}
+                                            <li class="author-list-item">
+                                                <div class="author-name-tooltip">
+                                                    {{.}}
+                                                </div>
 
-                                    <ul class="author-list">
-                                    {{#authorName}}
-                                        <li class="author-list-item">
+                                                {{#authorImage}}
+                                                    <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar">
+                                                        <img class="author-profile-image" src="{{_rel}}{{.}}" alt="{{authorName}}" />
+                                                    </a>
+                                                {{/authorImage}}
+                                                {{^authorImage}}
+                                                    <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar author-profile-image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></a>
+                                                {{/authorImage}}
+                                            </li>
+                                        {{/authorName}}
+                                        </ul>
 
-                                            <div class="author-name-tooltip">
-                                                {{.}}
-                                            </div>
-
-                                            {{#authorImage}}
-                                                <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar">
-                                                    <img class="author-profile-image" src="{{_rel}}{{.}}" alt="{{authorName}}" />
-                                                </a>
-                                            {{/authorImage}}
-                                            {{^authorImage}}
-                                                <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar author-profile-image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></a>
-                                            {{/authorImage}}
-                                        </li>
-                                    {{/authorName}}
-                                    </ul>
-
-                                    <div class="post-card-byline-content">
-                                        {{#authorName}}<span><a href="{{_rel}}author/{{authorSlug}}.html">{{.}}</a></span>{{/authorName}}
-                                        <span class="post-card-byline-date"><time datetime="{{date}}">{{formattedDate}}</time></span>
+                                        <div class="post-card-byline-content">
+                                            {{#authorName}}<span><a href="{{_rel}}author/{{authorSlug}}.html">{{.}}</a></span>{{/authorName}}
+                                            <span class="post-card-byline-date"><time datetime="{{date}}">{{formattedDate}}</time></span>
+                                        </div>
                                     </div>
-
                                 </footer>
 
                             </div>
@@ -1519,8 +1518,8 @@ public static class DocfxGenerator
                         {{/excerpt}}
                     </a>
                     <footer class="post-card-meta">
-                        <div class="post-card-byline-wrapper" style="display: flex; align-items: center; gap: 10px;">
-                            <ul class="author-list" style="margin: 0; padding: 0;">
+                        <div class="post-card-byline-wrapper">
+                            <ul class="author-list">
                             {{#authorName}}
                                 <li class="author-list-item">
                                     <div class="author-name-tooltip">
@@ -1539,8 +1538,8 @@ public static class DocfxGenerator
                             </ul>
 
                             <div class="post-card-byline-content">
-                                {{#authorName}}<span><a href="{{_rel}}author/{{authorSlug}}.html" style="font-weight: 600;">{{.}}</a></span>{{/authorName}}
-                                <span class="post-card-byline-date" style="display: block; font-size: 1.2rem; color: #738a94;"><time datetime="{{date}}">{{formattedDate}}</time></span>
+                                {{#authorName}}<span><a href="{{_rel}}author/{{authorSlug}}.html">{{.}}</a></span>{{/authorName}}
+                                <span class="post-card-byline-date"><time datetime="{{date}}">{{formattedDate}}</time></span>
                             </div>
                         </div>
                     </footer>
@@ -1598,12 +1597,48 @@ public static class DocfxGenerator
 
         string cssPath = Path.Combine(publicDir, "main.css");
         string defaultCssOverrides = """
-        /* Hero Banner Header Cover Image Styling (non-repeating cover) */
-        .site-header-background,
+        /* Hero Banner Header Cover Image Styling (tall height & non-repeating cover) */
+        .site-home-header .site-header-background,
         .responsive-header-img {
+            min-height: 520px !important;
             background-size: cover !important;
             background-position: center center !important;
             background-repeat: no-repeat !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
+        }
+
+        /* Post Card Byline & Author Alignment */
+        .post-card-byline-wrapper {
+            display: flex !important;
+            align-items: center !important;
+            gap: 12px !important;
+        }
+
+        .post-card-meta .author-list {
+            margin: 0 !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            flex-shrink: 0 !important;
+        }
+
+        .post-card-meta .post-card-byline-content {
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+        }
+
+        .post-card-meta .post-card-byline-content a {
+            font-weight: 600 !important;
+            color: #15171a !important;
+        }
+
+        .post-card-meta .post-card-byline-date {
+            display: block !important;
+            font-size: 1.2rem !important;
+            color: #738a94 !important;
         }
 
         /* Milky Frosted-Glass Box for Site Title & Description */
@@ -2002,7 +2037,7 @@ public static class DocfxGenerator
         sb.Append(sbSocial.ToString());
         sb.AppendLine("        </div>");
         sb.AppendLine("        {{#_appUrl}}");
-        sb.AppendLine("        <a class=\"rss-button\" href=\"https://feedly.com/i/subscription/feed/{{_appUrl}}/rss/\" title=\"RSS\" target=\"_blank\" rel=\"noreferrer noopener\">{{>partials/icons/rss}}</a>");
+        sb.AppendLine("        <a class=\"rss-button\" href=\"https://feedly.com/i/subscription/feed/{{_appUrl}}/rss/\" title=\"RSS\" target=\"_blank\" rel=\"noreferrer noopener\"><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><circle cx=\"6.18\" cy=\"17.82\" r=\"2.18\"/><path d=\"M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z\"/></svg></a>");
         sb.AppendLine("        {{/_appUrl}}");
         sb.AppendLine("        <div class=\"dropdown\" style=\"display: inline-block; margin-left: 10px;\">");
         sb.AppendLine("            <a title=\"Change theme\" class=\"btn border-0 dropdown-toggle\" data-bs-toggle=\"dropdown\" aria-expanded=\"false\" style=\"color: #fff; text-decoration: none; padding: 0 5px;\">");
