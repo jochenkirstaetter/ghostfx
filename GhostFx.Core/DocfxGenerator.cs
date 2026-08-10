@@ -685,7 +685,7 @@ public static class DocfxGenerator
                         <article class="post-card post {{tagClass}} {{imageClass}}">
 
                             {{#featureImage}}
-                            <a class="post-card-image-link" href="{{_rel}}{{href}}" aria-label="{{title}}">
+                            <a class="post-card-image-link" href="{{_rel}}{{slug}}.html" aria-label="{{title}}">
                                 <img class="post-card-image"
                                     srcset="{{_rel}}{{.}} 300w,
                                             {{_rel}}{{.}} 600w,
@@ -699,7 +699,7 @@ public static class DocfxGenerator
                             {{/featureImage}}
 
                             <div class="post-card-content">
-                                <a class="post-card-content-link" href="{{_rel}}{{href}}">
+                                <a class="post-card-content-link" href="{{_rel}}{{slug}}.html">
                                     <header class="post-card-header">
                                         {{#primaryTag}}
                                             <span class="post-card-tags">{{.}}</span>
@@ -1491,7 +1491,7 @@ public static class DocfxGenerator
             <article class="post-card post {{tagClass}} {{imageClass}}">
 
                 {{#featureImage}}
-                <a class="post-card-image-link" href="{{_rel}}{{href}}" aria-label="{{title}}">
+                <a class="post-card-image-link" href="{{_rel}}{{slug}}.html" aria-label="{{title}}">
                     <img class="post-card-image"
                         srcset="{{_rel}}{{featureImage}} 300w,
                                 {{_rel}}{{featureImage}} 600w,
@@ -1505,7 +1505,7 @@ public static class DocfxGenerator
                 {{/featureImage}}
 
                 <div class="post-card-content">
-                    <a class="post-card-content-link" href="{{_rel}}{{href}}">
+                    <a class="post-card-content-link" href="{{_rel}}{{slug}}.html">
                         <header class="post-card-header">
                             {{#primaryTag}}
                                 <span class="post-card-tags">{{.}}</span>
