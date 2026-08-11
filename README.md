@@ -9,6 +9,8 @@
 
 [![.NET 10.0](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![NuGet version](https://img.shields.io/nuget/v/GhostFx?style=flat-square&logo=nuget)](https://www.nuget.org/packages/GhostFx)
+[![NuGet downloads](https://img.shields.io/nuget/dt/GhostFx?style=flat-square&logo=nuget&label=downloads)](https://www.nuget.org/packages/GhostFx)
 
 </div>
 
