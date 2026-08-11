@@ -18,7 +18,7 @@
 
 ## 🚀 Key Features
 
-- 👻 **Live Ghost Admin API Integration**: Connect to live Ghost instances using JWT-authenticated Ghost Admin API keys to extract posts, tags, and drafts.
+- 👻 **Live Ghost Admin & Content API Integration**: Connect to live Ghost instances using JWT-authenticated Admin API keys or public Content API keys to extract posts, pages, tags, and drafts.
 - 📦 **Offline JSON Export & Stdin Piping**: Parse local Ghost database JSON exports (`sample-ghost-export.json`) or pipe JSON directly via standard input (`stdin`).
 - 📝 **Markdown & Front-Matter Engine**: Converts Ghost HTML posts into clean Markdown files with YAML front-matter (`uid`, `title`, `slug`, `date`, `tags`, `metaTitle`, `metaDescription`, `image`, `og_title`, `og_description`).
 - 📚 **DocFX Static Site Builder Integration**: Automatically generates `docfx.json`, `index.md`, `toc.yml`, and tag index pages organized into clean subfolders (`published/`, `pages/`, `draft/`, `scheduled/`, `content/images/`).
@@ -30,9 +30,23 @@
 
 ## 📦 Installation
 
+### Quick Run via `dnx`
+
+Run `ghostfx` instantly without global installation:
+
+```bash
+dnx ghostfx [options]
+```
+
 ### Global Tool Installation
 
 Pack and install `ghostfx` as a global .NET CLI tool:
+
+```bash
+dotnet tool install --global GhostFx
+```
+
+Or build and install locally from source:
 
 ```bash
 dotnet pack GhostFx.Cli/GhostFx.Cli.csproj
@@ -51,6 +65,7 @@ Create a `ghostfx.json` configuration file in your directory:
 {
   "ghostUrl": "https://myblog.ghost.io",
   "adminApiKey": "YOUR_KEY_ID:YOUR_KEY_SECRET",
+  "contentApiKey": "YOUR_CONTENT_API_KEY",
   "ghostExportJson": "sample-ghost-export.json",
   "outputDir": "articles",
   "indexFile": "index.md",
@@ -58,6 +73,9 @@ Create a `ghostfx.json` configuration file in your directory:
   "includeDrafts": false,
   "downloadTheme": false,
   "themePath": "ghostfx.zip",
+  "cleanUrls": false,
+  "migrateTheme": true,
+  "googleAnalyticsTag": "G-XXXXXXXXXX",
   "quiet": false
 }
 ```
@@ -70,42 +88,58 @@ ghostfx
 
 ### CLI Command Options & Pipe Workflows
 
-You can override or supply all migration settings directly via CLI flags or piped streams:
+Override or supply all migration settings directly via CLI flags or piped streams:
 
 ```bash
-# Migrate from a live Ghost instance
-ghostfx --url "https://myblog.ghost.io" --api-key "ID:SECRET" --output "articles" --site-title "My Tech Blog"
+# Migrate from a live Ghost instance using shorthands
+ghostfx -u "https://myblog.ghost.io" -k "ID:SECRET" -o "articles" --site-title "My Tech Blog" -y
 
 # Migrate from a local Ghost JSON export
-ghostfx --input "./sample-ghost-export.json" --output "articles" --include-drafts true
+ghostfx -i "./sample-ghost-export.json" -o "articles" --include-drafts true
 
-# Quiet mode execution
-ghostfx --config "./ghostfx.json" --quiet
+# Quiet mode execution with custom config file
+ghostfx -c "./configs/my-ghostfx-config.json" -q
 
 # Pipe JSON export directly via stdin
-cat sample-ghost-export.json | ghostfx --quiet -o sample_output
-
-# Custom configuration file
-ghostfx --config "./configs/my-ghostfx-config.json"
+cat sample-ghost-export.json | ghostfx -q -o sample_output -y
 ```
 
 #### CLI Flags Reference
 
-| Option | Description | Default |
-|---|---|---|
-| `--config <path>` | Path to custom `ghostfx.json` file | `ghostfx.json` |
-| `--url <url>` | Live Ghost blog base URL | — |
-| `--api-key <key>` | Ghost Admin API key (`ID:SECRET`) | — |
-| `--input <path>` | Path to offline Ghost JSON export file | — |
-| `--output <dir>` | Target output directory for Markdown posts | `articles` |
-| `--index-file <file>` | Path for generated homepage Markdown file | `index.md` |
-| `--site-title <title>` | Title of static site | `My Static Blog` |
-| `--include-drafts <bool>` | Process draft posts in addition to published posts | `false` |
-| `--download-theme <bool>` | Download active Ghost theme | `false` |
-| `--theme-path <path>` | Path to theme ZIP archive or unzipped theme folder | `ghostfx.zip` |
-| `--logo-path <bool>` | Generate `_appLogoPath` in `docfx.json` | `true` |
-| `--quiet`, `-q` | Quiet mode (suppresses banners and progress animations) | `false` |
-| `--yes`, `-y` | Non-interactive automatic confirmation | `false` |
+| Option | Shorthand | Description | Default |
+|---|---|---|---|
+| `--config <path>` | `-c` | Path to custom `ghostfx.json` configuration file | `ghostfx.json` |
+| `--url <url>` | `-u` | Live Ghost blog base URL | — |
+| `--admin-api-key <key>`, `--api-key <key>` | `-k` | Ghost Admin API key (`ID:SECRET`) | — |
+| `--content-api-key <key>` | | Ghost Content API key | — |
+| `--input <path>` | `-i` | Path to offline Ghost JSON export file | — |
+| `--output <dir>` | `-o` | Target output directory for Markdown posts | `articles` |
+| `--index-file <file>` | | Path for generated homepage Markdown file | `index.md` |
+| `--site-title <title>` | | Title of static site | `My Migrated Ghost Blog` |
+| `--include-drafts` | | Process draft posts in addition to published posts | `false` |
+| `--clean-urls` | | Generate `{slug}/index.md` for clean URLs | `false` |
+| `--logo-path` | | Generate `_appLogoPath` in `docfx.json` | `true` |
+| `--ga-tag <tag>` | | Google Analytics Tag ID to inject into `docfx.json` | — |
+| `--download-theme` | | Download active Ghost theme | `false` |
+| `--theme-path <path>` | `-t` | Path to theme ZIP archive or unzipped theme folder | — |
+| `--migrate-theme` | | Convert Ghost theme to DocFX theme override | `true` |
+| `--purge-template` | | Purge existing template output directory before migration | — |
+| `--yes` | `-y` | Non-interactive automatic confirmation | `false` |
+| `--quiet` | `-q` | Quiet mode (suppresses banners and progress animations) | `false` |
+
+---
+
+## 🛠️ Helper Utilities (`ghostfx-get.js`)
+
+For quick single-post extraction and conversion to Markdown via `pandoc`, use the included executable script:
+
+```bash
+# Fetch post by slug using ghostfx.json credentials
+./ghostfx-get.js "welcome-to-ghostfx"
+
+# Fetch page using Ghost API v3 and pipe to pandoc
+./ghostfx-get.js -v 3 -u "https://myblog.ghost.io" -k "ID:SECRET" "pages:about" | pandoc -f html+smart -t markdown-smart --wrap="preserve"
+```
 
 ---
 
