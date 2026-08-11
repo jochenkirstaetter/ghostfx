@@ -106,6 +106,7 @@ public class Program
             contentApiKeyOption,
             purgeTemplateOption
         };
+        rootCommand.Name = "ghostfx";
 
         rootCommand.SetHandler(async (InvocationContext context) =>
         {
