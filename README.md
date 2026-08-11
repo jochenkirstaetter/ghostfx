@@ -129,20 +129,6 @@ cat sample-ghost-export.json | ghostfx -q -o sample_output -y
 
 ---
 
-## 🛠️ Helper Utilities (`ghostfx-get.js`)
-
-For quick single-post extraction and conversion to Markdown via `pandoc`, use the included executable script:
-
-```bash
-# Fetch post by slug using ghostfx.json credentials
-./ghostfx-get.js "welcome-to-ghostfx"
-
-# Fetch page using Ghost API v3 and pipe to pandoc
-./ghostfx-get.js -v 3 -u "https://myblog.ghost.io" -k "ID:SECRET" "pages:about" | pandoc -f html+smart -t markdown-smart --wrap="preserve"
-```
-
----
-
 ## 📁 Output Directory Structure
 
 Generated static site source files are organized under `outputDir`:
