@@ -1,0 +1,75 @@
+{
+  "db": [
+    {
+      "data": {
+        "posts": [
+          {
+            "id": "p101",
+            "title": "Welcome to GhostFx Static Migration",
+            "slug": "welcome-to-ghostfx-static-migration",
+            "html": "<h1>Welcome to GhostFx</h1><p>GhostFx is a C# .NET solution for converting Ghost blog posts to Markdown formatted for Docfx static site generation.</p>2 Key Features<ul><li>Frontmatter extraction (slug, tags, date, SEO)</li><li>Drafts vs published articles separation</li><li>Tag taxonomy indexes</li><li>Theme downloading & code injection extraction</li></ul>",
+            "custom_excerpt": "Migrating your Ghost blog to Git-versioned Markdown with GhostFx.",
+            "published_at": "2026-08-01T10:00:00.000Z",
+            "status": "published",
+            "meta_title": "GhostFx Migration Guide",
+            "meta_description": "Convert Ghost JSON exports to Docfx Markdown",
+            "feature_image": "https://picsum.photos/seed/ghostfx/1200/630"
+          },
+          {
+            "id": "p102",
+            "title": "Building Custom Docfx Templates",
+            "slug": "building-custom-docfx-templates",
+            "html": "<p>Docfx allows custom Bootstrap 5 templates with custom header and footer code injections.</p><pre><code>docfx build docfx.json</code></pre>",
+            "custom_excerpt": "Learn how to customize Docfx templates with Ghost styling.",
+            "published_at": "2026-08-05T14:30:00.000Z",
+            "status": "published",
+            "feature_image": "https://picsum.photos/seed/docfx/1200/630"
+          },
+          {
+            "id": "p103",
+            "title": "Upcoming C# .NET 10 Features (Draft)",
+            "slug": "upcoming-dotnet-10-features",
+            "html": "<p>This article is a draft post. GhostFx handles drafts cleanly by putting them in an isolated drafts folder.</p>",
+            "published_at": null,
+            "status": "draft"
+          }
+        ],
+        "tags": [
+          {
+            "id": "t101",
+            "name": "Ghost",
+            "slug": "ghost"
+          },
+          {
+            "id": "t102",
+            "name": "DocFx",
+            "slug": "docfx"
+          },
+          {
+            "id": "t103",
+            "name": "DotNet",
+            "slug": "dotnet"
+          }
+        ],
+        "posts_tags": [
+          {
+            "post_id": "p101",
+            "tag_id": "t101"
+          },
+          {
+            "post_id": "p101",
+            "tag_id": "t102"
+          },
+          {
+            "post_id": "p102",
+            "tag_id": "t102"
+          },
+          {
+            "post_id": "p103",
+            "tag_id": "t103"
+          }
+        ]
+      }
+    }
+  ]
+}

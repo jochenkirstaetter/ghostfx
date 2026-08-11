@@ -1,12 +1,25 @@
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import fs from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, accessSync, constants } from 'node:fs';
 import { join } from 'node:path';
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 
 const execAsync = promisify(exec);
+
+function getDotnetExecutable(): string {
+  const localDotnet = join(process.cwd(), '.dotnet', 'dotnet');
+  try {
+    if (existsSync(localDotnet)) {
+      accessSync(localDotnet, constants.X_OK);
+      return localDotnet;
+    }
+  } catch {
+    // Permission denied or not executable, fallback to global dotnet
+  }
+  return 'dotnet';
+}
 
 async function startServer() {
   const app = express();
@@ -79,8 +92,8 @@ async function startServer() {
         await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
       }
 
-      const dotnetPath = join(process.cwd(), '.dotnet', 'dotnet');
-      const cmd = `${dotnetPath} run --project GhostFx.Cli`;
+      const dotnetCmd = getDotnetExecutable();
+      const cmd = `${dotnetCmd} run --project GhostFx.Cli`;
 
       const { stdout, stderr } = await execAsync(cmd, { cwd: process.cwd() });
       
@@ -101,8 +114,8 @@ async function startServer() {
 
   app.post('/api/ghostfx/test', async (req, res) => {
     try {
-      const dotnetPath = join(process.cwd(), '.dotnet', 'dotnet');
-      const cmd = `${dotnetPath} test GhostFx.Tests/GhostFx.Tests.csproj`;
+      const dotnetCmd = getDotnetExecutable();
+      const cmd = `${dotnetCmd} test GhostFx.Tests/GhostFx.Tests.csproj`;
 
       const { stdout, stderr } = await execAsync(cmd, { cwd: process.cwd() });
       return res.json({
@@ -113,6 +126,7 @@ async function startServer() {
     } catch (err: any) {
       return res.status(500).json({
         success: false,
+
         error: err.message,
         stdout: err.stdout || '',
         stderr: err.stderr || ''
@@ -185,8 +199,24 @@ async function startServer() {
 
   app.use(vite.middlewares);
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Express + Vite server running at http://0.0.0.0:${PORT}`);
+  app.use('*', async (req, res, next) => {
+    const url = req.originalUrl;
+    if (url.startsWith('/api/')) {
+      return next();
+    }
+    try {
+      const indexPath = join(process.cwd(), 'index.html');
+      let template = await fs.readFile(indexPath, 'utf-8');
+      template = await vite.transformIndexHtml(url, template);
+      res.status(200).set({ 'Content-Type': 'text/html' }).send(template);
+    } catch (e: any) {
+      vite.ssrFixStacktrace(e);
+      next(e);
+    }
+  });
+
+  app.listen(PORT, '127.0.0.1', () => {
+    console.log(`Express + Vite server running at http://localhost:${PORT}`);
   });
 }
 
