@@ -45,7 +45,7 @@ jobs:
             --no-build \
             -p:Version=${{ steps.version.outputs.VERSION }}
 
-      - name: NuGet login (OIDC)
+      - name: NuGet Trusted Publishing
         id: login
         uses: NuGet/login@v1
         with:
