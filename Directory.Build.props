@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
 
     <!-- Shared Package Metadata -->
+    <Version>0.3.0</Version> 
     <Authors>Jochen Kirstätter</Authors>
     <Copyright>2026 Jochen Kirstätter</Copyright>
     <Company>IOS Indian Ocean Software Ltd</Company>

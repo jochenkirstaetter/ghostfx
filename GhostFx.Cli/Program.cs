@@ -2,6 +2,7 @@ using System;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.IO;
+using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
 using GhostFx.Core;
@@ -13,23 +14,24 @@ public class Program
     public static async Task<int> Main(string[] args)
     {
         var configOption = new Option<FileInfo?>(
-            name: "--config",
-            description: "Path to a ghostfx.json configuration file. (Defaults to 'ghostfx.json' in current directory if omitted).");
+            aliases: ["--config", "-c"],
+            description:
+            "Path to a ghostfx.json configuration file. (Defaults to 'ghostfx.json' in current directory if omitted).");
 
         var urlOption = new Option<string?>(
-            name: "--url",
+            aliases: ["--url", "-u"],
             description: "The live Ghost blog base URL.");
 
         var adminApiKeyOption = new Option<string?>(
-            aliases: ["--admin-api-key", "--api-key"],
+            aliases: ["--admin-api-key", "--api-key", "-k"],
             description: "The Ghost Admin API key (Format: ID:SECRET).");
 
         var inputOption = new Option<string?>(
-            name: "--input",
+            aliases: ["--input", "-i"],
             description: "Path to a local Ghost JSON export file.");
 
         var outputOption = new Option<string?>(
-            name: "--output",
+            aliases: ["--output", "-o"],
             description: "The target directory to save Markdown posts. (Defaults to 'articles').");
 
         var indexOption = new Option<string?>(
@@ -49,7 +51,7 @@ public class Program
             description: "If true, downloads and extracts the active theme zip.");
 
         var themePathOption = new Option<string?>(
-            name: "--theme-path",
+            aliases: ["--theme-path", "-t"],
             description: "Path to a theme zip archive or extracted theme folder.");
 
         var quietOption = new Option<bool>(
@@ -72,7 +74,6 @@ public class Program
             name: "--clean-urls",
             description: "If true, generates {slug}/index.md for extension-less URLs.");
 
-
         var migrateThemeOption = new Option<bool?>(
             name: "--migrate-theme",
             description: "If true, migrates and converts the Ghost theme/template. (Defaults to true).");
@@ -87,30 +88,38 @@ public class Program
 
         var rootCommand = new RootCommand("GhostFx: Live-migrate from Ghost to DocFx.")
         {
+            // Configuration & Input Source Options
             configOption,
             urlOption,
             adminApiKeyOption,
+            contentApiKeyOption,
             inputOption,
+
+            // Output & Content Structure Options
             outputOption,
             indexOption,
             siteTitleOption,
             includeDraftsOption,
+            cleanUrlsOption,
+            logoPathOption,
+            gaTagOption,
+
+            // Theme & Template Options
             downloadThemeOption,
             themePathOption,
-            quietOption,
-            logoPathOption,
-            yesOption,
-            gaTagOption,
-            cleanUrlsOption,
             migrateThemeOption,
-            contentApiKeyOption,
-            purgeTemplateOption
+            purgeTemplateOption,
+
+            // Execution & Control
+            yesOption,
+            quietOption
         };
         rootCommand.Name = "ghostfx";
 
         rootCommand.SetHandler(async (InvocationContext context) =>
         {
             var parseResult = context.ParseResult;
+
             var configFile = parseResult.GetValueForOption(configOption);
             var url = parseResult.GetValueForOption(urlOption);
             var adminApiKey = parseResult.GetValueForOption(adminApiKeyOption);
@@ -150,10 +159,11 @@ public class Program
                     try
                     {
                         string jsonString = await File.ReadAllTextAsync(configFile.FullName);
-                        var parsedConfig = JsonSerializer.Deserialize<GhostFxConfig>(jsonString, new JsonSerializerOptions
-                        {
-                            PropertyNameCaseInsensitive = true
-                        });
+                        var parsedConfig = JsonSerializer.Deserialize<GhostFxConfig>(jsonString,
+                            new JsonSerializerOptions
+                            {
+                                PropertyNameCaseInsensitive = true
+                            });
 
                         if (parsedConfig != null)
                         {
@@ -194,33 +204,46 @@ public class Program
                     {
                         try
                         {
-                            var parsedConfig = JsonSerializer.Deserialize<GhostFxConfig>(pipedInput, new JsonSerializerOptions
-                            {
-                                PropertyNameCaseInsensitive = true
-                            });
+                            var parsedConfig = JsonSerializer.Deserialize<GhostFxConfig>(pipedInput,
+                                new JsonSerializerOptions
+                                {
+                                    PropertyNameCaseInsensitive = true
+                                });
 
-                            if (parsedConfig != null && (!string.IsNullOrWhiteSpace(parsedConfig.GhostUrl) || !string.IsNullOrWhiteSpace(parsedConfig.GhostExportJson)))
+                            if (parsedConfig != null && (!string.IsNullOrWhiteSpace(parsedConfig.GhostUrl) ||
+                                                         !string.IsNullOrWhiteSpace(parsedConfig.GhostExportJson)))
                             {
-                                if (!string.IsNullOrWhiteSpace(parsedConfig.GhostUrl)) config.GhostUrl = parsedConfig.GhostUrl;
-                                if (!string.IsNullOrWhiteSpace(parsedConfig.AdminApiKey)) config.AdminApiKey = parsedConfig.AdminApiKey;
-                                if (!string.IsNullOrWhiteSpace(parsedConfig.GhostExportJson)) config.GhostExportJson = parsedConfig.GhostExportJson;
-                                if (!string.IsNullOrWhiteSpace(parsedConfig.OutputDir)) config.OutputDir = parsedConfig.OutputDir;
-                                if (!string.IsNullOrWhiteSpace(parsedConfig.IndexFile)) config.IndexFile = parsedConfig.IndexFile;
-                                if (!string.IsNullOrWhiteSpace(parsedConfig.SiteTitle)) config.SiteTitle = parsedConfig.SiteTitle;
+                                if (!string.IsNullOrWhiteSpace(parsedConfig.GhostUrl))
+                                    config.GhostUrl = parsedConfig.GhostUrl;
+                                if (!string.IsNullOrWhiteSpace(parsedConfig.AdminApiKey))
+                                    config.AdminApiKey = parsedConfig.AdminApiKey;
+                                if (!string.IsNullOrWhiteSpace(parsedConfig.GhostExportJson))
+                                    config.GhostExportJson = parsedConfig.GhostExportJson;
+                                if (!string.IsNullOrWhiteSpace(parsedConfig.OutputDir))
+                                    config.OutputDir = parsedConfig.OutputDir;
+                                if (!string.IsNullOrWhiteSpace(parsedConfig.IndexFile))
+                                    config.IndexFile = parsedConfig.IndexFile;
+                                if (!string.IsNullOrWhiteSpace(parsedConfig.SiteTitle))
+                                    config.SiteTitle = parsedConfig.SiteTitle;
                                 config.IncludeDrafts = parsedConfig.IncludeDrafts;
                                 config.CleanUrls = parsedConfig.CleanUrls;
                                 config.DownloadTheme = parsedConfig.DownloadTheme;
-                                if (!string.IsNullOrWhiteSpace(parsedConfig.ThemePath)) config.ThemePath = parsedConfig.ThemePath;
+                                if (!string.IsNullOrWhiteSpace(parsedConfig.ThemePath))
+                                    config.ThemePath = parsedConfig.ThemePath;
                                 if (parsedConfig.Quiet) config.Quiet = true;
                                 config.LogoPath = parsedConfig.LogoPath;
                                 config.MigrateTheme = parsedConfig.MigrateTheme;
-                                if (!string.IsNullOrWhiteSpace(parsedConfig.GoogleAnalyticsTag)) config.GoogleAnalyticsTag = parsedConfig.GoogleAnalyticsTag;
-                                if (!string.IsNullOrWhiteSpace(parsedConfig.ContentApiKey)) config.ContentApiKey = parsedConfig.ContentApiKey;
-                                if (parsedConfig.PurgeTemplate.HasValue) config.PurgeTemplate = parsedConfig.PurgeTemplate.Value;
+                                if (!string.IsNullOrWhiteSpace(parsedConfig.GoogleAnalyticsTag))
+                                    config.GoogleAnalyticsTag = parsedConfig.GoogleAnalyticsTag;
+                                if (!string.IsNullOrWhiteSpace(parsedConfig.ContentApiKey))
+                                    config.ContentApiKey = parsedConfig.ContentApiKey;
+                                if (parsedConfig.PurgeTemplate.HasValue)
+                                    config.PurgeTemplate = parsedConfig.PurgeTemplate.Value;
                             }
                             else
                             {
-                                string tempPath = Path.Combine(Path.GetTempPath(), $"ghostfx_piped_{Guid.NewGuid():N}.json");
+                                string tempPath = Path.Combine(Path.GetTempPath(),
+                                    $"ghostfx_piped_{Guid.NewGuid():N}.json");
                                 await File.WriteAllTextAsync(tempPath, pipedInput);
                                 config.GhostExportJson = tempPath;
                                 tempPipedFile = tempPath;
@@ -228,7 +251,8 @@ public class Program
                         }
                         catch
                         {
-                            string tempPath = Path.Combine(Path.GetTempPath(), $"ghostfx_piped_{Guid.NewGuid():N}.json");
+                            string tempPath = Path.Combine(Path.GetTempPath(),
+                                $"ghostfx_piped_{Guid.NewGuid():N}.json");
                             await File.WriteAllTextAsync(tempPath, pipedInput);
                             config.GhostExportJson = tempPath;
                             tempPipedFile = tempPath;
@@ -243,20 +267,28 @@ public class Program
                     Console.ResetColor();
                 }
 
-                bool hasApiCreds = !string.IsNullOrWhiteSpace(config.GhostUrl) && (!string.IsNullOrWhiteSpace(config.AdminApiKey) || !string.IsNullOrWhiteSpace(config.ContentApiKey));
-                bool hasInputFile = !string.IsNullOrWhiteSpace(config.GhostExportJson) && File.Exists(config.GhostExportJson);
+                bool hasApiCreds = !string.IsNullOrWhiteSpace(config.GhostUrl) &&
+                                   (!string.IsNullOrWhiteSpace(config.AdminApiKey) ||
+                                    !string.IsNullOrWhiteSpace(config.ContentApiKey));
+                bool hasInputFile = !string.IsNullOrWhiteSpace(config.GhostExportJson) &&
+                                    File.Exists(config.GhostExportJson);
 
                 if (!hasApiCreds && !hasInputFile)
                 {
-                    Console.Error.WriteLine("==========================================================================");
+                    Console.Error.WriteLine(
+                        "==========================================================================");
                     Console.Error.WriteLine(" Welcome to GhostFx - Ghost to DocFx Migration Suite");
-                    Console.Error.WriteLine("==========================================================================");
-                    Console.Error.WriteLine("Missing Credentials or Input File: Your Ghost details could not be resolved.");
+                    Console.Error.WriteLine(
+                        "==========================================================================");
+                    Console.Error.WriteLine(
+                        "Missing Credentials or Input File: Your Ghost details could not be resolved.");
                     Console.Error.WriteLine("To use GhostFx, please do one of the following:");
-                    Console.Error.WriteLine("  1. Create a 'ghostfx.json' configuration file in the current directory.");
+                    Console.Error.WriteLine(
+                        "  1. Create a 'ghostfx.json' configuration file in the current directory.");
                     Console.Error.WriteLine("  2. Pass a custom configuration file path using: --config <path>");
                     Console.Error.WriteLine("  3. Specify live Ghost details: --url <url> --api-key <key>");
-                    Console.Error.WriteLine("  4. Specify a local JSON export file: --input <path-to-ghost-export.json>");
+                    Console.Error.WriteLine(
+                        "  4. Specify a local JSON export file: --input <path-to-ghost-export.json>");
                     Console.Error.WriteLine("  5. Pipe a JSON export file into stdin.");
                     Environment.ExitCode = 1;
                     return;
@@ -306,7 +338,9 @@ public class Program
                     {
                         Console.Write("Do you want to proceed with this migration? [Y/n]: ");
                         string? response = Console.ReadLine()?.Trim();
-                        if (!string.IsNullOrEmpty(response) && (response.StartsWith("n", StringComparison.OrdinalIgnoreCase) || response.StartsWith("no", StringComparison.OrdinalIgnoreCase)))
+                        if (!string.IsNullOrEmpty(response) &&
+                            (response.StartsWith("n", StringComparison.OrdinalIgnoreCase) ||
+                             response.StartsWith("no", StringComparison.OrdinalIgnoreCase)))
                         {
                             Console.ForegroundColor = ConsoleColor.Yellow;
                             Console.WriteLine("[INFO] Migration cancelled by user.");
@@ -323,10 +357,9 @@ public class Program
                 var engine = new MigrationEngine();
                 var result = await engine.ExecuteAsync(
                     config,
-                    onProgress: isQuiet ? null : (current, total, item) =>
-                    {
-                        AsciiProgressBar.Draw(current, total, item);
-                    },
+                    onProgress: isQuiet
+                        ? null
+                        : (current, total, item) => { AsciiProgressBar.Draw(current, total, item); },
                     onManualThemeRequested: async (targetPath, version) =>
                     {
                         if (!isQuiet)
@@ -334,8 +367,10 @@ public class Program
                             Console.WriteLine();
                             Console.ForegroundColor = ConsoleColor.Yellow;
                             string verInfo = string.IsNullOrWhiteSpace(version) ? "" : $" ({version})";
-                            Console.WriteLine($"[WARN] Automated theme download via Ghost API is unsupported by your Ghost host{verInfo}.");
-                            Console.WriteLine($"      You can manually export/download your theme zip from Ghost Admin and save it to: {targetPath}");
+                            Console.WriteLine(
+                                $"[WARN] Automated theme download via Ghost API is unsupported by your Ghost host{verInfo}.");
+                            Console.WriteLine(
+                                $"      You can manually export/download your theme zip from Ghost Admin and save it to: {targetPath}");
                             Console.ResetColor();
                         }
 
@@ -346,12 +381,15 @@ public class Program
 
                         Console.Write($"\nHave you placed the exported theme zip file at '{targetPath}'? [y/N]: ");
                         string? inputStr = Console.ReadLine()?.Trim();
-                        bool confirmed = !string.IsNullOrEmpty(inputStr) && (inputStr.Equals("y", StringComparison.OrdinalIgnoreCase) || inputStr.Equals("yes", StringComparison.OrdinalIgnoreCase));
+                        bool confirmed = !string.IsNullOrEmpty(inputStr) &&
+                                         (inputStr.Equals("y", StringComparison.OrdinalIgnoreCase) ||
+                                          inputStr.Equals("yes", StringComparison.OrdinalIgnoreCase));
 
                         if (confirmed && (File.Exists(targetPath) || Directory.Exists(targetPath)))
                         {
                             Console.ForegroundColor = ConsoleColor.Green;
-                            Console.WriteLine($"[INFO] Custom theme detected at '{targetPath}'. Continuing migration...");
+                            Console.WriteLine(
+                                $"[INFO] Custom theme detected at '{targetPath}'. Continuing migration...");
                             Console.ResetColor();
                             return true;
                         }
@@ -373,9 +411,12 @@ public class Program
                         Console.ForegroundColor = ConsoleColor.Yellow;
                         Console.Write($"\n[WARN] The template override directory at '{targetPath}' already exists.");
                         Console.ResetColor();
-                        Console.Write("\nAre you sure you want to purge and start over with a completely empty template? [Y/n]: ");
+                        Console.Write(
+                            "\nAre you sure you want to purge and start over with a completely empty template? [Y/n]: ");
                         string? inputStr = Console.ReadLine()?.Trim();
-                        bool confirmed = string.IsNullOrEmpty(inputStr) || inputStr.Equals("y", StringComparison.OrdinalIgnoreCase) || inputStr.Equals("yes", StringComparison.OrdinalIgnoreCase);
+                        bool confirmed = string.IsNullOrEmpty(inputStr) ||
+                                         inputStr.Equals("y", StringComparison.OrdinalIgnoreCase) ||
+                                         inputStr.Equals("yes", StringComparison.OrdinalIgnoreCase);
 
                         if (!confirmed)
                         {
@@ -383,6 +424,7 @@ public class Program
                             Console.WriteLine("[INFO] Template directory purge declined. Skipping theme migration.");
                             Console.ResetColor();
                         }
+
                         return confirmed;
                     });
 
@@ -408,6 +450,7 @@ public class Program
                         {
                             Console.WriteLine($"  Processed Scheduled: {result.ProcessedScheduled}");
                         }
+
                         Console.WriteLine($"  Processed Tags:      {result.ProcessedTags}");
                         Console.WriteLine($"  Generated Files:     {result.GeneratedFiles.Count}");
                         Console.WriteLine($"  Duration:            {result.ElapsedDuration.TotalSeconds:F2}s");
@@ -423,7 +466,13 @@ public class Program
             {
                 if (!string.IsNullOrEmpty(tempPipedFile) && File.Exists(tempPipedFile))
                 {
-                    try { File.Delete(tempPipedFile); } catch { }
+                    try
+                    {
+                        File.Delete(tempPipedFile);
+                    }
+                    catch
+                    {
+                    }
                 }
             }
         });
