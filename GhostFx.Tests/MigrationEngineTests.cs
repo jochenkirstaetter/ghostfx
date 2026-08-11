@@ -81,14 +81,14 @@ public class MigrationEngineTests : IDisposable
         string postFile = Path.Combine(_testOutputDir, "published", "migrating-ghost-to-docfx.md");
         Assert.True(File.Exists(postFile));
 
-        string postContent = await File.ReadAllTextAsync(postFile);
+        string postContent = await File.ReadAllTextAsync(postFile, TestContext.Current.CancellationToken);
         Assert.Contains("uid: migrating-ghost-to-docfx", postContent);
         Assert.Contains("Migration", postContent);
         Assert.Contains("DocFx", postContent);
 
         string indexFile = Path.Combine(_testOutputDir, "index.md");
         Assert.True(File.Exists(indexFile));
-        string indexContent = await File.ReadAllTextAsync(indexFile);
+        string indexContent = await File.ReadAllTextAsync(indexFile, TestContext.Current.CancellationToken);
         Assert.Contains("GhostFx Migration Test", indexContent);
         Assert.Contains("Migrating Ghost to DocFx", indexContent);
 
@@ -123,7 +123,8 @@ public class MigrationEngineTests : IDisposable
         string draftFile = Path.Combine(_testOutputDir, "draft", "draft-article-dotnet-10.md");
         Assert.True(File.Exists(draftFile));
 
-        string draftContent = await File.ReadAllTextAsync(draftFile);
+        string draftContent = await File.ReadAllTextAsync(draftFile, TestContext.Current.CancellationToken);
+
         Assert.Contains("Draft Article on .NET 10 (Draft)", draftContent);
 
         string draftTocFile = Path.Combine(_testOutputDir, "draft", "toc.yml");
@@ -236,7 +237,7 @@ public class MigrationEngineTests : IDisposable
         string rootTocFile = Path.Combine(_testOutputDir, "toc.yml");
         Assert.True(File.Exists(rootTocFile));
 
-        string tocContent = await File.ReadAllTextAsync(rootTocFile);
+        string tocContent = await File.ReadAllTextAsync(rootTocFile, TestContext.Current.CancellationToken);
         Assert.Contains("- name: Blog", tocContent);
         Assert.Contains("uid: blog", tocContent);
         Assert.DoesNotContain("published/toc.yml", tocContent);

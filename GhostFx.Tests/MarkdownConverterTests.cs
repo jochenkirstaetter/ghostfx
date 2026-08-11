@@ -66,8 +66,9 @@ public class MarkdownConverterTests
         string html = "Some text<figure class=\"kg-card\"><img src=\"test.jpg\"><figcaption>Caption</figcaption></figure>Some trailing text";
         string markdown = converter.ConvertHtmlToMarkdown(html);
 
-        Assert.Equal("Some text\n\n<figure class=\"kg-card\"><img src=\"test.jpg\"><figcaption>Caption</figcaption></figure>\n\nSome trailing text", markdown);
+        Assert.Equal("Some text![Caption](test.jpg)Some trailing text", markdown);
     }
+
 
     [Fact]
     public void ConvertHtmlToMarkdown_ConvertsBrToDoubleSpaceNewline()
