@@ -242,7 +242,7 @@ public class Program
                     Console.ResetColor();
                 }
 
-                bool hasApiCreds = !string.IsNullOrWhiteSpace(config.GhostUrl) && !string.IsNullOrWhiteSpace(config.AdminApiKey);
+                bool hasApiCreds = !string.IsNullOrWhiteSpace(config.GhostUrl) && (!string.IsNullOrWhiteSpace(config.AdminApiKey) || !string.IsNullOrWhiteSpace(config.ContentApiKey));
                 bool hasInputFile = !string.IsNullOrWhiteSpace(config.GhostExportJson) && File.Exists(config.GhostExportJson);
 
                 if (!hasApiCreds && !hasInputFile)

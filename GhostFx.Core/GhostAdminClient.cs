@@ -813,4 +813,77 @@ public static class GhostAdminClient
         var result = JsonSerializer.Deserialize<GhostApiUsersResponse>(jsonString, options);
         return result?.Users ?? [];
     }
+
+    public static async Task<(List<GhostPost> Posts, string DetectedVersion)> FetchPostsFromContentApiAsync(
+        string ghostUrl, string contentApiKey, HttpClient? customClient = null)
+    {
+        using var client = customClient ?? new HttpClient();
+        if (!client.DefaultRequestHeaders.Contains("User-Agent"))
+        {
+            client.DefaultRequestHeaders.Add("User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+        }
+
+        string cleanBase = ghostUrl.TrimEnd('/');
+        if (cleanBase.EndsWith("/ghost")) cleanBase = cleanBase[..^6];
+        else if (cleanBase.EndsWith("/ghost/api")) cleanBase = cleanBase[..^10];
+
+        string[] versions = ["v5", "v4", "v3", "v6"];
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        List<GhostPost> allItems = [];
+        string detectedVersion = "v5";
+
+        foreach (var ver in versions)
+        {
+            try
+            {
+                string postsUrl = $"{cleanBase}/ghost/api/{ver}/content/posts/?key={contentApiKey}&limit=all&formats=html,mobiledoc&include=tags,authors";
+                var response = await client.GetAsync(postsUrl);
+                if (response.IsSuccessStatusCode)
+                {
+                    detectedVersion = ver;
+                    string jsonString = await response.Content.ReadAsStringAsync();
+                    var result = JsonSerializer.Deserialize<GhostApiPostsResponse>(jsonString, options);
+                    if (result?.Posts != null)
+                    {
+                        foreach (var item in result.Posts)
+                        {
+                            item.Type = "post";
+                            allItems.Add(item);
+                        }
+                    }
+
+                    try
+                    {
+                        string pagesUrl = $"{cleanBase}/ghost/api/{ver}/content/pages/?key={contentApiKey}&limit=all&formats=html,mobiledoc&include=tags,authors";
+                        var pagesResp = await client.GetAsync(pagesUrl);
+                        if (pagesResp.IsSuccessStatusCode)
+                        {
+                            string pagesJson = await pagesResp.Content.ReadAsStringAsync();
+                            var pagesResult = JsonSerializer.Deserialize<GhostApiPagesResponse>(pagesJson, options);
+                            if (pagesResult?.Pages != null)
+                            {
+                                foreach (var page in pagesResult.Pages)
+                                {
+                                    page.Type = "page";
+                                    allItems.Add(page);
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+
+                    break;
+                }
+            }
+            catch { }
+        }
+
+        if (allItems.Count == 0)
+        {
+            throw new HttpRequestException("Failed to fetch posts from Ghost Content API. Please verify your Content API Key.");
+        }
+
+        return (allItems, detectedVersion);
+    }
 }

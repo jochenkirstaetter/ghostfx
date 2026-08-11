@@ -113,43 +113,78 @@ public class MigrationEngine
                     catch { }
                 }
             }
-            else if (!string.IsNullOrWhiteSpace(config.GhostUrl) && !string.IsNullOrWhiteSpace(config.AdminApiKey))
+            else if (!string.IsNullOrWhiteSpace(config.GhostUrl) && (!string.IsNullOrWhiteSpace(config.AdminApiKey) || !string.IsNullOrWhiteSpace(config.ContentApiKey)))
             {
-                var (head, foot) = await GhostAdminClient.GetCodeInjectionsAsync(config.GhostUrl, config.AdminApiKey);
-                result.HeaderCodeInjection = head;
-                result.FooterCodeInjection = foot;
+                List<GhostPost> posts = [];
+                string version = "v5";
+                bool fetchedFromAdmin = false;
 
-                var (posts, version) = await GhostAdminClient.FetchPostsFromApiAsync(config.GhostUrl, config.AdminApiKey, config.IncludeDrafts);
+                if (!string.IsNullOrWhiteSpace(config.AdminApiKey))
+                {
+                    try
+                    {
+                        var (head, foot) = await GhostAdminClient.GetCodeInjectionsAsync(config.GhostUrl, config.AdminApiKey);
+                        result.HeaderCodeInjection = head;
+                        result.FooterCodeInjection = foot;
+
+                        var (adminPosts, ver) = await GhostAdminClient.FetchPostsFromApiAsync(config.GhostUrl, config.AdminApiKey, config.IncludeDrafts);
+                        posts = adminPosts;
+                        version = ver;
+                        fetchedFromAdmin = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        if (string.IsNullOrWhiteSpace(config.ContentApiKey))
+                        {
+                            throw new InvalidOperationException($"Ghost Admin API error ({ex.Message}). Check your Admin API Key or switch to Offline JSON Mode.");
+                        }
+                    }
+                }
+
+                if (!fetchedFromAdmin && !string.IsNullOrWhiteSpace(config.ContentApiKey))
+                {
+                    var (contentPosts, ver) = await GhostAdminClient.FetchPostsFromContentApiAsync(config.GhostUrl, config.ContentApiKey);
+                    posts = contentPosts;
+                    version = ver;
+                }
+
                 allPosts = posts;
                 result.DetectedGhostVersion = version;
-                allTags = allPosts.SelectMany(p => p.Tags).GroupBy(t => t.Id).Select(g => g.First()).ToList();
+                allTags = allPosts.SelectMany(p => p.Tags ?? []).GroupBy(t => t.Id).Select(g => g.First()).ToList();
 
                 try
                 {
-                    allUsers = await GhostAdminClient.FetchUsersFromApiAsync(config.GhostUrl, config.AdminApiKey);
+                    if (!string.IsNullOrWhiteSpace(config.AdminApiKey))
+                    {
+                        allUsers = await GhostAdminClient.FetchUsersFromApiAsync(config.GhostUrl, config.AdminApiKey);
+                    }
                 }
                 catch { }
 
-                var (apiTitle, apiDesc, apiIcon, apiLogo, apiCover, apiNav, apiLocale, apiTwitter, apiFacebook, apiHead, apiFoot) =
-                    !string.IsNullOrWhiteSpace(config.ContentApiKey)
-                        ? await GhostAdminClient.FetchSiteSettingsViaContentApiAsync(config.GhostUrl, config.ContentApiKey)
-                        : await GhostAdminClient.FetchSiteBrandInfoAsync(config.GhostUrl, config.AdminApiKey);
-                if (apiNav.Count > 0) navItems = apiNav;
-                if (!string.IsNullOrWhiteSpace(apiTitle)) config.SiteTitle = apiTitle;
-                if (!string.IsNullOrWhiteSpace(apiDesc)) siteDescription = apiDesc;
-                if (!string.IsNullOrWhiteSpace(apiIcon)) siteIcon = apiIcon;
-                if (!string.IsNullOrWhiteSpace(apiLogo)) siteLogo = apiLogo;
-                if (!string.IsNullOrWhiteSpace(apiCover)) siteCover = apiCover;
-                if (!string.IsNullOrWhiteSpace(apiLocale)) siteLocale = apiLocale;
-                if (!string.IsNullOrWhiteSpace(apiTwitter)) twitter = apiTwitter;
-                if (!string.IsNullOrWhiteSpace(apiFacebook)) facebook = apiFacebook;
-                if (!string.IsNullOrWhiteSpace(apiHead)) result.HeaderCodeInjection = apiHead;
-                if (!string.IsNullOrWhiteSpace(apiFoot)) result.FooterCodeInjection = apiFoot;
+                try
+                {
+                    var (apiTitle, apiDesc, apiIcon, apiLogo, apiCover, apiNav, apiLocale, apiTwitter, apiFacebook, apiHead, apiFoot) =
+                        !string.IsNullOrWhiteSpace(config.ContentApiKey)
+                            ? await GhostAdminClient.FetchSiteSettingsViaContentApiAsync(config.GhostUrl, config.ContentApiKey)
+                            : await GhostAdminClient.FetchSiteBrandInfoAsync(config.GhostUrl, config.AdminApiKey ?? "");
+                    if (apiNav.Count > 0) navItems = apiNav;
+                    if (!string.IsNullOrWhiteSpace(apiTitle)) config.SiteTitle = apiTitle;
+                    if (!string.IsNullOrWhiteSpace(apiDesc)) siteDescription = apiDesc;
+                    if (!string.IsNullOrWhiteSpace(apiIcon)) siteIcon = apiIcon;
+                    if (!string.IsNullOrWhiteSpace(apiLogo)) siteLogo = apiLogo;
+                    if (!string.IsNullOrWhiteSpace(apiCover)) siteCover = apiCover;
+                    if (!string.IsNullOrWhiteSpace(apiLocale)) siteLocale = apiLocale;
+                    if (!string.IsNullOrWhiteSpace(apiTwitter)) twitter = apiTwitter;
+                    if (!string.IsNullOrWhiteSpace(apiFacebook)) facebook = apiFacebook;
+                    if (!string.IsNullOrWhiteSpace(apiHead)) result.HeaderCodeInjection = apiHead;
+                    if (!string.IsNullOrWhiteSpace(apiFoot)) result.FooterCodeInjection = apiFoot;
+                }
+                catch { }
             }
             else
             {
                 result.Success = false;
-                result.Message = "Missing credentials or input file. Provide ghostExportJson or GhostUrl + AdminApiKey.";
+                result.Message = "Missing credentials or input file. Provide ghostExportJson or GhostUrl + AdminApiKey / ContentApiKey.";
                 return result;
             }
 
