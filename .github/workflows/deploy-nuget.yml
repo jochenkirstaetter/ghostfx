@@ -35,7 +35,7 @@ jobs:
         run: dotnet restore GhostFx.slnx
 
       - name: Build
-        run: dotnet build GhostFx.slnx --configuration Release --no-restore
+        run: dotnet build GhostFx.Cli/GhostFx.Cli.csproj --configuration Release --no-restore
 
       - name: Create NuGet package
         run: |
