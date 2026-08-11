@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Play, 
   CheckCircle2, 
@@ -21,13 +21,24 @@ import {
 interface GhostFxConfigData {
   ghostUrl: string;
   adminApiKey: string;
+  contentApiKey: string;
   inputJsonPath: string;
+  ghostExportJson?: string;
   outputDir: string;
   indexFile: string;
   siteTitle: string;
   includeDrafts: boolean;
+  cleanUrls?: boolean;
+  quiet?: boolean;
   downloadTheme: boolean;
-  themeOutputPath: string;
+  migrateTheme: boolean;
+  purgeTemplate?: boolean | null;
+  themePath: string;
+  themeOutputPath?: string;
+  logoPath: boolean;
+  googleAnalyticsTag: string;
+  indexPostCount: number;
+  excerptMaxLength: number;
 }
 
 interface FileItem {
@@ -41,22 +52,111 @@ interface FileItem {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'console' | 'config' | 'json' | 'files' | 'tests'>('console');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const themeZipInputRef = useRef<HTMLInputElement>(null);
+  const themeFolderInputRef = useRef<HTMLInputElement>(null);
+  const loadConfigInputRef = useRef<HTMLInputElement>(null);
   
   const [config, setConfig] = useState<GhostFxConfigData>({
-    ghostUrl: 'https://demo.ghost.io',
-    adminApiKey: '640a1b2c3d4e5f6a7b8c9d0e:1234567890abcdef1234567890abcdef',
-    inputJsonPath: 'sample-ghost-export.json',
+    ghostUrl: 'https://jochen.kirstaetter.name',
+    adminApiKey: '',
+    contentApiKey: '',
+    inputJsonPath: 'temp-ghost-export.json',
     outputDir: 'articles',
     indexFile: 'index.md',
-    siteTitle: 'GhostFx Sample Blog',
+    siteTitle: 'Get Blogged by JoKi',
     includeDrafts: true,
+    cleanUrls: false,
+    quiet: false,
     downloadTheme: false,
-    themeOutputPath: 'templates/ghost-theme.zip'
+    migrateTheme: false,
+    purgeTemplate: false,
+    themePath: '_ghost_templates/blogged-4.0.0',
+    logoPath: false,
+    googleAnalyticsTag: 'UA-12103827-1',
+    indexPostCount: 12,
+    excerptMaxLength: 200
   });
 
   const [customJsonInput, setCustomJsonInput] = useState<string>('');
   const [isRunningMigration, setIsRunningMigration] = useState<boolean>(false);
   const [isRunningTests, setIsRunningTests] = useState<boolean>(false);
+  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
+
+  const toggleMode = () => {
+    setIsOfflineMode(prev => {
+      const next = !prev;
+      if (next) {
+        setConfig(c => ({ ...c, inputJsonPath: c.inputJsonPath || 'temp-ghost-export.json', ghostExportJson: c.inputJsonPath || 'temp-ghost-export.json' }));
+        setTerminalLogs(logs => [...logs, '[INFO] Switched engine mode to Offline JSON Export Migration.']);
+      } else {
+        setConfig(c => ({ ...c, inputJsonPath: '', ghostExportJson: '' }));
+        setTerminalLogs(logs => [...logs, '[INFO] Switched engine mode to Live Ghost API Migration.']);
+      }
+      return next;
+    });
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setConfig(prev => ({
+        ...prev,
+        inputJsonPath: file.name,
+        ghostExportJson: file.name
+      }));
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setCustomJsonInput(event.target.result as string);
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const handleThemeZipSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setConfig(prev => ({
+        ...prev,
+        themePath: file.name,
+        themeOutputPath: file.name
+      }));
+    }
+  };
+
+  const handleThemeFolderSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const folderName = files[0].webkitRelativePath ? files[0].webkitRelativePath.split('/')[0] : 'custom-theme';
+      setConfig(prev => ({
+        ...prev,
+        themePath: folderName,
+        themeOutputPath: folderName
+      }));
+    }
+  };
+
+  const handleLoadConfigFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          if (event.target?.result) {
+            const parsed = JSON.parse(event.target.result as string);
+            setConfig(prev => ({ ...prev, ...parsed }));
+            setTerminalLogs(logs => [...logs, `[INFO] Loaded configuration from ${file.name}`]);
+            alert(`Configuration loaded successfully from ${file.name}`);
+          }
+        } catch (err: any) {
+          alert(`Failed to parse configuration JSON file: ${err.message}`);
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
   
   const [terminalLogs, setTerminalLogs] = useState<string[]>([
     '[INFO] Initializing GhostFx .NET 9.0 / 10 Engine...',
@@ -158,18 +258,21 @@ export default function App() {
     setTerminalLogs(prev => [...prev, msg]);
   };
 
-  const handleRunMigration = async () => {
+  const handleRunMigration = async (overrideOfflineJson?: boolean) => {
     setIsRunningMigration(true);
     setActiveTab('console');
+
+    const isOfflineMode = overrideOfflineJson !== undefined ? overrideOfflineJson : activeTab === 'json';
+
     setTerminalLogs([
       '[INFO] Initializing GhostFx .NET Engine...',
-      `[CONFIG] Source: ${config.inputJsonPath || config.ghostUrl}`,
+      `[CONFIG] Source: ${isOfflineMode ? (config.inputJsonPath || 'Offline JSON Export') : config.ghostUrl}`,
       `[CONFIG] Output Directory: ./${config.outputDir}`,
-      '[EXEC] Executing C# GhostFx.Cli migration runner...'
+      `[EXEC] Executing C# GhostFx.Cli migration runner (${isOfflineMode ? 'Offline JSON Mode' : 'Live Ghost API Mode'})...`
     ]);
 
     let parsedJson: any = null;
-    if (customJsonInput.trim()) {
+    if (isOfflineMode && customJsonInput.trim()) {
       try {
         parsedJson = JSON.parse(customJsonInput);
       } catch {
@@ -185,7 +288,8 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           config,
-          customJson: parsedJson
+          customJson: parsedJson,
+          useOfflineJson: isOfflineMode
         })
       });
 
@@ -200,12 +304,6 @@ export default function App() {
       if (data.success) {
         addLog('[SUCCESS] GhostFx Migration Completed Successfully!');
         fetchFiles();
-        setStats({
-          totalPosts: 3,
-          publishedPosts: 2,
-          draftPosts: config.includeDrafts ? 1 : 0,
-          totalTags: 3
-        });
       } else {
         addLog(`[ERROR] Migration failed: ${data.error || data.stderr}`);
       }
@@ -260,12 +358,15 @@ export default function App() {
         </div>
 
         <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2 bg-indigo-800 px-3 py-1 rounded-full border border-indigo-700">
-            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+          <button 
+            onClick={toggleMode}
+            title="Click to toggle between Live Ghost API and Offline JSON Mode"
+            className="flex items-center space-x-2 bg-indigo-800 hover:bg-indigo-700 px-3 py-1 rounded-full border border-indigo-700 transition cursor-pointer">
+            <div className={`w-2 h-2 rounded-full animate-pulse ${isOfflineMode || activeTab === 'json' || !!config.inputJsonPath ? 'bg-amber-400' : 'bg-emerald-400'}`}></div>
             <span className="text-indigo-100 text-xs font-medium uppercase tracking-wider">
-              {config.inputJsonPath ? 'Offline JSON Mode' : 'Connected to Ghost API'}
+              {isOfflineMode || activeTab === 'json' || !!config.inputJsonPath ? 'Offline JSON Mode' : 'Live Ghost API Mode'}
             </span>
-          </div>
+          </button>
 
           <button 
             onClick={handleRunTests}
@@ -288,9 +389,27 @@ export default function App() {
             <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Migration Profile</h2>
             <div className="space-y-4">
               <div className="flex flex-col">
+                <label className="text-[11px] text-slate-400 uppercase font-semibold mb-1">Engine Mode</label>
+                <button
+                  onClick={toggleMode}
+                  title="Click to switch migration mode"
+                  className={`text-xs px-2.5 py-1.5 rounded-md font-semibold border transition flex items-center justify-between cursor-pointer ${
+                    isOfflineMode || activeTab === 'json' || !!config.inputJsonPath
+                      ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100' 
+                      : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                  }`}>
+                  <span className="flex items-center space-x-1.5">
+                    <span className={`w-2 h-2 rounded-full animate-pulse ${isOfflineMode || activeTab === 'json' || !!config.inputJsonPath ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
+                    <span>{isOfflineMode || activeTab === 'json' || !!config.inputJsonPath ? 'Offline JSON Mode' : 'Live Ghost API Mode'}</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 underline ml-2">Switch</span>
+                </button>
+              </div>
+
+              <div className="flex flex-col">
                 <label className="text-[11px] text-slate-400 uppercase font-semibold mb-1">Source URL / Export</label>
                 <span className="text-xs text-slate-700 font-mono break-all bg-slate-50 p-2 rounded border border-slate-200">
-                  {config.inputJsonPath || config.ghostUrl}
+                  {(isOfflineMode || activeTab === 'json' || !!config.inputJsonPath) ? (config.inputJsonPath || 'Offline Export') : config.ghostUrl}
                 </span>
               </div>
 
@@ -313,6 +432,12 @@ export default function App() {
           <div className="flex-1 p-5 overflow-y-auto">
             <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Pipeline Flags</h2>
             <ul className="space-y-3">
+              <li className="flex items-center justify-between text-xs">
+                <span className="text-slate-600 font-medium">Offline JSON Mode</span>
+                <span className={isOfflineMode || activeTab === 'json' || !!config.inputJsonPath ? "text-amber-600 font-bold" : "text-slate-400"}>
+                  {isOfflineMode || activeTab === 'json' || !!config.inputJsonPath ? "Active" : "Disabled"}
+                </span>
+              </li>
               <li className="flex items-center justify-between text-xs">
                 <span className="text-slate-600 font-medium">Convert Tags</span>
                 <span className="text-emerald-600 font-bold">✓</span>
@@ -338,11 +463,17 @@ export default function App() {
 
           <div className="p-5 bg-slate-50 border-t border-slate-200">
             <button 
-              onClick={handleRunMigration}
+              onClick={() => handleRunMigration(isOfflineMode || activeTab === 'json' || !!config.inputJsonPath)}
               disabled={isRunningMigration}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded shadow-sm font-semibold text-sm transition-colors disabled:opacity-50 flex items-center justify-center space-x-2 cursor-pointer">
+              className={`w-full text-white py-2.5 rounded shadow-sm font-semibold text-sm transition-colors disabled:opacity-50 flex items-center justify-center space-x-2 cursor-pointer ${
+                isOfflineMode || activeTab === 'json' || !!config.inputJsonPath ? 'bg-amber-600 hover:bg-amber-700' : 'bg-indigo-600 hover:bg-indigo-700'
+              }`}>
               <Play className="w-4 h-4 fill-current" />
-              <span>{isRunningMigration ? 'Migrating...' : 'Start Live Migration'}</span>
+              <span>
+                {isRunningMigration 
+                  ? 'Migrating...' 
+                  : (isOfflineMode || activeTab === 'json' || !!config.inputJsonPath ? 'Migrate Offline JSON' : 'Start Live Migration')}
+              </span>
             </button>
           </div>
         </aside>
@@ -480,99 +611,295 @@ export default function App() {
                   <h3 className="text-base font-bold text-slate-800">ghostfx.json Configuration</h3>
                   <p className="text-xs text-slate-500">Configure parameters passed to the GhostFx C# migration engine.</p>
                 </div>
-                <button 
-                  onClick={handleSaveConfig}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm transition flex items-center space-x-2 cursor-pointer">
-                  <Save className="w-3.5 h-3.5" />
-                  <span>Save Configuration</span>
-                </button>
+                <div className="flex items-center space-x-2">
+                  <button 
+                    type="button"
+                    onClick={() => loadConfigInputRef.current?.click()}
+                    className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 transition flex items-center space-x-2 cursor-pointer">
+                    <FolderOpen className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Load Configuration</span>
+                  </button>
+                  <input 
+                    type="file" 
+                    ref={loadConfigInputRef} 
+                    accept=".json" 
+                    onChange={handleLoadConfigFile} 
+                    className="hidden" 
+                  />
+                  <button 
+                    onClick={handleSaveConfig}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm transition flex items-center space-x-2 cursor-pointer">
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save Configuration</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6 text-xs">
-                <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-700">Ghost Base URL</label>
-                  <input 
-                    type="text" 
-                    value={config.ghostUrl} 
-                    onChange={e => setConfig({...config, ghostUrl: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-mono text-slate-800 focus:outline-none focus:border-indigo-500" 
-                  />
-                </div>
+              {/* Section 1: Ghost API & Sources */}
+              <div>
+                <h4 className="text-xs font-bold text-indigo-900 uppercase tracking-wider mb-3">1. Ghost API Credentials & Input</h4>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div className="space-y-1.5">
+                    <label className="font-semibold text-slate-700">Ghost Base URL</label>
+                    <input 
+                      type="text" 
+                      value={config.ghostUrl} 
+                      onChange={e => setConfig({...config, ghostUrl: e.target.value})}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-mono text-slate-800 focus:outline-none focus:border-indigo-500" 
+                    />
+                  </div>
 
-                <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-700">Admin API Key (ID:SECRET)</label>
-                  <input 
-                    type="text" 
-                    value={config.adminApiKey} 
-                    onChange={e => setConfig({...config, adminApiKey: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-mono text-slate-800 focus:outline-none focus:border-indigo-500" 
-                  />
-                </div>
+                  <div className="space-y-1.5">
+                    <label className="font-semibold text-slate-700">Site Title</label>
+                    <input 
+                      type="text" 
+                      value={config.siteTitle} 
+                      onChange={e => setConfig({...config, siteTitle: e.target.value})}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 focus:outline-none focus:border-indigo-500" 
+                    />
+                  </div>
 
-                <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-700">Input JSON Export File Path</label>
-                  <input 
-                    type="text" 
-                    value={config.inputJsonPath} 
-                    onChange={e => setConfig({...config, inputJsonPath: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-mono text-slate-800 focus:outline-none focus:border-indigo-500" 
-                  />
-                </div>
+                  <div className="space-y-1.5">
+                    <label className="font-semibold text-slate-700">Admin API Key (ID:SECRET)</label>
+                    <input 
+                      type="text" 
+                      value={config.adminApiKey} 
+                      onChange={e => setConfig({...config, adminApiKey: e.target.value})}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-mono text-slate-800 focus:outline-none focus:border-indigo-500" 
+                    />
+                  </div>
 
-                <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-700">Output Root Directory</label>
-                  <input 
-                    type="text" 
-                    value={config.outputDir} 
-                    onChange={e => setConfig({...config, outputDir: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-mono text-slate-800 focus:outline-none focus:border-indigo-500" 
-                  />
-                </div>
+                  <div className="space-y-1.5">
+                    <label className="font-semibold text-slate-700">Content API Key</label>
+                    <input 
+                      type="text" 
+                      value={config.contentApiKey || ''} 
+                      onChange={e => setConfig({...config, contentApiKey: e.target.value})}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-mono text-slate-800 focus:outline-none focus:border-indigo-500" 
+                    />
+                  </div>
 
-                <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-700">Front Page Output File</label>
-                  <input 
-                    type="text" 
-                    value={config.indexFile} 
-                    onChange={e => setConfig({...config, indexFile: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-mono text-slate-800 focus:outline-none focus:border-indigo-500" 
-                  />
-                </div>
+                  <div className="space-y-1.5">
+                    <label className="font-semibold text-slate-700">Input JSON Export File Path</label>
+                    <div className="flex space-x-2">
+                      <input 
+                        type="text" 
+                        value={config.inputJsonPath || config.ghostExportJson || ''} 
+                        onChange={e => setConfig({...config, inputJsonPath: e.target.value, ghostExportJson: e.target.value})}
+                        className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-mono text-slate-800 focus:outline-none focus:border-indigo-500" 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-200 font-semibold transition flex items-center space-x-1.5 shrink-0 cursor-pointer">
+                        <FolderOpen className="w-4 h-4 text-indigo-600" />
+                        <span>Browse...</span>
+                      </button>
+                      <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        accept=".json" 
+                        onChange={handleFileSelect} 
+                        className="hidden" 
+                      />
+                    </div>
+                  </div>
 
-                <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-700">Site Title</label>
-                  <input 
-                    type="text" 
-                    value={config.siteTitle} 
-                    onChange={e => setConfig({...config, siteTitle: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 focus:outline-none focus:border-indigo-500" 
-                  />
+                  <div className="space-y-1.5">
+                    <label className="font-semibold text-slate-700">Output Root Directory</label>
+                    <input 
+                      type="text" 
+                      value={config.outputDir} 
+                      onChange={e => setConfig({...config, outputDir: e.target.value})}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-mono text-slate-800 focus:outline-none focus:border-indigo-500" 
+                    />
+                  </div>
                 </div>
+              </div>
 
-                <div className="flex items-center space-x-2 pt-4">
-                  <input 
-                    type="checkbox" 
-                    id="includeDrafts"
-                    checked={config.includeDrafts} 
-                    onChange={e => setConfig({...config, includeDrafts: e.target.checked})}
-                    className="w-4 h-4 text-indigo-600 rounded border-slate-300"
-                  />
-                  <label htmlFor="includeDrafts" className="font-medium text-slate-700 cursor-pointer">
-                    Include Draft Posts (isolate in drafts/ subfolder)
-                  </label>
+              {/* Section 2: Output Files, Theme & Conversion Options */}
+              <div className="pt-2 border-t border-slate-100">
+                <h4 className="text-xs font-bold text-indigo-900 uppercase tracking-wider mb-3">2. Output Files, Theme & Conversion Options</h4>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div className="space-y-1.5">
+                    <label className="font-semibold text-slate-700">Front Page Output File</label>
+                    <input 
+                      type="text" 
+                      value={config.indexFile} 
+                      onChange={e => setConfig({...config, indexFile: e.target.value})}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-mono text-slate-800 focus:outline-none focus:border-indigo-500" 
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="font-semibold text-slate-700">Theme Path (zip or extracted folder)</label>
+                    <div className="flex space-x-1.5">
+                      <input 
+                        type="text" 
+                        value={config.themePath || config.themeOutputPath || ''} 
+                        onChange={e => setConfig({...config, themePath: e.target.value, themeOutputPath: e.target.value})}
+                        className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-mono text-slate-800 focus:outline-none focus:border-indigo-500" 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => themeZipInputRef.current?.click()}
+                        title="Pick theme .ZIP file"
+                        className="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-200 font-semibold transition flex items-center space-x-1 shrink-0 cursor-pointer text-xs">
+                        <FileCode className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>ZIP</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => themeFolderInputRef.current?.click()}
+                        title="Pick theme folder"
+                        className="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-200 font-semibold transition flex items-center space-x-1 shrink-0 cursor-pointer text-xs">
+                        <FolderOpen className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Folder</span>
+                      </button>
+                      <input 
+                        type="file" 
+                        ref={themeZipInputRef} 
+                        accept=".zip" 
+                        onChange={handleThemeZipSelect} 
+                        className="hidden" 
+                      />
+                      <input 
+                        type="file" 
+                        ref={themeFolderInputRef} 
+                        {...({ webkitdirectory: '', directory: '' } as any)}
+                        onChange={handleThemeFolderSelect} 
+                        className="hidden" 
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2 pt-2">
+                    <input 
+                      type="checkbox" 
+                      id="downloadTheme"
+                      checked={config.downloadTheme} 
+                      onChange={e => setConfig({...config, downloadTheme: e.target.checked})}
+                      className="w-4 h-4 text-indigo-600 rounded border-slate-300"
+                    />
+                    <label htmlFor="downloadTheme" className="font-medium text-slate-700 cursor-pointer">
+                      Download Active Theme Zip Archive
+                    </label>
+                  </div>
+
+                  <div className="flex items-center space-x-2 pt-2">
+                    <input 
+                      type="checkbox" 
+                      id="migrateTheme"
+                      checked={config.migrateTheme} 
+                      onChange={e => setConfig({...config, migrateTheme: e.target.checked})}
+                      className="w-4 h-4 text-indigo-600 rounded border-slate-300"
+                    />
+                    <label htmlFor="migrateTheme" className="font-medium text-slate-700 cursor-pointer">
+                      Migrate Ghost Handlebars Theme to DocFX
+                    </label>
+                  </div>
+
+                  <div className="flex items-center space-x-2 pt-2">
+                    <input 
+                      type="checkbox" 
+                      id="purgeTemplate"
+                      checked={!!config.purgeTemplate} 
+                      onChange={e => setConfig({...config, purgeTemplate: e.target.checked})}
+                      className="w-4 h-4 text-indigo-600 rounded border-slate-300"
+                    />
+                    <label htmlFor="purgeTemplate" className="font-medium text-slate-700 cursor-pointer">
+                      Purge Template Folder Before Conversion
+                    </label>
+                  </div>
+
+                  <div className="flex items-center space-x-2 pt-2">
+                    <input 
+                      type="checkbox" 
+                      id="logoPath"
+                      checked={config.logoPath} 
+                      onChange={e => setConfig({...config, logoPath: e.target.checked})}
+                      className="w-4 h-4 text-indigo-600 rounded border-slate-300"
+                    />
+                    <label htmlFor="logoPath" className="font-medium text-slate-700 cursor-pointer">
+                      Enable Site Logo Path Normalization
+                    </label>
+                  </div>
+
+                  <div className="flex items-center space-x-2 pt-2">
+                    <input 
+                      type="checkbox" 
+                      id="includeDrafts"
+                      checked={config.includeDrafts} 
+                      onChange={e => setConfig({...config, includeDrafts: e.target.checked})}
+                      className="w-4 h-4 text-indigo-600 rounded border-slate-300"
+                    />
+                    <label htmlFor="includeDrafts" className="font-medium text-slate-700 cursor-pointer">
+                      Include Draft Posts (in drafts/ subfolder)
+                    </label>
+                  </div>
+
+                  <div className="flex items-center space-x-2 pt-2">
+                    <input 
+                      type="checkbox" 
+                      id="cleanUrls"
+                      checked={!!config.cleanUrls} 
+                      onChange={e => setConfig({...config, cleanUrls: e.target.checked})}
+                      className="w-4 h-4 text-indigo-600 rounded border-slate-300"
+                    />
+                    <label htmlFor="cleanUrls" className="font-medium text-slate-700 cursor-pointer">
+                      Clean URLs (Omit .html Extension)
+                    </label>
+                  </div>
+
+                  <div className="flex items-center space-x-2 pt-2">
+                    <input 
+                      type="checkbox" 
+                      id="quiet"
+                      checked={!!config.quiet} 
+                      onChange={e => setConfig({...config, quiet: e.target.checked})}
+                      className="w-4 h-4 text-indigo-600 rounded border-slate-300"
+                    />
+                    <label htmlFor="quiet" className="font-medium text-slate-700 cursor-pointer">
+                      Quiet Mode (Suppress Console Logs)
+                    </label>
+                  </div>
                 </div>
+              </div>
 
-                <div className="flex items-center space-x-2 pt-4">
-                  <input 
-                    type="checkbox" 
-                    id="downloadTheme"
-                    checked={config.downloadTheme} 
-                    onChange={e => setConfig({...config, downloadTheme: e.target.checked})}
-                    className="w-4 h-4 text-indigo-600 rounded border-slate-300"
-                  />
-                  <label htmlFor="downloadTheme" className="font-medium text-slate-700 cursor-pointer">
-                    Download Active Theme Zip Archive
-                  </label>
+              {/* Section 3: Analytics & Content Constraints */}
+              <div className="pt-2 border-t border-slate-100">
+                <h4 className="text-xs font-bold text-indigo-900 uppercase tracking-wider mb-3">3. Analytics & Content Formatting</h4>
+                <div className="grid grid-cols-3 gap-4 text-xs">
+                  <div className="space-y-1.5">
+                    <label className="font-semibold text-slate-700">Google Analytics Tag ID</label>
+                    <input 
+                      type="text" 
+                      value={config.googleAnalyticsTag || ''} 
+                      placeholder="UA-123456-1 or G-XXXXXXX"
+                      onChange={e => setConfig({...config, googleAnalyticsTag: e.target.value})}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-mono text-slate-800 focus:outline-none focus:border-indigo-500" 
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="font-semibold text-slate-700">Index Post Count</label>
+                    <input 
+                      type="number" 
+                      value={config.indexPostCount ?? 12} 
+                      onChange={e => setConfig({...config, indexPostCount: parseInt(e.target.value) || 12})}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 focus:outline-none focus:border-indigo-500" 
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="font-semibold text-slate-700">Excerpt Max Length</label>
+                    <input 
+                      type="number" 
+                      value={config.excerptMaxLength ?? 200} 
+                      onChange={e => setConfig({...config, excerptMaxLength: parseInt(e.target.value) || 200})}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 focus:outline-none focus:border-indigo-500" 
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -586,12 +913,21 @@ export default function App() {
                   <h3 className="text-base font-bold text-slate-800">Ghost JSON Export Payload</h3>
                   <p className="text-xs text-slate-500">Edit or paste Ghost blog export JSON data to test offline migration.</p>
                 </div>
-                <button 
-                  onClick={fetchSampleJson}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-md transition flex items-center space-x-1 cursor-pointer">
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Reload Sample</span>
-                </button>
+                <div className="flex items-center space-x-2">
+                  <button 
+                    onClick={fetchSampleJson}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-md transition flex items-center space-x-1 cursor-pointer">
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Reload Sample</span>
+                  </button>
+                  <button 
+                    onClick={() => handleRunMigration(true)}
+                    disabled={isRunningMigration}
+                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-md shadow-sm transition flex items-center space-x-1.5 cursor-pointer">
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>{isRunningMigration ? 'Migrating...' : 'Migrate Offline JSON'}</span>
+                  </button>
+                </div>
               </div>
 
               <textarea 
@@ -687,11 +1023,8 @@ export default function App() {
             <div className="flex-1 font-mono text-xs text-indigo-700 bg-slate-50 p-3 rounded-lg overflow-hidden border border-slate-100">
               <pre className="whitespace-pre-wrap leading-tight">
 {JSON.stringify({
-  ghostUrl: config.ghostUrl,
-  adminApiKey: config.adminApiKey.substring(0, 16) + '...',
-  outputDir: config.outputDir,
-  indexFile: config.indexFile,
-  includeDrafts: config.includeDrafts
+  ...config,
+  adminApiKey: config.adminApiKey ? (config.adminApiKey.length > 16 ? config.adminApiKey.substring(0, 16) + '...' : '***') : ''
 }, null, 2)}
               </pre>
             </div>

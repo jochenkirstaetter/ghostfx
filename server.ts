@@ -38,13 +38,22 @@ async function startServer() {
       return res.json({
         ghostUrl: 'https://demo.ghost.io',
         adminApiKey: '640a1b2c3d4e5f6a7b8c9d0e:1234567890abcdef1234567890abcdef',
+        contentApiKey: '',
         inputJsonPath: 'sample-ghost-export.json',
         outputDir: 'articles',
         indexFile: 'index.md',
         siteTitle: 'My Static Blog',
         includeDrafts: true,
+        cleanUrls: false,
+        quiet: false,
         downloadTheme: false,
-        themeOutputPath: 'templates/ghost-theme.zip'
+        migrateTheme: false,
+        purgeTemplate: false,
+        themePath: '_ghost_templates/blogged-4.0.0',
+        logoPath: false,
+        googleAnalyticsTag: '',
+        indexPostCount: 12,
+        excerptMaxLength: 200
       });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
@@ -76,27 +85,33 @@ async function startServer() {
 
   app.post('/api/ghostfx/migrate', async (req, res) => {
     try {
-      const { customJson, config } = req.body;
+      const { customJson, config, useOfflineJson } = req.body;
       let tempJsonPath = '';
 
-      if (customJson) {
+      if (useOfflineJson && customJson) {
         tempJsonPath = join(process.cwd(), 'temp-ghost-export.json');
         await fs.writeFile(tempJsonPath, typeof customJson === 'string' ? customJson : JSON.stringify(customJson, null, 2), 'utf-8');
+      } else {
+        if (config) {
+          config.inputJsonPath = '';
+          config.ghostExportJson = '';
+        }
       }
 
       if (config) {
         const configPath = join(process.cwd(), 'ghostfx.json');
         if (tempJsonPath) {
           config.inputJsonPath = 'temp-ghost-export.json';
+          config.ghostExportJson = 'temp-ghost-export.json';
         }
         await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
       }
 
       const dotnetCmd = getDotnetExecutable();
-      const cmd = `${dotnetCmd} run --project GhostFx.Cli`;
+      const cmd = `${dotnetCmd} run --project GhostFx.Cli -- --yes`;
 
-      const { stdout, stderr } = await execAsync(cmd, { cwd: process.cwd() });
-      
+      const { stdout, stderr } = await execAsync(cmd, { cwd: process.cwd(), input: '' });
+
       return res.json({
         success: true,
         stdout,
@@ -117,7 +132,7 @@ async function startServer() {
       const dotnetCmd = getDotnetExecutable();
       const cmd = `${dotnetCmd} test GhostFx.Tests/GhostFx.Tests.csproj`;
 
-      const { stdout, stderr } = await execAsync(cmd, { cwd: process.cwd() });
+      const { stdout, stderr } = await execAsync(cmd, { cwd: process.cwd(), input: '' });
       return res.json({
         success: true,
         stdout,
@@ -126,7 +141,6 @@ async function startServer() {
     } catch (err: any) {
       return res.status(500).json({
         success: false,
-
         error: err.message,
         stdout: err.stdout || '',
         stderr: err.stderr || ''
@@ -161,7 +175,7 @@ async function startServer() {
 
       const articlesDir = join(process.cwd(), 'articles');
       await scanDir(articlesDir, 'articles');
-      
+
       if (existsSync(join(process.cwd(), 'index.md'))) {
         files.push({ path: 'index.md', name: 'index.md', isDraft: false, isIndex: true, isToc: false, isTag: false });
       }
