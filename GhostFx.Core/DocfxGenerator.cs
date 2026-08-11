@@ -1,183 +1,179 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.IO.Compression;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace GhostFx.Core;
 
 public static class DocfxGenerator
 {
     private const string DefaultMasterTemplate = """
-{{!GhostFx - Ghost to DocFx template conversion engine. This content has been auto-generated and changes might be over-written.}}
-{{!include(/^public/.*/)}}
-{{!include(favicon.ico)}}
-{{!include(logo.svg)}}
-<!DOCTYPE html>
-<html {{#_lang}}lang="{{_lang}}"{{/_lang}}>
-  <head>
-    <meta charset="utf-8">
-    {{#redirect_url}}
-      <meta http-equiv="refresh" content="0;URL='{{redirect_url}}'">
-    {{/redirect_url}}
-    {{^redirect_url}}
-      <title>{{#title}}{{title}}{{/title}}{{^title}}{{>partials/title}}{{/title}} {{#_appTitle}}| {{_appTitle}} {{/_appTitle}}</title>
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="{{#title}}{{title}}{{/title}}{{^title}}{{>partials/title}}{{/title}} {{#_appTitle}}| {{_appTitle}} {{/_appTitle}}">
-      {{#_description}}<meta name="description" content="{{_description}}">{{/_description}}
-      {{#description}}<meta name="description" content="{{description}}">{{/description}}
-      <link rel="icon" href="{{_rel}}{{{_appFaviconPath}}}{{^_appFaviconPath}}favicon.ico{{/_appFaviconPath}}">
-      <link rel="stylesheet" href="{{_rel}}public/docfx.min.css">
-      <meta name="docfx:navrel" content="{{_navRel}}">
-      <meta name="docfx:tocrel" content="{{_tocRel}}">
-      {{#_noindex}}<meta name="searchOption" content="noindex">{{/_noindex}}
-      {{#_enableSearch}}<meta name="docfx:rel" content="{{_rel}}">{{/_enableSearch}}
-      {{#_disableNewTab}}<meta name="docfx:disablenewtab" content="true">{{/_disableNewTab}}
-      {{#_disableTocFilter}}<meta name="docfx:disabletocfilter" content="true">{{/_disableTocFilter}}
-      {{#docurl}}<meta name="docfx:docurl" content="{{docurl}}">{{/docurl}}
-      <meta name="loc:inThisArticle" content="{{__global.inThisArticle}}">
-      <meta name="loc:searchResultsCount" content="{{__global.searchResultsCount}}">
-      <meta name="loc:searchNoResults" content="{{__global.searchNoResults}}">
-      <meta name="loc:tocFilter" content="{{__global.tocFilter}}">
-      <meta name="loc:nextArticle" content="{{__global.nextArticle}}">
-      <meta name="loc:prevArticle" content="{{__global.prevArticle}}">
-      <meta name="loc:themeLight" content="{{__global.themeLight}}">
-      <meta name="loc:themeDark" content="{{__global.themeDark}}">
-      <meta name="loc:themeAuto" content="{{__global.themeAuto}}">
-      <meta name="loc:changeTheme" content="{{__global.changeTheme}}">
-      <meta name="loc:copy" content="{{__global.copy}}">
-      <meta name="loc:downloadPdf" content="{{__global.downloadPdf}}">
+                                                 {{!GhostFx - Ghost to DocFx template conversion engine. This content has been auto-generated and changes might be over-written.}}
+                                                 {{!include(/^public/.*/)}}
+                                                 {{!include(favicon.ico)}}
+                                                 {{!include(logo.svg)}}
+                                                 <!DOCTYPE html>
+                                                 <html {{#_lang}}lang="{{_lang}}"{{/_lang}}>
+                                                   <head>
+                                                     <meta charset="utf-8">
+                                                     {{#redirect_url}}
+                                                       <meta http-equiv="refresh" content="0;URL='{{redirect_url}}'">
+                                                     {{/redirect_url}}
+                                                     {{^redirect_url}}
+                                                       <title>{{#title}}{{title}}{{/title}}{{^title}}{{>partials/title}}{{/title}} {{#_appTitle}}| {{_appTitle}} {{/_appTitle}}</title>
+                                                       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                                                       <meta name="title" content="{{#title}}{{title}}{{/title}}{{^title}}{{>partials/title}}{{/title}} {{#_appTitle}}| {{_appTitle}} {{/_appTitle}}">
+                                                       {{#_description}}<meta name="description" content="{{_description}}">{{/_description}}
+                                                       {{#description}}<meta name="description" content="{{description}}">{{/description}}
+                                                       <link rel="icon" href="{{_rel}}{{{_appFaviconPath}}}{{^_appFaviconPath}}favicon.ico{{/_appFaviconPath}}">
+                                                       <link rel="stylesheet" href="{{_rel}}public/docfx.min.css">
+                                                       <meta name="docfx:navrel" content="{{_navRel}}">
+                                                       <meta name="docfx:tocrel" content="{{_tocRel}}">
+                                                       {{#_noindex}}<meta name="searchOption" content="noindex">{{/_noindex}}
+                                                       {{#_enableSearch}}<meta name="docfx:rel" content="{{_rel}}">{{/_enableSearch}}
+                                                       {{#_disableNewTab}}<meta name="docfx:disablenewtab" content="true">{{/_disableNewTab}}
+                                                       {{#_disableTocFilter}}<meta name="docfx:disabletocfilter" content="true">{{/_disableTocFilter}}
+                                                       {{#docurl}}<meta name="docfx:docurl" content="{{docurl}}">{{/docurl}}
+                                                       <meta name="loc:inThisArticle" content="{{__global.inThisArticle}}">
+                                                       <meta name="loc:searchResultsCount" content="{{__global.searchResultsCount}}">
+                                                       <meta name="loc:searchNoResults" content="{{__global.searchNoResults}}">
+                                                       <meta name="loc:tocFilter" content="{{__global.tocFilter}}">
+                                                       <meta name="loc:nextArticle" content="{{__global.nextArticle}}">
+                                                       <meta name="loc:prevArticle" content="{{__global.prevArticle}}">
+                                                       <meta name="loc:themeLight" content="{{__global.themeLight}}">
+                                                       <meta name="loc:themeDark" content="{{__global.themeDark}}">
+                                                       <meta name="loc:themeAuto" content="{{__global.themeAuto}}">
+                                                       <meta name="loc:changeTheme" content="{{__global.changeTheme}}">
+                                                       <meta name="loc:copy" content="{{__global.copy}}">
+                                                       <meta name="loc:downloadPdf" content="{{__global.downloadPdf}}">
 
-      <script type="module" src="./{{_rel}}public/docfx.min.js"></script>
+                                                       <script type="module" src="./{{_rel}}public/docfx.min.js"></script>
 
-      <script>
-        const theme = localStorage.getItem('theme') || 'auto'
-        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
-      </script>
+                                                       <script>
+                                                         const theme = localStorage.getItem('theme') || 'auto'
+                                                         document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+                                                       </script>
 
-      {{#_googleAnalyticsTagId}}
-      <script async src="https://www.googletagmanager.com/gtag/js?id={{_googleAnalyticsTagId}}"></script>
-      <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag() { dataLayer.push(arguments); }
-        gtag('js', new Date());
-        gtag('config', '{{_googleAnalyticsTagId}}');
-      </script>
-      {{/_googleAnalyticsTagId}}
-    {{/redirect_url}}
-    {{>partials/ghost_head}}
-    {{>partials/code_header}}
-    <link rel="stylesheet" href="{{_rel}}public/main.css">
-  </head>
+                                                       {{#_googleAnalyticsTagId}}
+                                                       <script async src="https://www.googletagmanager.com/gtag/js?id={{_googleAnalyticsTagId}}"></script>
+                                                       <script>
+                                                         window.dataLayer = window.dataLayer || [];
+                                                         function gtag() { dataLayer.push(arguments); }
+                                                         gtag('js', new Date());
+                                                         gtag('config', '{{_googleAnalyticsTagId}}');
+                                                       </script>
+                                                       {{/_googleAnalyticsTagId}}
+                                                     {{/redirect_url}}
+                                                     {{>partials/ghost_head}}
+                                                     {{>partials/code_header}}
+                                                     <link rel="stylesheet" href="{{_rel}}public/main.css">
+                                                   </head>
 
-  {{^redirect_url}}
-  <body class="tex2jax_ignore" data-layout="{{_layout}}{{layout}}" data-yaml-mime="{{yamlmime}}">
-    <header class="bg-body border-bottom">
-      {{^_disableNavbar}}
-      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
-        <div class="container-xxl flex-nowrap">
-          <a class="navbar-brand" href="{{_appLogoUrl}}{{^_appLogoUrl}}{{_rel}}index.html{{/_appLogoUrl}}">
-            {{#_appLogoPath}}
-              <img id="logo" class="svg" src="{{_rel}}{{{_appLogoPath}}}{{^_appLogoPath}}logo.svg{{/_appLogoPath}}" alt="{{_appName}}" >
-            {{/_appLogoPath}}
-            {{_appName}}
-          </a>
-          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
-            <i class="bi bi-three-dots"></i>
-          </button>
-          <div class="collapse navbar-collapse" id="navpanel">
-            <div id="navbar">
-              {{#_enableSearch}}
-              <form class="search" role="search" id="search">
-                <i class="bi bi-search"></i>
-                <input class="form-control" id="search-query" type="search" disabled placeholder="{{__global.search}}" autocomplete="off" aria-label="Search">
-              </form>
-              {{/_enableSearch}}
-            </div>
-          </div>
-        </div>
-      </nav>
-      {{/_disableNavbar}}
-    </header>
+                                                   {{^redirect_url}}
+                                                   <body class="tex2jax_ignore" data-layout="{{_layout}}{{layout}}" data-yaml-mime="{{yamlmime}}">
+                                                     <header class="bg-body border-bottom">
+                                                       {{^_disableNavbar}}
+                                                       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+                                                         <div class="container-xxl flex-nowrap">
+                                                           <a class="navbar-brand" href="{{_appLogoUrl}}{{^_appLogoUrl}}{{_rel}}index.html{{/_appLogoUrl}}">
+                                                             {{#_appLogoPath}}
+                                                               <img id="logo" class="svg" src="{{_rel}}{{{_appLogoPath}}}{{^_appLogoPath}}logo.svg{{/_appLogoPath}}" alt="{{_appName}}" >
+                                                             {{/_appLogoPath}}
+                                                             {{_appName}}
+                                                           </a>
+                                                           <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+                                                             <i class="bi bi-three-dots"></i>
+                                                           </button>
+                                                           <div class="collapse navbar-collapse" id="navpanel">
+                                                             <div id="navbar">
+                                                               {{#_enableSearch}}
+                                                               <form class="search" role="search" id="search">
+                                                                 <i class="bi bi-search"></i>
+                                                                 <input class="form-control" id="search-query" type="search" disabled placeholder="{{__global.search}}" autocomplete="off" aria-label="Search">
+                                                               </form>
+                                                               {{/_enableSearch}}
+                                                             </div>
+                                                           </div>
+                                                         </div>
+                                                       </nav>
+                                                       {{/_disableNavbar}}
+                                                     </header>
 
-    <main class="container-xxl">
-      {{^_disableToc}}
-      <div class="toc-offcanvas">
-        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
-          <div class="offcanvas-header">
-            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
-          </div>
-          <div class="offcanvas-body">
-            <nav class="toc" id="toc"></nav>
-          </div>
-        </div>
-      </div>
-      {{/_disableToc}}
+                                                     <main class="container-xxl">
+                                                       {{^_disableToc}}
+                                                       <div class="toc-offcanvas">
+                                                         <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+                                                           <div class="offcanvas-header">
+                                                             <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+                                                             <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+                                                           </div>
+                                                           <div class="offcanvas-body">
+                                                             <nav class="toc" id="toc"></nav>
+                                                           </div>
+                                                         </div>
+                                                       </div>
+                                                       {{/_disableToc}}
 
-      <div class="content">
-        <div class="actionbar">
-          {{^_disableToc}}
-          <button class="btn btn-lg border-0 d-md-none"
-              type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas"
-              aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
-            <i class="bi bi-list"></i>
-          </button>
-          {{/_disableToc}}
+                                                       <div class="content">
+                                                         <div class="actionbar">
+                                                           {{^_disableToc}}
+                                                           <button class="btn btn-lg border-0 d-md-none"
+                                                               type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas"
+                                                               aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+                                                             <i class="bi bi-list"></i>
+                                                           </button>
+                                                           {{/_disableToc}}
 
-          {{^_disableBreadcrumb}}
-          <nav id="breadcrumb"></nav>
-          {{/_disableBreadcrumb}}
-        </div>
+                                                           {{^_disableBreadcrumb}}
+                                                           <nav id="breadcrumb"></nav>
+                                                           {{/_disableBreadcrumb}}
+                                                         </div>
 
-        <article data-uid="{{uid}}">
-          {{!body}}
-        </article>
+                                                         <article data-uid="{{uid}}">
+                                                           {{!body}}
+                                                         </article>
 
-        {{^_disableContribution}}
-        <div class="contribution d-print-none">
-          {{#sourceurl}}
-          <a href="{{sourceurl}}" class="edit-link">{{__global.improveThisDoc}}</a>
-          {{/sourceurl}}
-          {{^sourceurl}}{{#docurl}}
-          <a href="{{docurl}}" class="edit-link">{{__global.improveThisDoc}}</a>
-          {{/docurl}}{{/sourceurl}}
-        </div>
-        {{/_disableContribution}}
+                                                         {{^_disableContribution}}
+                                                         <div class="contribution d-print-none">
+                                                           {{#sourceurl}}
+                                                           <a href="{{sourceurl}}" class="edit-link">{{__global.improveThisDoc}}</a>
+                                                           {{/sourceurl}}
+                                                           {{^sourceurl}}{{#docurl}}
+                                                           <a href="{{docurl}}" class="edit-link">{{__global.improveThisDoc}}</a>
+                                                           {{/docurl}}{{/sourceurl}}
+                                                         </div>
+                                                         {{/_disableContribution}}
 
-        {{^_disableNextArticle}}
-        <div class="next-article d-print-none border-top" id="nextArticle"></div>
-        {{/_disableNextArticle}}
+                                                         {{^_disableNextArticle}}
+                                                         <div class="next-article d-print-none border-top" id="nextArticle"></div>
+                                                         {{/_disableNextArticle}}
 
-      </div>
+                                                       </div>
 
-      {{^_disableAffix}}
-      <div class="affix">
-        <nav id="affix"></nav>
-      </div>
-      {{/_disableAffix}}
-    </main>
+                                                       {{^_disableAffix}}
+                                                       <div class="affix">
+                                                         <nav id="affix"></nav>
+                                                       </div>
+                                                       {{/_disableAffix}}
+                                                     </main>
 
-    {{#_enableSearch}}
-    <div class="container-xxl search-results" id="search-results"></div>
-    {{/_enableSearch}}
+                                                     {{#_enableSearch}}
+                                                     <div class="container-xxl search-results" id="search-results"></div>
+                                                     {{/_enableSearch}}
 
-    <footer class="border-top text-secondary">
-      <div class="container-xxl">
-        <div class="flex-fill">
-          {{{_appFooter}}}{{^_appFooter}}<span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>{{/_appFooter}}
-        </div>
-      </div>
-    </footer>
-    {{>partials/ghost_foot}}
-    {{>partials/code_footer}}
-    
-  </body>
-  {{/redirect_url}}
-</html>
-""";
+                                                     <footer class="border-top text-secondary">
+                                                       <div class="container-xxl">
+                                                         <div class="flex-fill">
+                                                           {{{_appFooter}}}{{^_appFooter}}<span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>{{/_appFooter}}
+                                                         </div>
+                                                       </div>
+                                                     </footer>
+                                                     {{>partials/ghost_foot}}
+                                                     {{>partials/code_footer}}
+                                                     
+                                                   </body>
+                                                   {{/redirect_url}}
+                                                 </html>
+                                                 """;
 
     public static async Task<string> GenerateDocfxJsonIfNotExistsAsync(
         string rootDir,
@@ -194,12 +190,15 @@ public static class DocfxGenerator
         List<BlogPostMetadata>? posts = null)
     {
         string templatePath = customTemplatePath ?? "ghostfx";
-        var links = await EnsureDocfxTemplateOverridesExistAsync(rootDir, templatePath, iconLinks, navItems, pages, posts);
+        var links = await EnsureDocfxTemplateOverridesExistAsync(rootDir, templatePath, iconLinks, navItems, pages,
+            posts);
 
         string partialsDir = Path.Combine(rootDir, templatePath, "partials");
         Directory.CreateDirectory(partialsDir);
-        await File.WriteAllTextAsync(Path.Combine(partialsDir, "code_header.tmpl.partial"), headerCodeInjection ?? "", System.Text.Encoding.UTF8);
-        await File.WriteAllTextAsync(Path.Combine(partialsDir, "code_footer.tmpl.partial"), footerCodeInjection ?? "", System.Text.Encoding.UTF8);
+        await File.WriteAllTextAsync(Path.Combine(partialsDir, "code_header.tmpl.partial"), headerCodeInjection ?? "",
+            System.Text.Encoding.UTF8);
+        await File.WriteAllTextAsync(Path.Combine(partialsDir, "code_footer.tmpl.partial"), footerCodeInjection ?? "",
+            System.Text.Encoding.UTF8);
 
         string fullOutputDir = Path.GetFullPath(config.OutputDir);
         string fullRootDir = Path.GetFullPath(rootDir);
@@ -209,26 +208,48 @@ public static class DocfxGenerator
 
         string articlesPattern = string.IsNullOrEmpty(relOutputDir) ? "**.md" : $"{relOutputDir}/**.md";
         string tocPattern = string.IsNullOrEmpty(relOutputDir) ? "**/toc.yml" : $"{relOutputDir}/**/toc.yml";
-        string mediaPattern = string.IsNullOrEmpty(relOutputDir) ? "**/content/images/**" : $"{relOutputDir}/**/content/images/**";
+        string mediaPattern = string.IsNullOrEmpty(relOutputDir)
+            ? "**/content/images/**"
+            : $"{relOutputDir}/**/content/images/**";
 
         string? faviconPath = null;
         if (File.Exists(Path.Combine(fullRootDir, "favicon.png"))) faviconPath = "favicon.png";
-        else if (File.Exists(Path.Combine(fullOutputDir, "content", "images", "favicon.png"))) faviconPath = string.IsNullOrEmpty(relOutputDir) ? "content/images/favicon.png" : $"{relOutputDir}/content/images/favicon.png";
-        else if (File.Exists(Path.Combine(fullOutputDir, "favicon.png"))) faviconPath = string.IsNullOrEmpty(relOutputDir) ? "favicon.png" : $"{relOutputDir}/favicon.png";
-        else if (File.Exists(Path.Combine(fullOutputDir, "content", "images", "favicon.svg"))) faviconPath = string.IsNullOrEmpty(relOutputDir) ? "content/images/favicon.svg" : $"{relOutputDir}/content/images/favicon.svg";
+        else if (File.Exists(Path.Combine(fullOutputDir, "content", "images", "favicon.png")))
+            faviconPath = string.IsNullOrEmpty(relOutputDir)
+                ? "content/images/favicon.png"
+                : $"{relOutputDir}/content/images/favicon.png";
+        else if (File.Exists(Path.Combine(fullOutputDir, "favicon.png")))
+            faviconPath = string.IsNullOrEmpty(relOutputDir) ? "favicon.png" : $"{relOutputDir}/favicon.png";
+        else if (File.Exists(Path.Combine(fullOutputDir, "content", "images", "favicon.svg")))
+            faviconPath = string.IsNullOrEmpty(relOutputDir)
+                ? "content/images/favicon.svg"
+                : $"{relOutputDir}/content/images/favicon.svg";
         else if (File.Exists(Path.Combine(fullRootDir, "favicon.svg"))) faviconPath = "favicon.svg";
-        else if (File.Exists(Path.Combine(fullOutputDir, "favicon.svg"))) faviconPath = string.IsNullOrEmpty(relOutputDir) ? "favicon.svg" : $"{relOutputDir}/favicon.svg";
-        else if (File.Exists(Path.Combine(fullOutputDir, "content", "images", "favicon.ico"))) faviconPath = string.IsNullOrEmpty(relOutputDir) ? "content/images/favicon.ico" : $"{relOutputDir}/content/images/favicon.ico";
+        else if (File.Exists(Path.Combine(fullOutputDir, "favicon.svg")))
+            faviconPath = string.IsNullOrEmpty(relOutputDir) ? "favicon.svg" : $"{relOutputDir}/favicon.svg";
+        else if (File.Exists(Path.Combine(fullOutputDir, "content", "images", "favicon.ico")))
+            faviconPath = string.IsNullOrEmpty(relOutputDir)
+                ? "content/images/favicon.ico"
+                : $"{relOutputDir}/content/images/favicon.ico";
         else if (File.Exists(Path.Combine(fullRootDir, "favicon.ico"))) faviconPath = "favicon.ico";
-        else if (File.Exists(Path.Combine(fullOutputDir, "favicon.ico"))) faviconPath = string.IsNullOrEmpty(relOutputDir) ? "favicon.ico" : $"{relOutputDir}/favicon.ico";
+        else if (File.Exists(Path.Combine(fullOutputDir, "favicon.ico")))
+            faviconPath = string.IsNullOrEmpty(relOutputDir) ? "favicon.ico" : $"{relOutputDir}/favicon.ico";
 
         string? logoPath = null;
         if (File.Exists(Path.Combine(fullRootDir, "logo.png"))) logoPath = "logo.png";
-        else if (File.Exists(Path.Combine(fullOutputDir, "content", "images", "logo.png"))) logoPath = string.IsNullOrEmpty(relOutputDir) ? "content/images/logo.png" : $"{relOutputDir}/content/images/logo.png";
-        else if (File.Exists(Path.Combine(fullOutputDir, "logo.png"))) logoPath = string.IsNullOrEmpty(relOutputDir) ? "logo.png" : $"{relOutputDir}/logo.png";
-        else if (File.Exists(Path.Combine(fullOutputDir, "content", "images", "logo.svg"))) logoPath = string.IsNullOrEmpty(relOutputDir) ? "content/images/logo.svg" : $"{relOutputDir}/content/images/logo.svg";
+        else if (File.Exists(Path.Combine(fullOutputDir, "content", "images", "logo.png")))
+            logoPath = string.IsNullOrEmpty(relOutputDir)
+                ? "content/images/logo.png"
+                : $"{relOutputDir}/content/images/logo.png";
+        else if (File.Exists(Path.Combine(fullOutputDir, "logo.png")))
+            logoPath = string.IsNullOrEmpty(relOutputDir) ? "logo.png" : $"{relOutputDir}/logo.png";
+        else if (File.Exists(Path.Combine(fullOutputDir, "content", "images", "logo.svg")))
+            logoPath = string.IsNullOrEmpty(relOutputDir)
+                ? "content/images/logo.svg"
+                : $"{relOutputDir}/content/images/logo.svg";
         else if (File.Exists(Path.Combine(fullRootDir, "logo.svg"))) logoPath = "logo.svg";
-        else if (File.Exists(Path.Combine(fullOutputDir, "logo.svg"))) logoPath = string.IsNullOrEmpty(relOutputDir) ? "logo.svg" : $"{relOutputDir}/logo.svg";
+        else if (File.Exists(Path.Combine(fullOutputDir, "logo.svg")))
+            logoPath = string.IsNullOrEmpty(relOutputDir) ? "logo.svg" : $"{relOutputDir}/logo.svg";
         else if (!string.IsNullOrEmpty(faviconPath)) logoPath = faviconPath;
 
         string templateExclude = $"{Path.GetFileName(templatePath)}/**";
@@ -252,6 +273,7 @@ public static class DocfxGenerator
                             buildNode["template"] = new System.Text.Json.Nodes.JsonArray("default", "modern");
                             templateArray = buildNode["template"] as System.Text.Json.Nodes.JsonArray;
                         }
+
                         if (templateArray != null)
                         {
                             string targetTemplateName = Path.GetFileName(templatePath);
@@ -264,6 +286,7 @@ public static class DocfxGenerator
                                     break;
                                 }
                             }
+
                             if (!hasTemplate)
                             {
                                 templateArray.Add(targetTemplateName);
@@ -271,7 +294,7 @@ public static class DocfxGenerator
                         }
 
                         // 2. Ensure content and resource exclusions include the custom template folder
-                        
+
                         var contentNode = buildNode["content"] as System.Text.Json.Nodes.JsonArray;
                         if (contentNode != null)
                         {
@@ -291,6 +314,7 @@ public static class DocfxGenerator
                                                 break;
                                             }
                                         }
+
                                         if (!hasExclude)
                                         {
                                             excludeArray.Add(templateExclude);
@@ -319,6 +343,7 @@ public static class DocfxGenerator
                                                 break;
                                             }
                                         }
+
                                         if (!hasExclude)
                                         {
                                             excludeArray.Add(templateExclude);
@@ -335,7 +360,7 @@ public static class DocfxGenerator
                             buildNode["globalMetadata"] = new System.Text.Json.Nodes.JsonObject();
                             globalMetadataNode = buildNode["globalMetadata"];
                         }
-                        
+
                         if (globalMetadataNode != null)
                         {
                             globalMetadataNode["_currentYear"] = DateTime.UtcNow.Year;
@@ -343,13 +368,18 @@ public static class DocfxGenerator
                             {
                                 globalMetadataNode["_appUrl"] = config.GhostUrl.TrimEnd('/');
                             }
+
                             if (!string.IsNullOrWhiteSpace(siteTwitter))
                             {
-                                globalMetadataNode["_siteTwitter"] = siteTwitter.StartsWith("@") ? siteTwitter : "@" + siteTwitter;
+                                globalMetadataNode["_siteTwitter"] =
+                                    siteTwitter.StartsWith("@") ? siteTwitter : "@" + siteTwitter;
                             }
+
                             if (!string.IsNullOrWhiteSpace(siteFacebook))
                             {
-                                globalMetadataNode["_siteFacebook"] = siteFacebook.StartsWith("http") ? siteFacebook : "https://facebook.com/" + siteFacebook;
+                                globalMetadataNode["_siteFacebook"] = siteFacebook.StartsWith("http")
+                                    ? siteFacebook
+                                    : "https://facebook.com/" + siteFacebook;
                             }
 
                             globalMetadataNode["_disableContribution"] = true;
@@ -372,12 +402,15 @@ public static class DocfxGenerator
                             globalMetadataNode.AsObject().Remove("_siteSocialLinks");
                         }
                     }
-                    
+
                     var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
                     await File.WriteAllTextAsync(docfxPath, node.ToJsonString(jsonOptions), System.Text.Encoding.UTF8);
                 }
             }
-            catch { }
+            catch
+            {
+            }
+
             return docfxPath;
         }
 
@@ -399,7 +432,8 @@ public static class DocfxGenerator
             new
             {
                 files = new string[] { "**.md", "**/toc.yml" },
-                exclude = new string[] { "draft/**", "published/**", "pages/**", templateExclude, "_site/**", "**/_site/**" }
+                exclude = new string[]
+                    { "draft/**", "published/**", "pages/**", templateExclude, "_site/**", "**/_site/**" }
             }
         };
 
@@ -412,7 +446,8 @@ public static class DocfxGenerator
             ["_disableContribution"] = true,
             ["_disableBreadcrumb"] = true,
             ["_lang"] = string.IsNullOrWhiteSpace(siteLocale) ? "en" : siteLocale,
-            ["_appFooter"] = $"<span>Generated by <a href='https://github.com/jochenkirstaetter/ghostfx'>GhostFx</a> for DocFx</span>"
+            ["_appFooter"] =
+                $"<span>Generated by <a href='https://github.com/jochenkirstaetter/ghostfx'>GhostFx</a> for DocFx</span>"
         };
 
         if (config.LogoPath)
@@ -437,7 +472,8 @@ public static class DocfxGenerator
 
         if (!string.IsNullOrWhiteSpace(siteFacebook))
         {
-            globalMetadata["_siteFacebook"] = siteFacebook.StartsWith("http") ? siteFacebook : "https://facebook.com/" + siteFacebook;
+            globalMetadata["_siteFacebook"] =
+                siteFacebook.StartsWith("http") ? siteFacebook : "https://facebook.com/" + siteFacebook;
         }
 
         var docfxConfig = new
@@ -491,9 +527,9 @@ public static class DocfxGenerator
     }
 
     public static async Task ConvertGhostThemeToDocfxTemplateAsync(
-        string themePath, 
-        string targetTemplateDir, 
-        string headerInjection = "", 
+        string themePath,
+        string targetTemplateDir,
+        string headerInjection = "",
         string footerInjection = "",
         Func<string, Task<bool>>? onConfirmTemplatePurge = null,
         List<IconLink>? iconLinks = null,
@@ -504,7 +540,8 @@ public static class DocfxGenerator
         if (string.IsNullOrWhiteSpace(themePath))
             return;
 
-        bool isZip = File.Exists(themePath) && (themePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) || !Directory.Exists(themePath));
+        bool isZip = File.Exists(themePath) && (themePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ||
+                                                !Directory.Exists(themePath));
         bool isDirectory = Directory.Exists(themePath);
 
         if (!isZip && !isDirectory)
@@ -531,7 +568,8 @@ public static class DocfxGenerator
         string publicDir = Path.Combine(targetTemplateDir, "public");
         Directory.CreateDirectory(publicDir);
 
-        await ConvertGhostThemeFolderAsync(themePath, targetTemplateDir, headerInjection, footerInjection, iconLinks, navItems, pages, posts);
+        await ConvertGhostThemeFolderAsync(themePath, targetTemplateDir, headerInjection, footerInjection, iconLinks,
+            navItems, pages, posts);
     }
 
     private static void CopyDirectory(string source, string target)
@@ -542,6 +580,7 @@ public static class DocfxGenerator
             string targetFile = Path.Combine(target, Path.GetFileName(file));
             File.Copy(file, targetFile, true);
         }
+
         foreach (var subDir in Directory.GetDirectories(source))
         {
             string targetSubDir = Path.Combine(target, Path.GetFileName(subDir));
@@ -549,12 +588,15 @@ public static class DocfxGenerator
         }
     }
 
-    private static async Task ConvertGhostThemeFolderAsync(string themePath, string targetTemplateDir, string headerInjection = "", string footerInjection = "", List<IconLink>? iconLinks = null, List<GhostNavItem>? navItems = null, List<BlogPostMetadata>? pages = null, List<BlogPostMetadata>? posts = null)
+    private static async Task ConvertGhostThemeFolderAsync(string themePath, string targetTemplateDir,
+        string headerInjection = "", string footerInjection = "", List<IconLink>? iconLinks = null,
+        List<GhostNavItem>? navItems = null, List<BlogPostMetadata>? pages = null, List<BlogPostMetadata>? posts = null)
     {
         string publicDir = Path.Combine(targetTemplateDir, "public");
         Directory.CreateDirectory(publicDir);
 
-        bool isZip = File.Exists(themePath) && (themePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) || !Directory.Exists(themePath));
+        bool isZip = File.Exists(themePath) && (themePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ||
+                                                !Directory.Exists(themePath));
         string sourceDir;
         string? tempExtractPath = null;
 
@@ -590,7 +632,9 @@ public static class DocfxGenerator
                     {
                         File.Copy(file, Path.Combine(publicDir, fileName), true);
                     }
-                    catch { }
+                    catch
+                    {
+                    }
                 }
             }
 
@@ -609,7 +653,9 @@ public static class DocfxGenerator
                     File.Copy(faviconSourcePath, Path.Combine(rootDir, "favicon.ico"), true);
                     File.Copy(faviconSourcePath, Path.Combine(publicDir, "favicon.ico"), true);
                 }
-                catch { }
+                catch
+                {
+                }
             }
 
             // 3. Ensure public/main.css exists
@@ -620,28 +666,36 @@ public static class DocfxGenerator
             }
 
             // 4. Ensure public/main.js exists & strictly adheres to specifications
-            await EnsureDocfxTemplateOverridesExistAsync(rootDir, Path.GetFileName(targetTemplateDir), iconLinks, navItems, pages, posts);
+            await EnsureDocfxTemplateOverridesExistAsync(rootDir, Path.GetFileName(targetTemplateDir), iconLinks,
+                navItems, pages, posts);
 
             // Overwrite ghost_head.tmpl and ghost_foot.tmpl
             string destPartialsDir = Path.Combine(targetTemplateDir, "partials");
             Directory.CreateDirectory(destPartialsDir);
 
-            string ghostHeadContent = "{{>partials/meta}}\n{{>partials/opengraph}}\n{{>partials/twitter}}\n{{>partials/schema}}\n" +
-                                      "{{#codeinjectionHead}}{{{codeinjectionHead}}}{{/codeinjectionHead}}\n";
-            await File.WriteAllTextAsync(Path.Combine(destPartialsDir, "ghost_head.tmpl.partial"), ghostHeadContent, System.Text.Encoding.UTF8);
+            string ghostHeadContent =
+                "{{>partials/meta}}\n{{>partials/opengraph}}\n{{>partials/twitter}}\n{{>partials/schema}}\n" +
+                "{{#codeinjectionHead}}{{{codeinjectionHead}}}{{/codeinjectionHead}}\n";
+            await File.WriteAllTextAsync(Path.Combine(destPartialsDir, "ghost_head.tmpl.partial"), ghostHeadContent,
+                System.Text.Encoding.UTF8);
 
             string ghostFootContent = "{{#codeinjectionFoot}}{{{codeinjectionFoot}}}{{/codeinjectionFoot}}\n";
-            await File.WriteAllTextAsync(Path.Combine(destPartialsDir, "ghost_foot.tmpl.partial"), ghostFootContent, System.Text.Encoding.UTF8);
+            await File.WriteAllTextAsync(Path.Combine(destPartialsDir, "ghost_foot.tmpl.partial"), ghostFootContent,
+                System.Text.Encoding.UTF8);
 
-            await File.WriteAllTextAsync(Path.Combine(destPartialsDir, "code_header.tmpl.partial"), headerInjection ?? "", System.Text.Encoding.UTF8);
-            await File.WriteAllTextAsync(Path.Combine(destPartialsDir, "code_footer.tmpl.partial"), footerInjection ?? "", System.Text.Encoding.UTF8);
+            await File.WriteAllTextAsync(Path.Combine(destPartialsDir, "code_header.tmpl.partial"),
+                headerInjection ?? "", System.Text.Encoding.UTF8);
+            await File.WriteAllTextAsync(Path.Combine(destPartialsDir, "code_footer.tmpl.partial"),
+                footerInjection ?? "", System.Text.Encoding.UTF8);
 
             if (navItems == null || navItems.Count == 0)
             {
                 navItems = ParseTocYml(rootDir);
             }
+
             string siteNavContent = GenerateSiteNavPartialContent(navItems, pages, posts, iconLinks, rootDir);
-            await File.WriteAllTextAsync(Path.Combine(destPartialsDir, "site-nav.tmpl.partial"), siteNavContent, System.Text.Encoding.UTF8);
+            await File.WriteAllTextAsync(Path.Combine(destPartialsDir, "site-nav.tmpl.partial"), siteNavContent,
+                System.Text.Encoding.UTF8);
 
             // 5. Process Handlebars (.hbs) template files into converted DocFX Mustache templates
             foreach (var hbsFile in Directory.GetFiles(sourceDir, "*.hbs", SearchOption.AllDirectories))
@@ -655,14 +709,16 @@ public static class DocfxGenerator
                     continue;
                 }
 
-                bool isPartial = hbsFile.Contains("/partials/", StringComparison.OrdinalIgnoreCase) || 
+                bool isPartial = hbsFile.Contains("/partials/", StringComparison.OrdinalIgnoreCase) ||
                                  hbsFile.Contains("\\partials\\", StringComparison.OrdinalIgnoreCase) ||
                                  hbsFile.Contains("/partials\\", StringComparison.OrdinalIgnoreCase) ||
                                  hbsFile.Contains("\\partials/", StringComparison.OrdinalIgnoreCase) ||
-                                 Path.GetDirectoryName(hbsFile)?.EndsWith("partials", StringComparison.OrdinalIgnoreCase) == true;
+                                 Path.GetDirectoryName(hbsFile)
+                                     ?.EndsWith("partials", StringComparison.OrdinalIgnoreCase) == true;
 
                 bool isLayout = hbsNameLower == "default";
-                string converted = ConvertHandlebarsToDocfx(hbsContent, isLayout, headerInjection, footerInjection, iconLinks);
+                string converted =
+                    ConvertHandlebarsToDocfx(hbsContent, isLayout, headerInjection, footerInjection, iconLinks);
 
                 string targetPath;
 
@@ -682,68 +738,68 @@ public static class DocfxGenerator
                     if (hbsNameLower == "post-card")
                     {
                         converted = """
-                        <article class="post-card post {{tagClass}} {{imageClass}}">
+                                    <article class="post-card post {{tagClass}} {{imageClass}}">
 
-                            {{#featureImage}}
-                            <a class="post-card-image-link" href="{{_rel}}{{slug}}.html" aria-label="{{title}}">
-                                <img class="post-card-image"
-                                    srcset="{{_rel}}{{.}} 300w,
-                                            {{_rel}}{{.}} 600w,
-                                            {{_rel}}{{.}} 1000w,
-                                            {{_rel}}{{.}} 2000w"
-                                    sizes="(max-width: 1000px) 400px, 700px"
-                                    src="{{_rel}}{{.}}"
-                                    alt="{{title}}"
-                                />
-                            </a>
-                            {{/featureImage}}
+                                        {{#featureImage}}
+                                        <a class="post-card-image-link" href="{{_rel}}{{slug}}.html" aria-label="{{title}}">
+                                            <img class="post-card-image"
+                                                srcset="{{_rel}}{{.}} 300w,
+                                                        {{_rel}}{{.}} 600w,
+                                                        {{_rel}}{{.}} 1000w,
+                                                        {{_rel}}{{.}} 2000w"
+                                                sizes="(max-width: 1000px) 400px, 700px"
+                                                src="{{_rel}}{{.}}"
+                                                alt="{{title}}"
+                                            />
+                                        </a>
+                                        {{/featureImage}}
 
-                            <div class="post-card-content">
-                                <a class="post-card-content-link" href="{{_rel}}{{slug}}.html">
-                                    <header class="post-card-header">
-                                        {{#primaryTag}}
-                                            <span class="post-card-tags">{{.}}</span>
-                                        {{/primaryTag}}
-                                        <h2 class="post-card-title">{{title}}</h2>
-                                    </header>
-                                    {{#excerpt}}
-                                    <section class="post-card-excerpt">
-                                        <p>{{.}}</p>
-                                    </section>
-                                    {{/excerpt}}
-                                </a>
-                                <footer class="post-card-meta">
-                                    <div class="post-card-byline-wrapper">
-                                        <ul class="author-list">
-                                        {{#authorName}}
-                                            <li class="author-list-item">
-                                                <div class="author-name-tooltip">
-                                                    {{.}}
+                                        <div class="post-card-content">
+                                            <a class="post-card-content-link" href="{{_rel}}{{slug}}.html">
+                                                <header class="post-card-header">
+                                                    {{#primaryTag}}
+                                                        <span class="post-card-tags">{{.}}</span>
+                                                    {{/primaryTag}}
+                                                    <h2 class="post-card-title">{{title}}</h2>
+                                                </header>
+                                                {{#excerpt}}
+                                                <section class="post-card-excerpt">
+                                                    <p>{{.}}</p>
+                                                </section>
+                                                {{/excerpt}}
+                                            </a>
+                                            <footer class="post-card-meta">
+                                                <div class="post-card-byline-wrapper">
+                                                    <ul class="author-list">
+                                                    {{#authorName}}
+                                                        <li class="author-list-item">
+                                                            <div class="author-name-tooltip">
+                                                                {{.}}
+                                                            </div>
+
+                                                            {{#authorImage}}
+                                                                <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar">
+                                                                    <img class="author-profile-image" src="{{_rel}}{{.}}" alt="{{authorName}}" />
+                                                                </a>
+                                                            {{/authorImage}}
+                                                            {{^authorImage}}
+                                                                <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar author-profile-image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></a>
+                                                            {{/authorImage}}
+                                                        </li>
+                                                    {{/authorName}}
+                                                    </ul>
+
+                                                    <div class="post-card-byline-content">
+                                                        {{#authorName}}<span><a href="{{_rel}}author/{{authorSlug}}.html">{{.}}</a></span>{{/authorName}}
+                                                        <span class="post-card-byline-date"><time datetime="{{date}}">{{formattedDate}}</time></span>
+                                                    </div>
                                                 </div>
+                                            </footer>
 
-                                                {{#authorImage}}
-                                                    <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar">
-                                                        <img class="author-profile-image" src="{{_rel}}{{.}}" alt="{{authorName}}" />
-                                                    </a>
-                                                {{/authorImage}}
-                                                {{^authorImage}}
-                                                    <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar author-profile-image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></a>
-                                                {{/authorImage}}
-                                            </li>
-                                        {{/authorName}}
-                                        </ul>
-
-                                        <div class="post-card-byline-content">
-                                            {{#authorName}}<span><a href="{{_rel}}author/{{authorSlug}}.html">{{.}}</a></span>{{/authorName}}
-                                            <span class="post-card-byline-date"><time datetime="{{date}}">{{formattedDate}}</time></span>
                                         </div>
-                                    </div>
-                                </footer>
 
-                            </div>
-
-                        </article>
-                        """;
+                                    </article>
+                                    """;
                     }
                 }
                 else
@@ -772,40 +828,40 @@ public static class DocfxGenerator
                     {
                         targetPath = Path.Combine(targetTemplateDir, "index.html.primary.tmpl");
                         converted = """
-                        {{!master(layout/_master.tmpl)}}
+                                    {{!master(layout/_master.tmpl)}}
 
-                        <header class="site-home-header">
-                            <div class="outer site-header-background {{#coverImage}}responsive-header-img{{/coverImage}}{{^coverImage}}{{#_appCoverImage}}responsive-header-img{{/_appCoverImage}}{{/coverImage}}" style="{{#coverImage}}background-image: url('{{_rel}}{{.}}');{{/coverImage}}{{^coverImage}}{{#_appCoverImage}}background-image: url('{{_rel}}{{.}}');{{/_appCoverImage}}{{/coverImage}}">
-                                <div class="inner">
-                                    {{>partials/site-nav}}
-                                    <div class="site-header-content">
-                                        <h1 class="site-title">
-                                            {{#_appLogoPath}}
-                                                <img class="site-logo" src="{{_rel}}{{.}}" alt="{{#title}}{{title}}{{/title}}{{^title}}{{_appTitle}}{{/title}}" />
-                                            {{/_appLogoPath}}
-                                            {{^_appLogoPath}}
-                                                {{#title}}{{title}}{{/title}}{{^title}}{{_appTitle}}{{/title}}
-                                            {{/_appLogoPath}}
-                                        </h1>
-                                        <h2 class="site-description">{{#description}}{{description}}{{/description}}{{^description}}{{_appDescription}}{{/description}}</h2>
-                                    </div>
-                                </div>
-                            </div>
-                        </header>
+                                    <header class="site-home-header">
+                                        <div class="outer site-header-background {{#coverImage}}responsive-header-img{{/coverImage}}{{^coverImage}}{{#_appCoverImage}}responsive-header-img{{/_appCoverImage}}{{/coverImage}}" style="{{#coverImage}}background-image: url('{{_rel}}{{.}}');{{/coverImage}}{{^coverImage}}{{#_appCoverImage}}background-image: url('{{_rel}}{{.}}');{{/_appCoverImage}}{{/coverImage}}">
+                                            <div class="inner">
+                                                {{>partials/site-nav}}
+                                                <div class="site-header-content">
+                                                    <h1 class="site-title">
+                                                        {{#_appLogoPath}}
+                                                            <img class="site-logo" src="{{_rel}}{{.}}" alt="{{#title}}{{title}}{{/title}}{{^title}}{{_appTitle}}{{/title}}" />
+                                                        {{/_appLogoPath}}
+                                                        {{^_appLogoPath}}
+                                                            {{#title}}{{title}}{{/title}}{{^title}}{{_appTitle}}{{/title}}
+                                                        {{/_appLogoPath}}
+                                                    </h1>
+                                                    <h2 class="site-description">{{#description}}{{description}}{{/description}}{{^description}}{{_appDescription}}{{/description}}</h2>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </header>
 
-                        <main id="site-main" class="site-main outer">
-                            <div class="inner">
+                                    <main id="site-main" class="site-main outer">
+                                        <div class="inner">
 
-                                <div class="post-feed">
-                                    {{#posts}}
-                                        {{>partials/post-card}}
-                                    {{/posts}}
-                                    {{{conceptual}}}
-                                </div>
+                                            <div class="post-feed">
+                                                {{#posts}}
+                                                    {{>partials/post-card}}
+                                                {{/posts}}
+                                                {{{conceptual}}}
+                                            </div>
 
-                            </div>
-                        </main>
-                        """;
+                                        </div>
+                                    </main>
+                                    """;
                     }
                     else if (hbsNameLower == "error-404")
                     {
@@ -815,7 +871,8 @@ public static class DocfxGenerator
                     {
                         targetPath = Path.Combine(targetTemplateDir, "error.html.primary.tmpl");
                     }
-                    else if (hbsNameLower == "archive" || hbsNameLower == "search" || hbsNameLower == "private" || hbsNameLower == "subscribe")
+                    else if (hbsNameLower == "archive" || hbsNameLower == "search" || hbsNameLower == "private" ||
+                             hbsNameLower == "subscribe")
                     {
                         targetPath = Path.Combine(targetTemplateDir, $"{hbsNameLower}.html.primary.tmpl");
                     }
@@ -845,7 +902,8 @@ public static class DocfxGenerator
                     Directory.CreateDirectory(partialLayoutDir);
                     string partialLayoutPath = Path.Combine(partialLayoutDir, $"{hbsNameLower}_layout.tmpl.partial");
                     // Strip the master inheritance directive to prevent layout nesting issues inside partials
-                    string partialContent = Regex.Replace(converted, @"^\{\{!master\([^)]+\)\}\}\s*\r?\n?", "", RegexOptions.IgnoreCase);
+                    string partialContent = Regex.Replace(converted, @"^\{\{!master\([^)]+\)\}\}\s*\r?\n?", "",
+                        RegexOptions.IgnoreCase);
                     await File.WriteAllTextAsync(partialLayoutPath, partialContent);
                 }
             }
@@ -922,7 +980,8 @@ public static class DocfxGenerator
 {{/description}}
 {{/metaDescription}}";
 
-            string opengraphContent = @"<meta property=""og:site_name"" content=""{{#_appTitle}}{{_appTitle}}{{/_appTitle}}{{^_appTitle}}Get Blogged by JoKi{{/_appTitle}}"">
+            string opengraphContent =
+                @"<meta property=""og:site_name"" content=""{{#_appTitle}}{{_appTitle}}{{/_appTitle}}{{^_appTitle}}Get Blogged by JoKi{{/_appTitle}}"">
 <meta property=""og:type"" content=""{{#isPost}}article{{/isPost}}{{^isPost}}website{{/isPost}}"">
 {{#ogTitle}}
 <meta property=""og:title"" content=""{{ogTitle}}"">
@@ -1080,12 +1139,19 @@ public static class DocfxGenerator
         {
             if (!string.IsNullOrEmpty(tempExtractPath) && Directory.Exists(tempExtractPath))
             {
-                try { Directory.Delete(tempExtractPath, true); } catch { }
+                try
+                {
+                    Directory.Delete(tempExtractPath, true);
+                }
+                catch
+                {
+                }
             }
         }
     }
 
-    public static string ConvertHandlebarsToDocfx(string hbsContent, bool isLayout = false, string? headerInjection = null, string? footerInjection = null, List<IconLink>? iconLinks = null)
+    public static string ConvertHandlebarsToDocfx(string hbsContent, bool isLayout = false,
+        string? headerInjection = null, string? footerInjection = null, List<IconLink>? iconLinks = null)
     {
         if (string.IsNullOrWhiteSpace(hbsContent))
             return string.Empty;
@@ -1098,8 +1164,10 @@ public static class DocfxGenerator
         }
 
         // Convert Ghost Head & Foot using partial templates
-        result = Regex.Replace(result, @"\{\{\s*ghost_head\s*\}\}", "{{>partials/ghost_head}}", RegexOptions.IgnoreCase);
-        result = Regex.Replace(result, @"\{\{\s*ghost_foot\s*\}\}", "{{>partials/ghost_foot}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*ghost_head\s*\}\}", "{{>partials/ghost_head}}",
+            RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*ghost_foot\s*\}\}", "{{>partials/ghost_foot}}",
+            RegexOptions.IgnoreCase);
 
         // Place docfx.min.css after viewport meta tag, or fall back to head if not present
         if (isLayout)
@@ -1151,52 +1219,73 @@ public static class DocfxGenerator
 
             if (result.Contains("jquery.fitvids.js", StringComparison.OrdinalIgnoreCase))
             {
-                var fitvidsRegex = new Regex(@"<script\s+[^>]*src=[""'][^""']*jquery\.fitvids\.js[""'][^>]*></script>", RegexOptions.IgnoreCase);
-                result = fitvidsRegex.Replace(result, m => m.Value + "\n    <script>\n        $(function() {\n            var $postContent = $(\".post-full-content\");\n            if ($postContent.length) $postContent.fitVids();\n        });\n    </script>");
+                var fitvidsRegex = new Regex(@"<script\s+[^>]*src=[""'][^""']*jquery\.fitvids\.js[""'][^>]*></script>",
+                    RegexOptions.IgnoreCase);
+                result = fitvidsRegex.Replace(result,
+                    m => m.Value +
+                         "\n    <script>\n        $(function() {\n            var $postContent = $(\".post-full-content\");\n            if ($postContent.length) $postContent.fitVids();\n        });\n    </script>");
             }
         }
 
         // Apply injections
         if (isLayout && result.Contains("</head>", StringComparison.OrdinalIgnoreCase))
         {
-            result = result.Replace("</head>", "{{>partials/code_header}}\n</head>", StringComparison.OrdinalIgnoreCase);
+            result = result.Replace("</head>", "{{>partials/code_header}}\n</head>",
+                StringComparison.OrdinalIgnoreCase);
         }
+
         if (isLayout && result.Contains("</body>", StringComparison.OrdinalIgnoreCase))
         {
-            result = result.Replace("</body>", "{{>partials/code_footer}}\n</body>", StringComparison.OrdinalIgnoreCase);
+            result = result.Replace("</body>", "{{>partials/code_footer}}\n</body>",
+                StringComparison.OrdinalIgnoreCase);
         }
 
         // Convert Site Metadata
         result = Regex.Replace(result, @"\{\{\s*@site\.title\s*\}\}", "{{_appTitle}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*@blog\.title\s*\}\}", "{{_appTitle}}", RegexOptions.IgnoreCase);
-        result = Regex.Replace(result, @"\{\{\s*@site\.description\s*\}\}", "{{_appDescription}}", RegexOptions.IgnoreCase);
-        result = Regex.Replace(result, @"\{\{\s*@blog\.description\s*\}\}", "{{_appDescription}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*@site\.description\s*\}\}", "{{_appDescription}}",
+            RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*@blog\.description\s*\}\}", "{{_appDescription}}",
+            RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*@site\.logo\s*\}\}", "{{_appLogoPath}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*@blog\.logo\s*\}\}", "{{_appLogoPath}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*@site\.icon\s*\}\}", "{{_appFaviconPath}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*@blog\.icon\s*\}\}", "{{_appFaviconPath}}", RegexOptions.IgnoreCase);
-        result = Regex.Replace(result, @"\{\{\s*@site\.cover_image\s*\}\}", "{{_appCoverImage}}", RegexOptions.IgnoreCase);
-        result = Regex.Replace(result, @"\{\{\s*@blog\.cover_image\s*\}\}", "{{_appCoverImage}}", RegexOptions.IgnoreCase);
-        result = Regex.Replace(result, @"\{\{\s*@site\.url\s*\}\}", "{{#_appUrl}}{{_appUrl}}{{/_appUrl}}{{^_appUrl}}{{_rel}}{{/_appUrl}}", RegexOptions.IgnoreCase);
-        result = Regex.Replace(result, @"\{\{\s*@blog\.url\s*\}\}", "{{#_appUrl}}{{_appUrl}}{{/_appUrl}}{{^_appUrl}}{{_rel}}{{/_appUrl}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*@site\.cover_image\s*\}\}", "{{_appCoverImage}}",
+            RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*@blog\.cover_image\s*\}\}", "{{_appCoverImage}}",
+            RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*@site\.url\s*\}\}",
+            "{{#_appUrl}}{{_appUrl}}{{/_appUrl}}{{^_appUrl}}{{_rel}}{{/_appUrl}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*@blog\.url\s*\}\}",
+            "{{#_appUrl}}{{_appUrl}}{{/_appUrl}}{{^_appUrl}}{{_rel}}{{/_appUrl}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*@site\.locale\s*\}\}", "{{_lang}}", RegexOptions.IgnoreCase);
 
         // Convert copyright current year date helper
-        result = Regex.Replace(result, @"\{\{\s*date\s+format=[""']YYYY[""']\s*\}\}", "{{_currentYear}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*date\s+format=[""']YYYY[""']\s*\}\}", "{{_currentYear}}",
+            RegexOptions.IgnoreCase);
 
         // Convert asset helper: {{asset "path"}} -> {{_rel}}public/path
-        result = Regex.Replace(result, @"\{\{\s*asset\s+""?([^"" }]+)""?\s*\}\}", "{{_rel}}public/$1", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*asset\s+""?([^"" }]+)""?\s*\}\}", "{{_rel}}public/$1",
+            RegexOptions.IgnoreCase);
 
         // Convert legacy Facebook/Twitter footer links to dynamic _siteSocialLinks
-        result = Regex.Replace(result, @"\{\{#(?:if\s+@blog\.facebook|@blog\.facebook)\}\}.*?\{\{\/(?:if|@blog\.facebook)\}\}", "{{#_siteSocialLinks}}<a href=\"{{href}}\" target=\"_blank\" rel=\"noreferrer noopener\">{{title}}</a>{{/_siteSocialLinks}}", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-        result = Regex.Replace(result, @"\{\{#(?:if\s+@blog\.twitter|@blog\.twitter)\}\}.*?\{\{\/(?:if|@blog\.twitter)\}\}", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+        result = Regex.Replace(result,
+            @"\{\{#(?:if\s+@blog\.facebook|@blog\.facebook)\}\}.*?\{\{\/(?:if|@blog\.facebook)\}\}",
+            "{{#_siteSocialLinks}}<a href=\"{{href}}\" target=\"_blank\" rel=\"noreferrer noopener\">{{title}}</a>{{/_siteSocialLinks}}",
+            RegexOptions.IgnoreCase | RegexOptions.Singleline);
+        result = Regex.Replace(result,
+            @"\{\{#(?:if\s+@blog\.twitter|@blog\.twitter)\}\}.*?\{\{\/(?:if|@blog\.twitter)\}\}", "",
+            RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
         // Convert branding/other variables
-        result = Regex.Replace(result, @"\{\{\s*body_class\s*\}\}", "tex2jax_ignore {{bodyClass}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*body_class\s*\}\}", "tex2jax_ignore {{bodyClass}}",
+            RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*post_class\s*\}\}", "{{postClass}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*meta_title\s*\}\}", "{{title}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*comment_id\s*\}\}", "{{uid}}", RegexOptions.IgnoreCase);
-        result = Regex.Replace(result, @"\{\{\s*url(?:\s+[^}]+)?\s*\}\}", "{{_rel}}{{slug}}.html", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*url(?:\s+[^}]+)?\s*\}\}", "{{_rel}}{{slug}}.html",
+            RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*pagination\s*\}\}", "", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*name\s*\}\}", "{{title}}", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*profile_image\s*\}\}", "{{avatar}}", RegexOptions.IgnoreCase);
@@ -1233,92 +1322,101 @@ public static class DocfxGenerator
         // Convert loops & conditional blocks using a stack for matching tag names
         var tagStack = new System.Collections.Generic.Stack<string>();
 
-        result = Regex.Replace(result, @"\{\{\s*(#foreach|#has|#if|#unless|#is|\^is|\/foreach|\/has|\/if|\/unless|\/is)\s*([^}]*?)\s*\}\}", m =>
-        {
-            string marker = m.Groups[1].Value.ToLowerInvariant();
-            string arg = m.Groups[2].Value.Trim();
-
-            if (marker.StartsWith('#') || marker.StartsWith('^'))
+        result = Regex.Replace(result,
+            @"\{\{\s*(#foreach|#has|#if|#unless|#is|\^is|\/foreach|\/has|\/if|\/unless|\/is)\s*([^}]*?)\s*\}\}", m =>
             {
-                string propertyName = arg;
-                if (marker == "#foreach")
+                string marker = m.Groups[1].Value.ToLowerInvariant();
+                string arg = m.Groups[2].Value.Trim();
+
+                if (marker.StartsWith('#') || marker.StartsWith('^'))
                 {
-                    propertyName = arg;
-                    tagStack.Push(propertyName);
-                    return "{{" + "#" + propertyName + "}}";
-                }
-                else if (marker == "#has")
-                {
-                    propertyName = "hasMultipleAuthors";
-                    if (arg.Contains("author", StringComparison.OrdinalIgnoreCase))
+                    string propertyName = arg;
+                    if (marker == "#foreach")
+                    {
+                        propertyName = arg;
+                        tagStack.Push(propertyName);
+                        return "{{" + "#" + propertyName + "}}";
+                    }
+                    else if (marker == "#has")
                     {
                         propertyName = "hasMultipleAuthors";
-                    }
-                    tagStack.Push(propertyName);
-                    return "{{" + "#" + propertyName + "}}";
-                }
-                else if (marker == "#is" || marker == "^is")
-                {
-                    propertyName = "isHome";
-                    string cleanArg = arg.Replace("\"", "").Replace("'", "");
-                    if (cleanArg.Equals("post", StringComparison.OrdinalIgnoreCase))
-                        propertyName = "isPost";
-                    else if (cleanArg.Equals("page", StringComparison.OrdinalIgnoreCase))
-                        propertyName = "isPage";
-                    else if (cleanArg.Equals("tag", StringComparison.OrdinalIgnoreCase))
-                        propertyName = "isTagPage";
-                    else if (cleanArg.Equals("author", StringComparison.OrdinalIgnoreCase))
-                        propertyName = "isAuthorPage";
-                    else if (cleanArg.Equals("home", StringComparison.OrdinalIgnoreCase))
-                        propertyName = "isHome";
+                        if (arg.Contains("author", StringComparison.OrdinalIgnoreCase))
+                        {
+                            propertyName = "hasMultipleAuthors";
+                        }
 
-                    tagStack.Push(propertyName);
-                    char prefix = marker[0];
-                    return "{{" + prefix + propertyName + "}}";
+                        tagStack.Push(propertyName);
+                        return "{{" + "#" + propertyName + "}}";
+                    }
+                    else if (marker == "#is" || marker == "^is")
+                    {
+                        propertyName = "isHome";
+                        string cleanArg = arg.Replace("\"", "").Replace("'", "");
+                        if (cleanArg.Equals("post", StringComparison.OrdinalIgnoreCase))
+                            propertyName = "isPost";
+                        else if (cleanArg.Equals("page", StringComparison.OrdinalIgnoreCase))
+                            propertyName = "isPage";
+                        else if (cleanArg.Equals("tag", StringComparison.OrdinalIgnoreCase))
+                            propertyName = "isTagPage";
+                        else if (cleanArg.Equals("author", StringComparison.OrdinalIgnoreCase))
+                            propertyName = "isAuthorPage";
+                        else if (cleanArg.Equals("home", StringComparison.OrdinalIgnoreCase))
+                            propertyName = "isHome";
+
+                        tagStack.Push(propertyName);
+                        char prefix = marker[0];
+                        return "{{" + prefix + propertyName + "}}";
+                    }
+                    else if (marker == "#if")
+                    {
+                        tagStack.Push(propertyName);
+                        return "{{" + "#" + propertyName + "}}";
+                    }
+                    else // #unless
+                    {
+                        tagStack.Push(propertyName);
+                        return "{{" + "^" + propertyName + "}}";
+                    }
                 }
-                else if (marker == "#if")
+                else // closing tag
                 {
-                    tagStack.Push(propertyName);
-                    return "{{" + "#" + propertyName + "}}";
+                    if (tagStack.Count > 0)
+                    {
+                        return "{{" + "/" + tagStack.Pop() + "}}";
+                    }
+
+                    return "{{/posts}}"; // fallback
                 }
-                else // #unless
-                {
-                    tagStack.Push(propertyName);
-                    return "{{" + "^" + propertyName + "}}";
-                }
-            }
-            else // closing tag
-            {
-                if (tagStack.Count > 0)
-                {
-                    return "{{" + "/" + tagStack.Pop() + "}}";
-                }
-                return "{{/posts}}"; // fallback
-            }
-        }, RegexOptions.IgnoreCase);
+            }, RegexOptions.IgnoreCase);
 
         // Remove Ghost {{#get ...}} tags along with their closing tags
         result = Regex.Replace(result, @"\{\{\s*#get\b(?:[^{}]|\{\{[^{}]*\}\})*\}\}", "", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*\/get\s*\}\}", "", RegexOptions.IgnoreCase);
 
         // Remove Ghost {{#contentFor ...}} and {{{block ...}}} tags
-        result = Regex.Replace(result, @"\{\{\s*#contentFor\b(?:[^{}]|\{\{[^{}]*\}\})*\}\}", "", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*#contentFor\b(?:[^{}]|\{\{[^{}]*\}\})*\}\}", "",
+            RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*\/contentFor\s*\}\}", "", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\{\s*block\s+[^}]+\}\}\}", "", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\{\{\s*block\s+[^}]+\s*\}\}", "", RegexOptions.IgnoreCase);
 
         // Replace Ghost {{> header ...}} partial tags (and any surrounding conditional header wrappers in author/tag templates) with <header class="site-header outer">
-        result = Regex.Replace(result, @"\{\{#if\s+feature_image\}\}\s*\{\{>\s*header\b[^}]*\}\}\s*\{\{else\}\}\s*\{\{>\s*header\b[^}]*\}\}\s*\{\{/if\}\}", "<header class=\"site-header outer\">", RegexOptions.IgnoreCase);
-        result = Regex.Replace(result, @"\{\{>\s*header\b[^}]*\}\}", "<header class=\"site-header outer\">", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result,
+            @"\{\{#if\s+feature_image\}\}\s*\{\{>\s*header\b[^}]*\}\}\s*\{\{else\}\}\s*\{\{>\s*header\b[^}]*\}\}\s*\{\{/if\}\}",
+            "<header class=\"site-header outer\">", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{>\s*header\b[^}]*\}\}", "<header class=\"site-header outer\">",
+            RegexOptions.IgnoreCase);
 
         // Convert partials
         result = Regex.Replace(result, @"\{\{>\s*""?([^"" }]+)""?\s*\}\}", m =>
         {
             string path = m.Groups[1].Value;
-            if (path.StartsWith("partials/", StringComparison.OrdinalIgnoreCase) || path.StartsWith("partials\\", StringComparison.OrdinalIgnoreCase))
+            if (path.StartsWith("partials/", StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWith("partials\\", StringComparison.OrdinalIgnoreCase))
             {
                 return $"{{{{>{path}}}}}";
             }
+
             return $"{{{{>partials/{path}}}}}";
         }, RegexOptions.IgnoreCase);
 
@@ -1329,8 +1427,11 @@ public static class DocfxGenerator
         {
             if (!result.Contains("docfx.min.js", StringComparison.OrdinalIgnoreCase))
             {
-                result = Regex.Replace(result, @"</head\s*>", "    <script type=\"module\" src=\"{{_rel}}public/docfx.min.js\"></script>\n    <link rel=\"stylesheet\" href=\"{{_rel}}public/main.css\">\n</head>", RegexOptions.IgnoreCase);
+                result = Regex.Replace(result, @"</head\s*>",
+                    "    <script type=\"module\" src=\"{{_rel}}public/docfx.min.js\"></script>\n    <link rel=\"stylesheet\" href=\"{{_rel}}public/main.css\">\n</head>",
+                    RegexOptions.IgnoreCase);
             }
+
             if (!result.Contains("id=\"search-results\"", StringComparison.OrdinalIgnoreCase))
             {
                 result = result.Replace("{{!body}}", @"{{!body}}
@@ -1351,7 +1452,8 @@ public static class DocfxGenerator
         }
 
         // Convert img_url custom helper references to use _rel prefix for path safety
-        result = Regex.Replace(result, @"\{\{\s*img_url\s+""?([^"" }]+)""?(?:\s+[^}]+)?\s*\}\}", "{{_rel}}{{$1}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*img_url\s+""?([^"" }]+)""?(?:\s+[^}]+)?\s*\}\}", "{{_rel}}{{$1}}",
+            RegexOptions.IgnoreCase);
 
         // Map snake_case variables to camelCase frontmatter names
         result = Regex.Replace(result, @"\bfeature_image\b", "featureImage", RegexOptions.IgnoreCase);
@@ -1368,8 +1470,10 @@ public static class DocfxGenerator
         result = Regex.Replace(result, @"\bcodeinjection_foot\b", "codeinjectionFoot", RegexOptions.IgnoreCase);
 
         // Replace Ghost Handlebars date helpers with client-side dynamic year span
-        result = Regex.Replace(result, @"\{\{\s*date\s+format=[""']YYYY[""']\s*\}\}", "<span class=\"js-current-year\"></span>", RegexOptions.IgnoreCase);
-        result = Regex.Replace(result, @"\{\{\s*date\s*\}\}", "<span class=\"js-current-year\"></span>", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*date\s+format=[""']YYYY[""']\s*\}\}",
+            "<span class=\"js-current-year\"></span>", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\{\{\s*date\s*\}\}", "<span class=\"js-current-year\"></span>",
+            RegexOptions.IgnoreCase);
 
         // Replace Ghost footer social links with compiled iconLinks
         var sbFooterSocial = new System.Text.StringBuilder();
@@ -1379,9 +1483,11 @@ public static class DocfxGenerator
             {
                 if (string.IsNullOrWhiteSpace(link.Href)) continue;
                 string title = !string.IsNullOrWhiteSpace(link.Title) ? link.Title : link.Icon;
-                sbFooterSocial.AppendLine($"                    <a href=\"{link.Href}\" target=\"_blank\" rel=\"noreferrer noopener\">{title}</a>");
+                sbFooterSocial.AppendLine(
+                    $"                    <a href=\"{link.Href}\" target=\"_blank\" rel=\"noreferrer noopener\">{title}</a>");
             }
         }
+
         string footerSocialMarkup = sbFooterSocial.ToString();
         if (!string.IsNullOrWhiteSpace(footerSocialMarkup))
         {
@@ -1392,10 +1498,13 @@ public static class DocfxGenerator
         }
 
         // Prepend {{_rel}} to template image variables inside html attributes to make them path-agnostic
-        result = Regex.Replace(result, @"(src|srcset)\s*=\s*([""'])\{\{\s*(featureImage|image)\s*\}\}", "$1=$2{{_rel}}{{$3}}", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"(src|srcset)\s*=\s*([""'])\{\{\s*(featureImage|image)\s*\}\}",
+            "$1=$2{{_rel}}{{$3}}", RegexOptions.IgnoreCase);
 
         // Remove redundant fitVids inline script caller from post/page templates
-        result = Regex.Replace(result, @"<script>\s*\$\(function\(\)\s*\{\s*var\s+\$postContent\s*=\s*\$\(\s*['""]\.post-full-content['""]\s*\);\s*\$postContent\.fitVids\(\);\s*\}\);\s*</script>", "", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result,
+            @"<script>\s*\$\(function\(\)\s*\{\s*var\s+\$postContent\s*=\s*\$\(\s*['""]\.post-full-content['""]\s*\);\s*\$postContent\.fitVids\(\);\s*\}\);\s*</script>",
+            "", RegexOptions.IgnoreCase);
 
         if (!isLayout && !result.Contains("{{{conceptual}}}"))
         {
@@ -1409,18 +1518,23 @@ public static class DocfxGenerator
             }
             else if (result.Contains("class=\"post-feed\""))
             {
-                result = Regex.Replace(result, @"<div\s+class=[""']post-feed[""'][^>]*>", m => m.Value + "\n{{{conceptual}}}", RegexOptions.IgnoreCase);
+                result = Regex.Replace(result, @"<div\s+class=[""']post-feed[""'][^>]*>",
+                    m => m.Value + "\n{{{conceptual}}}", RegexOptions.IgnoreCase);
             }
             else if (result.Contains("<main"))
             {
-                result = Regex.Replace(result, @"<main\b[^>]*>", m => m.Value + "\n<div class=\"conceptual-content\" style=\"width: 100%;\">{{{conceptual}}}</div>", RegexOptions.IgnoreCase);
+                result = Regex.Replace(result, @"<main\b[^>]*>",
+                    m => m.Value + "\n<div class=\"conceptual-content\" style=\"width: 100%;\">{{{conceptual}}}</div>",
+                    RegexOptions.IgnoreCase);
             }
         }
 
         return result;
     }
 
-    public static async Task<List<IconLink>> EnsureDocfxTemplateOverridesExistAsync(string rootDir, string customTemplatePath = "ghostfx", List<IconLink>? iconLinks = null, List<GhostNavItem>? navItems = null, List<BlogPostMetadata>? pages = null, List<BlogPostMetadata>? posts = null)
+    public static async Task<List<IconLink>> EnsureDocfxTemplateOverridesExistAsync(string rootDir,
+        string customTemplatePath = "ghostfx", List<IconLink>? iconLinks = null, List<GhostNavItem>? navItems = null,
+        List<BlogPostMetadata>? pages = null, List<BlogPostMetadata>? posts = null)
     {
         string layoutDir = Path.Combine(rootDir, customTemplatePath, "layout");
         Directory.CreateDirectory(layoutDir);
@@ -1437,8 +1551,9 @@ public static class DocfxGenerator
         string ghostHeadPath = Path.Combine(partialsDir, "ghost_head.tmpl.partial");
         if (!File.Exists(ghostHeadPath))
         {
-            string defaultHead = "{{>partials/meta}}\n{{>partials/opengraph}}\n{{>partials/twitter}}\n{{>partials/schema}}\n" +
-                                 "{{#codeinjectionHead}}{{{codeinjectionHead}}}{{/codeinjectionHead}}\n";
+            string defaultHead =
+                "{{>partials/meta}}\n{{>partials/opengraph}}\n{{>partials/twitter}}\n{{>partials/schema}}\n" +
+                "{{#codeinjectionHead}}{{{codeinjectionHead}}}{{/codeinjectionHead}}\n";
             await File.WriteAllTextAsync(ghostHeadPath, defaultHead, System.Text.Encoding.UTF8);
         }
 
@@ -1487,67 +1602,67 @@ public static class DocfxGenerator
         if (!File.Exists(postCardPath))
         {
             string defaultPostCard = """
-            <article class="post-card post {{tagClass}} {{imageClass}}">
+                                     <article class="post-card post {{tagClass}} {{imageClass}}">
 
-                {{#featureImage}}
-                <a class="post-card-image-link" href="{{_rel}}{{slug}}.html" aria-label="{{title}}">
-                    <img class="post-card-image"
-                        srcset="{{_rel}}{{featureImage}} 300w,
-                                {{_rel}}{{featureImage}} 600w,
-                                {{_rel}}{{featureImage}} 1000w,
-                                {{_rel}}{{featureImage}} 2000w"
-                        sizes="(max-width: 1000px) 400px, 700px"
-                        src="{{_rel}}{{featureImage}}"
-                        alt="{{title}}"
-                    />
-                </a>
-                {{/featureImage}}
+                                         {{#featureImage}}
+                                         <a class="post-card-image-link" href="{{_rel}}{{slug}}.html" aria-label="{{title}}">
+                                             <img class="post-card-image"
+                                                 srcset="{{_rel}}{{featureImage}} 300w,
+                                                         {{_rel}}{{featureImage}} 600w,
+                                                         {{_rel}}{{featureImage}} 1000w,
+                                                         {{_rel}}{{featureImage}} 2000w"
+                                                 sizes="(max-width: 1000px) 400px, 700px"
+                                                 src="{{_rel}}{{featureImage}}"
+                                                 alt="{{title}}"
+                                             />
+                                         </a>
+                                         {{/featureImage}}
 
-                <div class="post-card-content">
-                    <a class="post-card-content-link" href="{{_rel}}{{slug}}.html">
-                        <header class="post-card-header">
-                            {{#primaryTag}}
-                                <span class="post-card-tags">{{.}}</span>
-                            {{/primaryTag}}
-                            <h2 class="post-card-title">{{title}}</h2>
-                        </header>
-                        {{#excerpt}}
-                        <section class="post-card-excerpt">
-                            <p>{{.}}</p>
-                        </section>
-                        {{/excerpt}}
-                    </a>
-                    <footer class="post-card-meta">
-                        <div class="post-card-byline-wrapper">
-                            <ul class="author-list">
-                            {{#authorName}}
-                                <li class="author-list-item">
-                                    <div class="author-name-tooltip">
-                                        {{.}}
-                                    </div>
+                                         <div class="post-card-content">
+                                             <a class="post-card-content-link" href="{{_rel}}{{slug}}.html">
+                                                 <header class="post-card-header">
+                                                     {{#primaryTag}}
+                                                         <span class="post-card-tags">{{.}}</span>
+                                                     {{/primaryTag}}
+                                                     <h2 class="post-card-title">{{title}}</h2>
+                                                 </header>
+                                                 {{#excerpt}}
+                                                 <section class="post-card-excerpt">
+                                                     <p>{{.}}</p>
+                                                 </section>
+                                                 {{/excerpt}}
+                                             </a>
+                                             <footer class="post-card-meta">
+                                                 <div class="post-card-byline-wrapper">
+                                                     <ul class="author-list">
+                                                     {{#authorName}}
+                                                         <li class="author-list-item">
+                                                             <div class="author-name-tooltip">
+                                                                 {{.}}
+                                                             </div>
 
-                                    {{#authorImage}}
-                                        <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar">
-                                            <img class="author-profile-image" src="{{_rel}}{{.}}" alt="{{authorName}}" />
-                                        </a>
-                                    {{else}}
-                                        <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar author-profile-image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></a>
-                                    {{/authorImage}}
-                                </li>
-                            {{/authorName}}
-                            </ul>
+                                                             {{#authorImage}}
+                                                                 <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar">
+                                                                     <img class="author-profile-image" src="{{_rel}}{{.}}" alt="{{authorName}}" />
+                                                                 </a>
+                                                             {{else}}
+                                                                 <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar author-profile-image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></a>
+                                                             {{/authorImage}}
+                                                         </li>
+                                                     {{/authorName}}
+                                                     </ul>
 
-                            <div class="post-card-byline-content">
-                                {{#authorName}}<span><a href="{{_rel}}author/{{authorSlug}}.html">{{.}}</a></span>{{/authorName}}
-                                <span class="post-card-byline-date"><time datetime="{{date}}">{{formattedDate}}</time></span>
-                            </div>
-                        </div>
-                    </footer>
+                                                     <div class="post-card-byline-content">
+                                                         {{#authorName}}<span><a href="{{_rel}}author/{{authorSlug}}.html">{{.}}</a></span>{{/authorName}}
+                                                         <span class="post-card-byline-date"><time datetime="{{date}}">{{formattedDate}}</time></span>
+                                                     </div>
+                                                 </div>
+                                             </footer>
 
-                </div>
+                                         </div>
 
-            </article>
-            """;
+                                     </article>
+                                     """;
             await File.WriteAllTextAsync(postCardPath, defaultPostCard, System.Text.Encoding.UTF8);
         }
 
@@ -1555,40 +1670,40 @@ public static class DocfxGenerator
         if (!File.Exists(indexTmplPath))
         {
             string defaultIndexTmpl = """
-            {{!master(layout/_master.tmpl)}}
+                                      {{!master(layout/_master.tmpl)}}
 
-            <header class="site-home-header">
-                <div class="outer site-header-background {{#coverImage}}responsive-header-img{{/coverImage}}{{^coverImage}}{{#_appCoverImage}}responsive-header-img{{/_appCoverImage}}{{/coverImage}}" style="{{#coverImage}}background-image: url('{{_rel}}{{.}}');{{/coverImage}}{{^coverImage}}{{#_appCoverImage}}background-image: url('{{_rel}}{{.}}');{{/_appCoverImage}}{{/coverImage}}">
-                    <div class="inner">
-                        {{>partials/site-nav}}
-                        <div class="site-header-content">
-                            <h1 class="site-title">
-                                {{#_appLogoPath}}
-                                    <img class="site-logo" src="{{_rel}}{{.}}" alt="{{#title}}{{title}}{{/title}}{{^title}}{{_appTitle}}{{/title}}" />
-                                {{/_appLogoPath}}
-                                {{^_appLogoPath}}
-                                    {{#title}}{{title}}{{/title}}{{^title}}{{_appTitle}}{{/title}}
-                                {{/_appLogoPath}}
-                            </h1>
-                            <h2 class="site-description">{{#description}}{{description}}{{/description}}{{^description}}{{_appDescription}}{{/description}}</h2>
-                        </div>
-                    </div>
-                </div>
-            </header>
+                                      <header class="site-home-header">
+                                          <div class="outer site-header-background {{#coverImage}}responsive-header-img{{/coverImage}}{{^coverImage}}{{#_appCoverImage}}responsive-header-img{{/_appCoverImage}}{{/coverImage}}" style="{{#coverImage}}background-image: url('{{_rel}}{{.}}');{{/coverImage}}{{^coverImage}}{{#_appCoverImage}}background-image: url('{{_rel}}{{.}}');{{/_appCoverImage}}{{/coverImage}}">
+                                              <div class="inner">
+                                                  {{>partials/site-nav}}
+                                                  <div class="site-header-content">
+                                                      <h1 class="site-title">
+                                                          {{#_appLogoPath}}
+                                                              <img class="site-logo" src="{{_rel}}{{.}}" alt="{{#title}}{{title}}{{/title}}{{^title}}{{_appTitle}}{{/title}}" />
+                                                          {{/_appLogoPath}}
+                                                          {{^_appLogoPath}}
+                                                              {{#title}}{{title}}{{/title}}{{^title}}{{_appTitle}}{{/title}}
+                                                          {{/_appLogoPath}}
+                                                      </h1>
+                                                      <h2 class="site-description">{{#description}}{{description}}{{/description}}{{^description}}{{_appDescription}}{{/description}}</h2>
+                                                  </div>
+                                              </div>
+                                          </div>
+                                      </header>
 
-            <main id="site-main" class="site-main outer">
-                <div class="inner">
+                                      <main id="site-main" class="site-main outer">
+                                          <div class="inner">
 
-                    <div class="post-feed">
-                        {{#posts}}
-                            {{>partials/post-card}}
-                        {{/posts}}
-                        {{{conceptual}}}
-                    </div>
+                                              <div class="post-feed">
+                                                  {{#posts}}
+                                                      {{>partials/post-card}}
+                                                  {{/posts}}
+                                                  {{{conceptual}}}
+                                              </div>
 
-                </div>
-            </main>
-            """;
+                                          </div>
+                                      </main>
+                                      """;
             await File.WriteAllTextAsync(indexTmplPath, defaultIndexTmpl, System.Text.Encoding.UTF8);
         }
 
@@ -1597,8 +1712,8 @@ public static class DocfxGenerator
 
         string cssPath = Path.Combine(publicDir, "main.css");
         string defaultCssOverrides = """
-        /* GhostFx Custom DocFX Theme Overrides */
-        """;
+                                     /* GhostFx Custom DocFX Theme Overrides */
+                                     """;
 
         if (!File.Exists(cssPath))
         {
@@ -1613,7 +1728,8 @@ public static class DocfxGenerator
             }
         }
 
-        var links = iconLinks ?? [
+        var links = iconLinks ??
+        [
             new IconLink { Icon = "github", Href = "https://github.com/jochenkirstaetter/ghostfx", Title = "GitHub" }
         ];
 
@@ -1639,7 +1755,9 @@ public static class DocfxGenerator
                         links = MergeIconLinks(existingLinks, links);
                     }
                 }
-                catch { }
+                catch
+                {
+                }
             }
 
             var options = new JsonSerializerOptions { WriteIndented = true };
@@ -1655,10 +1773,10 @@ public static class DocfxGenerator
             else
             {
                 mainContent = $$"""
-                export default {
-                  iconLinks: {{jsonLinks}}
-                }
-                """;
+                                export default {
+                                  iconLinks: {{jsonLinks}}
+                                }
+                                """;
             }
 
             await File.WriteAllTextAsync(jsPath, mainContent, System.Text.Encoding.UTF8);
@@ -1669,12 +1787,13 @@ public static class DocfxGenerator
             string jsonLinks = JsonSerializer.Serialize(links, options);
 
             string defaultJs = $$"""
-            export default {
-              iconLinks: {{jsonLinks}}
-            }
-            """;
+                                 export default {
+                                   iconLinks: {{jsonLinks}}
+                                 }
+                                 """;
             await File.WriteAllTextAsync(jsPath, defaultJs, System.Text.Encoding.UTF8);
         }
+
         return links;
     }
 
@@ -1699,8 +1818,8 @@ public static class DocfxGenerator
         var normalized = "/" + relativePath.Replace('\\', '/').TrimStart('/', '\\').ToLowerInvariant();
 
         // Check common test folder patterns
-        if (normalized.Contains("/abc/") || 
-            normalized.Contains("/custom/") || 
+        if (normalized.Contains("/abc/") ||
+            normalized.Contains("/custom/") ||
             normalized.Contains("/sub/") ||
             normalized.Contains("/test/"))
         {
@@ -1709,14 +1828,14 @@ public static class DocfxGenerator
 
         // Check common test filename patterns
         var fileName = Path.GetFileNameWithoutExtension(normalized);
-        if (fileName == "test" || 
-            fileName.StartsWith("test-") || 
-            fileName.StartsWith("test1") || 
-            fileName.StartsWith("test2") || 
-            fileName == "hello" || 
-            fileName == "empty" || 
-            fileName == "partial" || 
-            fileName == "partial-error" || 
+        if (fileName == "test" ||
+            fileName.StartsWith("test-") ||
+            fileName.StartsWith("test1") ||
+            fileName.StartsWith("test2") ||
+            fileName == "hello" ||
+            fileName == "empty" ||
+            fileName == "partial" ||
+            fileName == "partial-error" ||
             fileName.StartsWith("rule-") ||
             fileName == "toggle")
         {
@@ -1760,15 +1879,23 @@ public static class DocfxGenerator
                 string line = rawLine.Trim();
                 if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#")) continue;
 
-                if (line.StartsWith("- name:", StringComparison.OrdinalIgnoreCase) || line.StartsWith("name:", StringComparison.OrdinalIgnoreCase))
+                if (line.StartsWith("- name:", StringComparison.OrdinalIgnoreCase) ||
+                    line.StartsWith("name:", StringComparison.OrdinalIgnoreCase))
                 {
                     if (!string.IsNullOrEmpty(currentName))
                     {
-                        items.Add(new GhostNavItem { Label = currentName, Url = currentHref ?? $"{currentName.ToLowerInvariant().Replace(" ", "-")}.html" });
+                        items.Add(new GhostNavItem
+                        {
+                            Label = currentName,
+                            Url = currentHref ?? $"{currentName.ToLowerInvariant().Replace(" ", "-")}.html"
+                        });
                         currentHref = null;
                     }
+
                     int idx = line.IndexOf(':');
-                    currentName = idx >= 0 && idx < line.Length - 1 ? line.Substring(idx + 1).Trim(' ', '\t', '"', '\'') : string.Empty;
+                    currentName = idx >= 0 && idx < line.Length - 1
+                        ? line.Substring(idx + 1).Trim(' ', '\t', '"', '\'')
+                        : string.Empty;
                 }
                 else if (line.StartsWith("uid:", StringComparison.OrdinalIgnoreCase))
                 {
@@ -1785,14 +1912,19 @@ public static class DocfxGenerator
                     if (idx >= 0 && idx < line.Length - 1)
                     {
                         string href = line.Substring(idx + 1).Trim(' ', '\t', '"', '\'');
-                        currentHref = href.EndsWith(".md", StringComparison.OrdinalIgnoreCase) ? href.Substring(0, href.Length - 3) + ".html" : href;
+                        currentHref = href.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
+                            ? href.Substring(0, href.Length - 3) + ".html"
+                            : href;
                     }
                 }
             }
 
             if (!string.IsNullOrEmpty(currentName))
             {
-                items.Add(new GhostNavItem { Label = currentName, Url = currentHref ?? $"{currentName.ToLowerInvariant().Replace(" ", "-")}.html" });
+                items.Add(new GhostNavItem
+                {
+                    Label = currentName, Url = currentHref ?? $"{currentName.ToLowerInvariant().Replace(" ", "-")}.html"
+                });
             }
         }
         catch (Exception ex)
@@ -1803,7 +1935,9 @@ public static class DocfxGenerator
         return items;
     }
 
-    public static string GenerateSiteNavPartialContent(List<GhostNavItem>? navItems = null, List<BlogPostMetadata>? pages = null, List<BlogPostMetadata>? posts = null, List<IconLink>? iconLinks = null, string? rootDir = null)
+    public static string GenerateSiteNavPartialContent(List<GhostNavItem>? navItems = null,
+        List<BlogPostMetadata>? pages = null, List<BlogPostMetadata>? posts = null, List<IconLink>? iconLinks = null,
+        string? rootDir = null)
     {
         var sbNav = new System.Text.StringBuilder();
 
@@ -1816,7 +1950,8 @@ public static class DocfxGenerator
         {
             navItems = pages.Select(p => new GhostNavItem
             {
-                Label = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(p.Slug.Replace("-", " ").Replace("_", " ")),
+                Label = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(p.Slug.Replace("-", " ")
+                    .Replace("_", " ")),
                 Url = $"{p.Slug}.html"
             }).ToList();
         }
@@ -1831,18 +1966,22 @@ public static class DocfxGenerator
                 string slug = label.ToLowerInvariant().Replace(" ", "-").Replace("_", "-");
 
                 string href;
-                if (string.IsNullOrWhiteSpace(url) || url == "/" || url.Equals("home", StringComparison.OrdinalIgnoreCase))
+                if (string.IsNullOrWhiteSpace(url) || url == "/" ||
+                    url.Equals("home", StringComparison.OrdinalIgnoreCase))
                 {
                     href = "{{_rel}}index.html";
                 }
-                else if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                else if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                         url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
                 {
                     href = url;
                 }
                 else
                 {
                     string pathSlug = url.Trim('/').Split('/').LastOrDefault() ?? "";
-                    if (string.IsNullOrEmpty(pathSlug) || pathSlug.Equals("index.md", StringComparison.OrdinalIgnoreCase) || pathSlug.Equals("index.html", StringComparison.OrdinalIgnoreCase))
+                    if (string.IsNullOrEmpty(pathSlug) ||
+                        pathSlug.Equals("index.md", StringComparison.OrdinalIgnoreCase) ||
+                        pathSlug.Equals("index.html", StringComparison.OrdinalIgnoreCase))
                     {
                         href = "{{_rel}}index.html";
                     }
@@ -1850,7 +1989,8 @@ public static class DocfxGenerator
                     {
                         string[] parts = url.Trim('/').Split('/');
                         string dir = parts.Length > 1 ? parts[0] : "";
-                        if (dir.Equals("published", StringComparison.OrdinalIgnoreCase) || dir.Equals("posts", StringComparison.OrdinalIgnoreCase))
+                        if (dir.Equals("published", StringComparison.OrdinalIgnoreCase) ||
+                            dir.Equals("posts", StringComparison.OrdinalIgnoreCase))
                         {
                             href = "{{_rel}}blog.html";
                         }
@@ -1877,7 +2017,8 @@ public static class DocfxGenerator
                     }
                 }
 
-                sbNav.AppendLine($"            <li class=\"nav-{slug}\" role=\"menuitem\"><a href=\"{href}\">{label}</a></li>");
+                sbNav.AppendLine(
+                    $"            <li class=\"nav-{slug}\" role=\"menuitem\"><a href=\"{href}\">{label}</a></li>");
             }
         }
 
@@ -1890,17 +2031,22 @@ public static class DocfxGenerator
                 string iconLower = (link.Icon ?? "").ToLowerInvariant();
                 string iconPartial = iconLower switch
                 {
-                    "facebook" => "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><path d=\"M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z\"/></svg>",
-                    "twitter" or "x" => "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><path d=\"M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z\"/></svg>",
+                    "facebook" =>
+                        "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><path d=\"M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z\"/></svg>",
+                    "twitter" or "x" =>
+                        "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><path d=\"M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z\"/></svg>",
                     "linkedin" => "{{>partials/icons/linkedin}}",
                     "youtube" => "{{>partials/icons/youtube}}",
                     "reddit" => "{{>partials/icons/reddit}}",
-                    "rss" => "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><circle cx=\"6.18\" cy=\"17.82\" r=\"2.18\"/><path d=\"M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z\"/></svg>",
+                    "rss" =>
+                        "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><circle cx=\"6.18\" cy=\"17.82\" r=\"2.18\"/><path d=\"M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z\"/></svg>",
                     "email" or "mail" => "{{>partials/icons/email}}",
-                    "github" => "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><path d=\"M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z\"/></svg>",
+                    "github" =>
+                        "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><path d=\"M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z\"/></svg>",
                     _ => link.Title ?? link.Icon ?? ""
                 };
-                sbSocial.AppendLine($"            <a class=\"social-link social-link-{iconLower}\" href=\"{link.Href}\" title=\"{link.Title}\" target=\"_blank\" rel=\"noreferrer noopener\">{iconPartial}</a>");
+                sbSocial.AppendLine(
+                    $"            <a class=\"social-link social-link-{iconLower}\" href=\"{link.Href}\" title=\"{link.Title}\" target=\"_blank\" rel=\"noreferrer noopener\">{iconPartial}</a>");
             }
         }
 
@@ -1909,10 +2055,12 @@ public static class DocfxGenerator
         sb.AppendLine("    <div class=\"site-nav-left\">");
         sb.AppendLine("        {{^isHome}}");
         sb.AppendLine("            {{#_appLogoPath}}");
-        sb.AppendLine("                <a class=\"site-nav-logo\" href=\"{{#_appUrl}}{{_appUrl}}{{/_appUrl}}{{^_appUrl}}{{_rel}}{{/_appUrl}}\"><img src=\"{{_rel}}{{_appLogoPath}}\" alt=\"{{_appTitle}}\" /></a>");
+        sb.AppendLine(
+            "                <a class=\"site-nav-logo\" href=\"{{#_appUrl}}{{_appUrl}}{{/_appUrl}}{{^_appUrl}}{{_rel}}{{/_appUrl}}\"><img src=\"{{_rel}}{{_appLogoPath}}\" alt=\"{{_appTitle}}\" /></a>");
         sb.AppendLine("            {{/_appLogoPath}}");
         sb.AppendLine("            {{^_appLogoPath}}");
-        sb.AppendLine("                <a class=\"site-nav-logo\" href=\"{{#_appUrl}}{{_appUrl}}{{/_appUrl}}{{^_appUrl}}{{_rel}}{{/_appUrl}}\">{{_appTitle}}</a>");
+        sb.AppendLine(
+            "                <a class=\"site-nav-logo\" href=\"{{#_appUrl}}{{_appUrl}}{{/_appUrl}}{{^_appUrl}}{{_rel}}{{/_appUrl}}\">{{_appTitle}}</a>");
         sb.AppendLine("            {{/_appLogoPath}}");
         sb.AppendLine("        {{/isHome}}");
         sb.AppendLine("        <ul class=\"nav\" role=\"menu\">");
@@ -1922,37 +2070,46 @@ public static class DocfxGenerator
         sb.AppendLine("    <div class=\"site-nav-right\">");
         sb.AppendLine("        {{#_enableSearch}}");
         sb.AppendLine("        <form class=\"search\" role=\"search\" id=\"search\" style=\"margin-right: 15px;\">");
-        sb.AppendLine("            <input class=\"form-control\" id=\"search-query\" type=\"search\" disabled placeholder=\"Search\" autocomplete=\"off\" aria-label=\"Search\" style=\"border-radius: 20px; padding: 4px 12px; background: rgba(255,255,255,0.15); border: none; color: #fff;\">");
+        sb.AppendLine(
+            "            <input class=\"form-control\" id=\"search-query\" type=\"search\" disabled placeholder=\"Search\" autocomplete=\"off\" aria-label=\"Search\" style=\"border-radius: 20px; padding: 4px 12px; background: rgba(255,255,255,0.15); border: none; color: #fff;\">");
         sb.AppendLine("        </form>");
         sb.AppendLine("        {{/_enableSearch}}");
         sb.AppendLine("        <div class=\"social-links\">");
         sb.Append(sbSocial.ToString());
         sb.AppendLine("        </div>");
         sb.AppendLine("        {{#_appUrl}}");
-        sb.AppendLine("        <a class=\"rss-button\" href=\"https://feedly.com/i/subscription/feed/{{_appUrl}}/rss/\" title=\"RSS\" target=\"_blank\" rel=\"noreferrer noopener\"><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><circle cx=\"6.18\" cy=\"17.82\" r=\"2.18\"/><path d=\"M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z\"/></svg></a>");
+        sb.AppendLine(
+            "        <a class=\"rss-button\" href=\"https://feedly.com/i/subscription/feed/{{_appUrl}}/rss/\" title=\"RSS\" target=\"_blank\" rel=\"noreferrer noopener\"><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><circle cx=\"6.18\" cy=\"17.82\" r=\"2.18\"/><path d=\"M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z\"/></svg></a>");
         sb.AppendLine("        {{/_appUrl}}");
         sb.AppendLine("        <div class=\"dropdown\" style=\"display: inline-block; margin-left: 10px;\">");
-        sb.AppendLine("            <a title=\"Change theme\" class=\"btn border-0 dropdown-toggle\" data-bs-toggle=\"dropdown\" aria-expanded=\"false\" style=\"color: #fff; text-decoration: none; padding: 0 5px;\">");
+        sb.AppendLine(
+            "            <a title=\"Change theme\" class=\"btn border-0 dropdown-toggle\" data-bs-toggle=\"dropdown\" aria-expanded=\"false\" style=\"color: #fff; text-decoration: none; padding: 0 5px;\">");
         sb.AppendLine("                <i class=\"bi bi-circle-half\" style=\"font-size: 1.6rem;\"></i>");
         sb.AppendLine("            </a>");
         sb.AppendLine("            <ul class=\"dropdown-menu dropdown-menu-end\">");
-        sb.AppendLine("                <li><a class=\"dropdown-item\" href=\"#\" onclick=\"setTheme('light');return false;\"><i class=\"bi bi-sun\"></i> Light</a></li>");
-        sb.AppendLine("                <li><a class=\"dropdown-item\" href=\"#\" onclick=\"setTheme('dark');return false;\"><i class=\"bi bi-moon\"></i> Dark</a></li>");
-        sb.AppendLine("                <li><a class=\"dropdown-item\" href=\"#\" onclick=\"setTheme('auto');return false;\"><i class=\"bi bi-circle-half\"></i> Auto</a></li>");
+        sb.AppendLine(
+            "                <li><a class=\"dropdown-item\" href=\"#\" onclick=\"setTheme('light');return false;\"><i class=\"bi bi-sun\"></i> Light</a></li>");
+        sb.AppendLine(
+            "                <li><a class=\"dropdown-item\" href=\"#\" onclick=\"setTheme('dark');return false;\"><i class=\"bi bi-moon\"></i> Dark</a></li>");
+        sb.AppendLine(
+            "                <li><a class=\"dropdown-item\" href=\"#\" onclick=\"setTheme('auto');return false;\"><i class=\"bi bi-circle-half\"></i> Auto</a></li>");
         sb.AppendLine("            </ul>");
         sb.AppendLine("        </div>");
         sb.AppendLine("        <script>");
         sb.AppendLine("          function setTheme(t) {");
         sb.AppendLine("            localStorage.setItem('theme', t);");
-        sb.AppendLine("            var eff = t === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t;");
+        sb.AppendLine(
+            "            var eff = t === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t;");
         sb.AppendLine("            document.documentElement.setAttribute('data-bs-theme', eff);");
         sb.AppendLine("            var icon = document.querySelector('.dropdown-toggle i.bi');");
-        sb.AppendLine("            if (icon) { icon.className = 'bi ' + (t === 'light' ? 'bi-sun' : t === 'dark' ? 'bi-moon' : 'bi-circle-half'); }");
+        sb.AppendLine(
+            "            if (icon) { icon.className = 'bi ' + (t === 'light' ? 'bi-sun' : t === 'dark' ? 'bi-moon' : 'bi-circle-half'); }");
         sb.AppendLine("          }");
         sb.AppendLine("          (function() {");
         sb.AppendLine("            var t = localStorage.getItem('theme') || 'auto';");
         sb.AppendLine("            var icon = document.querySelector('.dropdown-toggle i.bi');");
-        sb.AppendLine("            if (icon) { icon.className = 'bi ' + (t === 'light' ? 'bi-sun' : t === 'dark' ? 'bi-moon' : 'bi-circle-half'); }");
+        sb.AppendLine(
+            "            if (icon) { icon.className = 'bi ' + (t === 'light' ? 'bi-sun' : t === 'dark' ? 'bi-moon' : 'bi-circle-half'); }");
         sb.AppendLine("          })();");
         sb.AppendLine("        </script>");
         sb.AppendLine("    </div>");
@@ -1971,7 +2128,9 @@ public static class DocfxGenerator
             {
                 File.Delete(file);
             }
-            catch { }
+            catch
+            {
+            }
         }
 
         foreach (var dir in Directory.GetDirectories(path))
@@ -1981,7 +2140,9 @@ public static class DocfxGenerator
             {
                 Directory.Delete(dir);
             }
-            catch { }
+            catch
+            {
+            }
         }
     }
 }

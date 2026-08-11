@@ -1,9 +1,7 @@
-using System;
-using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using ReverseMarkdown;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
-using System.Text.RegularExpressions;
 
 namespace GhostFx.Core;
 
