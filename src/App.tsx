@@ -15,7 +15,12 @@ import {
   Layers,
   Tag,
   FileCode,
-  Globe
+  Globe,
+  Menu,
+  X,
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal
 } from 'lucide-react';
 
 interface GhostFxConfigData {
@@ -52,6 +57,10 @@ interface FileItem {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'console' | 'config' | 'json' | 'files' | 'tests'>('console');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
+  const [footerPreviewOpen, setFooterPreviewOpen] = useState<boolean>(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const themeZipInputRef = useRef<HTMLInputElement>(null);
   const themeFolderInputRef = useRef<HTMLInputElement>(null);
@@ -345,19 +354,26 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-full bg-slate-50 font-sans text-slate-900 overflow-hidden">
+    <div className="flex flex-col h-screen h-[100dvh] w-full bg-slate-50 font-sans text-slate-900 overflow-hidden relative">
       {/* Top Navigation / Brand Rail */}
-      <nav className="h-14 bg-indigo-900 flex items-center justify-between px-6 shadow-md shrink-0">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-indigo-500 rounded flex items-center justify-center font-bold text-white text-lg">
+      <nav className="h-14 bg-indigo-900 flex items-center justify-between px-4 sm:px-6 shadow-md shrink-0 z-30 relative">
+        <div className="flex items-center space-x-2 sm:space-x-3">
+          <button 
+            onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+            className="md:hidden p-1.5 text-indigo-200 hover:text-white rounded-lg hover:bg-indigo-800 transition cursor-pointer"
+            title="Toggle Migration Profile">
+            <SlidersHorizontal className="w-5 h-5" />
+          </button>
+          <div className="w-8 h-8 bg-indigo-500 rounded flex items-center justify-center font-bold text-white text-lg shrink-0">
             G
           </div>
-          <span className="text-white font-semibold text-lg tracking-tight flex items-center">
-            GhostFx <span className="text-indigo-300 font-normal text-xs ml-2 bg-indigo-800/80 px-2 py-0.5 rounded border border-indigo-700">v1.0.0-beta.1</span>
+          <span className="text-white font-semibold text-base sm:text-lg tracking-tight flex items-center">
+            GhostFx <span className="text-indigo-300 font-normal text-[10px] sm:text-xs ml-1.5 sm:ml-2 bg-indigo-800/80 px-1.5 sm:px-2 py-0.5 rounded border border-indigo-700">v1.0.0</span>
           </span>
         </div>
 
-        <div className="flex items-center space-x-4">
+        {/* Desktop Navigation Actions */}
+        <div className="hidden md:flex items-center space-x-4">
           <button 
             onClick={toggleMode}
             title="Click to toggle between Live Ghost API and Offline JSON Mode"
@@ -375,18 +391,75 @@ export default function App() {
             <span>.NET xUnit Tests</span>
           </button>
 
-          <div className="w-8 h-8 rounded-full bg-indigo-700 border border-indigo-600 flex items-center justify-center text-indigo-200 text-xs font-bold">
+          <div className="w-8 h-8 rounded-full bg-indigo-700 border border-indigo-600 flex items-center justify-center text-indigo-200 text-xs font-bold shrink-0">
             AD
           </div>
         </div>
+
+        {/* Mobile Menu Toggle Button */}
+        <div className="flex items-center md:hidden space-x-2">
+          <button 
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 text-indigo-200 hover:text-white rounded-lg hover:bg-indigo-800 transition cursor-pointer"
+            aria-label="Toggle Menu">
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
       </nav>
 
+      {/* Mobile Header Dropdown Menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden bg-indigo-950 border-b border-indigo-800 px-4 py-3 space-y-3 z-30 shadow-lg">
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-xs text-indigo-300 font-medium">Engine Mode:</span>
+            <button 
+              onClick={() => { toggleMode(); setMobileMenuOpen(false); }}
+              className="flex items-center space-x-2 bg-indigo-800 hover:bg-indigo-700 px-3 py-1.5 rounded-full border border-indigo-700 transition cursor-pointer">
+              <div className={`w-2 h-2 rounded-full animate-pulse ${isOfflineMode || activeTab === 'json' || !!config.inputJsonPath ? 'bg-amber-400' : 'bg-emerald-400'}`}></div>
+              <span className="text-indigo-100 text-xs font-medium uppercase tracking-wider">
+                {isOfflineMode || activeTab === 'json' || !!config.inputJsonPath ? 'Offline JSON' : 'Live Ghost API'}
+              </span>
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between pt-2 border-t border-indigo-900">
+            <button 
+              onClick={() => { handleRunTests(); setMobileMenuOpen(false); }}
+              className="w-full flex items-center justify-center space-x-2 text-xs bg-indigo-800 hover:bg-indigo-700 text-indigo-100 py-2 rounded-lg border border-indigo-700 transition cursor-pointer">
+              <CheckCircle2 className="w-4 h-4 text-indigo-300" />
+              <span>Run .NET xUnit Tests</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Workspace */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar: Configuration & State */}
-        <aside className="w-72 bg-white border-r border-slate-200 flex flex-col shrink-0">
-          <div className="p-5 border-b border-slate-100">
-            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Migration Profile</h2>
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Mobile Backdrop Overlay */}
+        {mobileSidebarOpen && (
+          <div 
+            onClick={() => setMobileSidebarOpen(false)}
+            className="md:hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 transition-opacity"
+          />
+        )}
+
+        {/* Left Sidebar: Migration Profile */}
+        <aside className={`
+          fixed md:relative inset-y-0 left-0 z-50 md:z-auto
+          w-80 md:w-72 bg-white border-r border-slate-200 flex flex-col shrink-0
+          transform transition-transform duration-200 ease-in-out shadow-2xl md:shadow-none
+          ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        `}>
+          <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Migration Profile</h2>
+            <button 
+              onClick={() => setMobileSidebarOpen(false)}
+              className="md:hidden p-1 text-slate-400 hover:text-slate-600 rounded">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="p-4 sm:p-5 border-b border-slate-100">
             <div className="space-y-4">
               <div className="flex flex-col">
                 <label className="text-[11px] text-slate-400 uppercase font-semibold mb-1">Engine Mode</label>
@@ -429,7 +502,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex-1 p-5 overflow-y-auto">
+          <div className="flex-1 p-4 sm:p-5 overflow-y-auto">
             <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Pipeline Flags</h2>
             <ul className="space-y-3">
               <li className="flex items-center justify-between text-xs">
@@ -461,11 +534,14 @@ export default function App() {
             </ul>
           </div>
 
-          <div className="p-5 bg-slate-50 border-t border-slate-200">
+          <div className="p-4 sm:p-5 bg-slate-50 border-t border-slate-200">
             <button 
-              onClick={() => handleRunMigration(isOfflineMode || activeTab === 'json' || !!config.inputJsonPath)}
+              onClick={() => {
+                handleRunMigration(isOfflineMode || activeTab === 'json' || !!config.inputJsonPath);
+                setMobileSidebarOpen(false);
+              }}
               disabled={isRunningMigration}
-              className={`w-full text-white py-2.5 rounded shadow-sm font-semibold text-sm transition-colors disabled:opacity-50 flex items-center justify-center space-x-2 cursor-pointer ${
+              className={`w-full text-white py-2.5 rounded shadow-xs font-semibold text-sm transition-colors disabled:opacity-50 flex items-center justify-center space-x-2 cursor-pointer ${
                 isOfflineMode || activeTab === 'json' || !!config.inputJsonPath ? 'bg-amber-600 hover:bg-amber-700' : 'bg-indigo-600 hover:bg-indigo-700'
               }`}>
               <Play className="w-4 h-4 fill-current" />
@@ -479,101 +555,101 @@ export default function App() {
         </aside>
 
         {/* Main Content: Execution Log & Monitoring */}
-        <main className="flex-1 flex flex-col p-6 space-y-6 overflow-hidden">
+        <main className="flex-1 flex flex-col p-3 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto md:overflow-hidden min-w-0">
           {/* Summary Metric Cards */}
-          <div className="grid grid-cols-4 gap-4 shrink-0">
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Total Posts</p>
-              <h3 className="text-2xl font-semibold text-slate-800">{stats.totalPosts}</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 shrink-0">
+            <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-xs">
+              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-0.5 sm:mb-1">Total Posts</p>
+              <h3 className="text-xl sm:text-2xl font-semibold text-slate-800">{stats.totalPosts}</h3>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Published</p>
-              <h3 className="text-2xl font-semibold text-indigo-600">{stats.publishedPosts}</h3>
+            <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-xs">
+              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-0.5 sm:mb-1">Published</p>
+              <h3 className="text-xl sm:text-2xl font-semibold text-indigo-600">{stats.publishedPosts}</h3>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Drafts</p>
-              <h3 className="text-2xl font-semibold text-slate-400">{stats.draftPosts}</h3>
+            <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-xs">
+              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-0.5 sm:mb-1">Drafts</p>
+              <h3 className="text-xl sm:text-2xl font-semibold text-slate-400">{stats.draftPosts}</h3>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Total Tags</p>
-              <h3 className="text-2xl font-semibold text-slate-800">{stats.totalTags}</h3>
+            <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-xs">
+              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-0.5 sm:mb-1">Total Tags</p>
+              <h3 className="text-xl sm:text-2xl font-semibold text-slate-800">{stats.totalTags}</h3>
             </div>
           </div>
 
           {/* Navigation Bar for Workspace Panels */}
-          <div className="flex space-x-1 border-b border-slate-200 shrink-0">
+          <div className="flex space-x-1 border-b border-slate-200 shrink-0 overflow-x-auto pb-0.5 scrollbar-none">
             <button 
               onClick={() => setActiveTab('console')}
-              className={`px-4 py-2 text-xs font-semibold rounded-t-lg transition flex items-center space-x-2 cursor-pointer ${
+              className={`px-3 sm:px-4 py-2 text-xs font-semibold rounded-t-lg transition flex items-center space-x-1.5 sm:space-x-2 whitespace-nowrap shrink-0 cursor-pointer ${
                 activeTab === 'console' 
                   ? 'bg-slate-900 text-white border-t border-x border-slate-800' 
                   : 'text-slate-600 hover:text-slate-900 bg-white/50'
               }`}>
-              <Terminal className="w-3.5 h-3.5" />
+              <Terminal className="w-3.5 h-3.5 shrink-0" />
               <span>Migration Console</span>
             </button>
 
             <button 
               onClick={() => setActiveTab('config')}
-              className={`px-4 py-2 text-xs font-semibold rounded-t-lg transition flex items-center space-x-2 cursor-pointer ${
+              className={`px-3 sm:px-4 py-2 text-xs font-semibold rounded-t-lg transition flex items-center space-x-1.5 sm:space-x-2 whitespace-nowrap shrink-0 cursor-pointer ${
                 activeTab === 'config' 
                   ? 'bg-indigo-600 text-white' 
                   : 'text-slate-600 hover:text-slate-900 bg-white/50'
               }`}>
-              <Settings className="w-3.5 h-3.5" />
+              <Settings className="w-3.5 h-3.5 shrink-0" />
               <span>ghostfx.json Settings</span>
             </button>
 
             <button 
               onClick={() => setActiveTab('json')}
-              className={`px-4 py-2 text-xs font-semibold rounded-t-lg transition flex items-center space-x-2 cursor-pointer ${
+              className={`px-3 sm:px-4 py-2 text-xs font-semibold rounded-t-lg transition flex items-center space-x-1.5 sm:space-x-2 whitespace-nowrap shrink-0 cursor-pointer ${
                 activeTab === 'json' 
                   ? 'bg-indigo-600 text-white' 
                   : 'text-slate-600 hover:text-slate-900 bg-white/50'
               }`}>
-              <Code2 className="w-3.5 h-3.5" />
+              <Code2 className="w-3.5 h-3.5 shrink-0" />
               <span>JSON Payload</span>
             </button>
 
             <button 
               onClick={() => setActiveTab('files')}
-              className={`px-4 py-2 text-xs font-semibold rounded-t-lg transition flex items-center space-x-2 cursor-pointer ${
+              className={`px-3 sm:px-4 py-2 text-xs font-semibold rounded-t-lg transition flex items-center space-x-1.5 sm:space-x-2 whitespace-nowrap shrink-0 cursor-pointer ${
                 activeTab === 'files' 
                   ? 'bg-indigo-600 text-white' 
                   : 'text-slate-600 hover:text-slate-900 bg-white/50'
               }`}>
-              <FolderOpen className="w-3.5 h-3.5" />
+              <FolderOpen className="w-3.5 h-3.5 shrink-0" />
               <span>Generated Artifacts ({generatedFiles.length})</span>
             </button>
 
             <button 
               onClick={() => setActiveTab('tests')}
-              className={`px-4 py-2 text-xs font-semibold rounded-t-lg transition flex items-center space-x-2 cursor-pointer ${
+              className={`px-3 sm:px-4 py-2 text-xs font-semibold rounded-t-lg transition flex items-center space-x-1.5 sm:space-x-2 whitespace-nowrap shrink-0 cursor-pointer ${
                 activeTab === 'tests' 
                   ? 'bg-indigo-600 text-white' 
                   : 'text-slate-600 hover:text-slate-900 bg-white/50'
               }`}>
-              <CheckCircle2 className="w-3.5 h-3.5" />
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
               <span>C# xUnit Tests</span>
             </button>
           </div>
 
           {/* TAB 1: Terminal Console */}
           {activeTab === 'console' && (
-            <div className="flex-1 bg-slate-900 rounded-xl shadow-lg flex flex-col border border-slate-800 overflow-hidden min-h-0">
-              <div className="h-10 bg-slate-800 flex items-center px-4 space-x-2 shrink-0">
+            <div className="flex-1 bg-slate-900 rounded-xl shadow-lg flex flex-col border border-slate-800 overflow-hidden min-h-[350px] md:min-h-0">
+              <div className="h-10 bg-slate-800 flex items-center px-3 sm:px-4 space-x-2 shrink-0">
                 <div className="flex space-x-1.5">
                   <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
                   <div className="w-3 h-3 rounded-full bg-amber-500/80"></div>
                   <div className="w-3 h-3 rounded-full bg-emerald-500/80"></div>
                 </div>
-                <span className="text-slate-400 text-[11px] font-mono pl-4">ghostfx-cli --verbose --target docfx</span>
+                <span className="text-slate-400 text-[10px] sm:text-[11px] font-mono truncate pl-2 sm:pl-4">ghostfx-cli --verbose --target docfx</span>
               </div>
 
-              <div className="flex-1 p-5 font-mono text-[13px] leading-relaxed text-slate-300 overflow-y-auto space-y-1">
+              <div className="flex-1 p-3 sm:p-5 font-mono text-xs sm:text-[13px] leading-relaxed text-slate-300 overflow-y-auto space-y-1 break-words">
                 {terminalLogs.map((log, index) => {
                   if (log.startsWith('[INFO]')) {
                     return <p key={index} className="text-emerald-400">{log}</p>;
@@ -605,19 +681,20 @@ export default function App() {
 
           {/* TAB 2: Config Settings Form */}
           {activeTab === 'config' && (
-            <div className="flex-1 bg-white border border-slate-200 rounded-xl p-6 overflow-y-auto space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div className="flex-1 bg-white border border-slate-200 rounded-xl p-4 sm:p-6 overflow-y-auto space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4 gap-3">
                 <div>
-                  <h3 className="text-base font-bold text-slate-800">ghostfx.json Configuration</h3>
-                  <p className="text-xs text-slate-500">Configure parameters passed to the GhostFx C# migration engine.</p>
+                  <h3 className="text-sm sm:text-base font-bold text-slate-800">ghostfx.json Configuration</h3>
+                  <p className="text-[11px] sm:text-xs text-slate-500">Configure parameters passed to the GhostFx C# migration engine.</p>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 self-start sm:self-auto">
                   <button 
                     type="button"
                     onClick={() => loadConfigInputRef.current?.click()}
-                    className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 transition flex items-center space-x-2 cursor-pointer">
-                    <FolderOpen className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Load Configuration</span>
+                    className="px-3 py-1.5 sm:py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 transition flex items-center space-x-1.5 cursor-pointer">
+                    <FolderOpen className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                    <span className="hidden sm:inline">Load Configuration</span>
+                    <span className="sm:hidden">Load</span>
                   </button>
                   <input 
                     type="file" 
@@ -628,9 +705,10 @@ export default function App() {
                   />
                   <button 
                     onClick={handleSaveConfig}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm transition flex items-center space-x-2 cursor-pointer">
-                    <Save className="w-3.5 h-3.5" />
-                    <span>Save Configuration</span>
+                    className="px-3.5 py-1.5 sm:py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-xs transition flex items-center space-x-1.5 cursor-pointer">
+                    <Save className="w-3.5 h-3.5 shrink-0" />
+                    <span className="hidden sm:inline">Save Configuration</span>
+                    <span className="sm:hidden">Save</span>
                   </button>
                 </div>
               </div>
@@ -638,7 +716,7 @@ export default function App() {
               {/* Section 1: Ghost API & Sources */}
               <div>
                 <h4 className="text-xs font-bold text-indigo-900 uppercase tracking-wider mb-3">1. Ghost API Credentials & Input</h4>
-                <div className="grid grid-cols-2 gap-4 text-xs">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                   <div className="space-y-1.5">
                     <label className="font-semibold text-slate-700">Ghost Base URL</label>
                     <input 
@@ -681,7 +759,7 @@ export default function App() {
 
                   <div className="space-y-1.5">
                     <label className="font-semibold text-slate-700">Input JSON Export File Path</label>
-                    <div className="flex space-x-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <input 
                         type="text" 
                         value={config.inputJsonPath || config.ghostExportJson || ''} 
@@ -691,7 +769,7 @@ export default function App() {
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-200 font-semibold transition flex items-center space-x-1.5 shrink-0 cursor-pointer">
+                        className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-200 font-semibold transition flex items-center justify-center space-x-1.5 shrink-0 cursor-pointer">
                         <FolderOpen className="w-4 h-4 text-indigo-600" />
                         <span>Browse...</span>
                       </button>
@@ -720,7 +798,7 @@ export default function App() {
               {/* Section 2: Output Files, Theme & Conversion Options */}
               <div className="pt-2 border-t border-slate-100">
                 <h4 className="text-xs font-bold text-indigo-900 uppercase tracking-wider mb-3">2. Output Files, Theme & Conversion Options</h4>
-                <div className="grid grid-cols-2 gap-4 text-xs">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                   <div className="space-y-1.5">
                     <label className="font-semibold text-slate-700">Front Page Output File</label>
                     <input 
@@ -733,29 +811,31 @@ export default function App() {
 
                   <div className="space-y-1.5">
                     <label className="font-semibold text-slate-700">Theme Path (zip or extracted folder)</label>
-                    <div className="flex space-x-1.5">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <input 
                         type="text" 
                         value={config.themePath || config.themeOutputPath || ''} 
                         onChange={e => setConfig({...config, themePath: e.target.value, themeOutputPath: e.target.value})}
                         className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-mono text-slate-800 focus:outline-none focus:border-indigo-500" 
                       />
-                      <button
-                        type="button"
-                        onClick={() => themeZipInputRef.current?.click()}
-                        title="Pick theme .ZIP file"
-                        className="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-200 font-semibold transition flex items-center space-x-1 shrink-0 cursor-pointer text-xs">
-                        <FileCode className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>ZIP</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => themeFolderInputRef.current?.click()}
-                        title="Pick theme folder"
-                        className="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-200 font-semibold transition flex items-center space-x-1 shrink-0 cursor-pointer text-xs">
-                        <FolderOpen className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>Folder</span>
-                      </button>
+                      <div className="flex space-x-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => themeZipInputRef.current?.click()}
+                          title="Pick theme .ZIP file"
+                          className="flex-1 sm:flex-initial px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-200 font-semibold transition flex items-center justify-center space-x-1 cursor-pointer text-xs">
+                          <FileCode className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>ZIP</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => themeFolderInputRef.current?.click()}
+                          title="Pick theme folder"
+                          className="flex-1 sm:flex-initial px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-200 font-semibold transition flex items-center justify-center space-x-1 cursor-pointer text-xs">
+                          <FolderOpen className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>Folder</span>
+                        </button>
+                      </div>
                       <input 
                         type="file" 
                         ref={themeZipInputRef} 
@@ -869,7 +949,7 @@ export default function App() {
               {/* Section 3: Analytics & Content Constraints */}
               <div className="pt-2 border-t border-slate-100">
                 <h4 className="text-xs font-bold text-indigo-900 uppercase tracking-wider mb-3">3. Analytics & Content Formatting</h4>
-                <div className="grid grid-cols-3 gap-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                   <div className="space-y-1.5">
                     <label className="font-semibold text-slate-700">Google Analytics Tag ID</label>
                     <input 
@@ -907,11 +987,11 @@ export default function App() {
 
           {/* TAB 3: JSON Export Payload */}
           {activeTab === 'json' && (
-            <div className="flex-1 bg-white border border-slate-200 rounded-xl p-6 flex flex-col space-y-4">
-              <div className="flex items-center justify-between">
+            <div className="flex-1 bg-white border border-slate-200 rounded-xl p-4 sm:p-6 flex flex-col space-y-4 min-h-[350px] md:min-h-0">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-bold text-slate-800">Ghost JSON Export Payload</h3>
-                  <p className="text-xs text-slate-500">Edit or paste Ghost blog export JSON data to test offline migration.</p>
+                  <h3 className="text-sm sm:text-base font-bold text-slate-800">Ghost JSON Export Payload</h3>
+                  <p className="text-[11px] sm:text-xs text-slate-500">Edit or paste Ghost blog export JSON data to test offline migration.</p>
                 </div>
                 <div className="flex items-center space-x-2">
                   <button 
@@ -923,9 +1003,9 @@ export default function App() {
                   <button 
                     onClick={() => handleRunMigration(true)}
                     disabled={isRunningMigration}
-                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-md shadow-sm transition flex items-center space-x-1.5 cursor-pointer">
+                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-md shadow-xs transition flex items-center space-x-1.5 cursor-pointer">
                     <Play className="w-3.5 h-3.5 fill-current" />
-                    <span>{isRunningMigration ? 'Migrating...' : 'Migrate Offline JSON'}</span>
+                    <span>{isRunningMigration ? 'Migrating...' : 'Migrate JSON'}</span>
                   </button>
                 </div>
               </div>
@@ -933,46 +1013,46 @@ export default function App() {
               <textarea 
                 value={customJsonInput}
                 onChange={e => setCustomJsonInput(e.target.value)}
-                className="flex-1 bg-slate-900 border border-slate-800 text-emerald-400 font-mono text-xs p-4 rounded-xl focus:outline-none focus:border-indigo-500 leading-relaxed overflow-y-auto"
+                className="flex-1 min-h-[250px] bg-slate-900 border border-slate-800 text-emerald-400 font-mono text-xs p-4 rounded-xl focus:outline-none focus:border-indigo-500 leading-relaxed overflow-y-auto"
               />
             </div>
           )}
 
           {/* TAB 4: Generated Files Viewer */}
           {activeTab === 'files' && (
-            <div className="flex-1 grid grid-cols-3 gap-6 overflow-hidden">
+            <div className="flex-1 flex flex-col md:grid md:grid-cols-3 gap-4 md:gap-6 overflow-hidden min-h-[400px] md:min-h-0">
               {/* File list sidebar */}
-              <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col overflow-y-auto space-y-2">
-                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Docfx Artifacts</h4>
+              <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-4 flex flex-col overflow-y-auto space-y-2 max-h-48 md:max-h-none shrink-0">
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 sm:mb-2">Docfx Artifacts ({generatedFiles.length})</h4>
                 {generatedFiles.map(file => (
                   <button 
                     key={file.path}
                     onClick={() => viewFile(file)}
-                    className={`w-full text-left p-2.5 rounded-lg text-xs font-mono transition flex items-center justify-between cursor-pointer ${
+                    className={`w-full text-left p-2 sm:p-2.5 rounded-lg text-xs font-mono transition flex items-center justify-between cursor-pointer ${
                       selectedFile?.path === file.path 
                         ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold' 
                         : 'text-slate-700 hover:bg-slate-50'
                     }`}>
-                    <span className="truncate flex items-center space-x-2">
+                    <span className="truncate flex items-center space-x-2 mr-2">
                       <FileCode className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                      <span>{file.path}</span>
+                      <span className="truncate">{file.path}</span>
                     </span>
                     {file.isDraft && (
-                      <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-sans">Draft</span>
+                      <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-sans shrink-0">Draft</span>
                     )}
                   </button>
                 ))}
               </div>
 
               {/* File Content Preview */}
-              <div className="col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col overflow-hidden">
-                <div className="border-b border-slate-800 pb-3 mb-3 flex items-center justify-between">
-                  <span className="text-xs font-mono text-indigo-300 font-bold">
+              <div className="flex-1 md:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5 flex flex-col overflow-hidden min-h-[250px]">
+                <div className="border-b border-slate-800 pb-2.5 mb-3 flex items-center justify-between">
+                  <span className="text-xs font-mono text-indigo-300 font-bold truncate mr-2">
                     {selectedFile?.path || 'Select a file'}
                   </span>
-                  <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono">Markdown / YAML</span>
+                  <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono shrink-0">Markdown / YAML</span>
                 </div>
-                <pre className="flex-1 font-mono text-xs text-slate-200 whitespace-pre-wrap leading-relaxed overflow-y-auto p-2">
+                <pre className="flex-1 font-mono text-xs text-slate-200 whitespace-pre-wrap leading-relaxed overflow-y-auto p-1 sm:p-2">
                   {selectedFileContent}
                 </pre>
               </div>
@@ -981,19 +1061,19 @@ export default function App() {
 
           {/* TAB 5: xUnit Tests */}
           {activeTab === 'tests' && (
-            <div className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-6 flex flex-col space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-6 flex flex-col space-y-4 min-h-[350px] md:min-h-0">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-3 gap-3">
                 <div>
                   <h3 className="text-sm font-bold text-indigo-300 flex items-center space-x-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>C# .NET xUnit Test Suite</span>
                   </h3>
-                  <p className="text-xs text-slate-400">Executes dotnet test GhostFx.Tests/GhostFx.Tests.csproj</p>
+                  <p className="text-[11px] sm:text-xs text-slate-400">Executes dotnet test GhostFx.Tests/GhostFx.Tests.csproj</p>
                 </div>
                 <button 
                   onClick={handleRunTests}
                   disabled={isRunningTests}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm transition disabled:opacity-50 flex items-center space-x-2 cursor-pointer">
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-xs transition disabled:opacity-50 flex items-center justify-center space-x-2 cursor-pointer self-start sm:self-auto">
                   <RefreshCw className={`w-3.5 h-3.5 ${isRunningTests ? 'animate-spin' : ''}`} />
                   <span>Run Test Suite</span>
                 </button>
@@ -1006,28 +1086,35 @@ export default function App() {
                 </div>
               )}
 
-              <pre className="flex-1 bg-slate-950 p-4 rounded-xl font-mono text-xs text-slate-300 overflow-y-auto leading-relaxed border border-slate-800">
+              <pre className="flex-1 bg-slate-950 p-3 sm:p-4 rounded-xl font-mono text-xs text-slate-300 overflow-y-auto leading-relaxed border border-slate-800 whitespace-pre-wrap">
                 {testOutput || 'Click "Run Test Suite" to execute C# unit and integration tests.'}
               </pre>
             </div>
           )}
 
           {/* Footer Config Preview */}
-          <div className="h-32 shrink-0 bg-white border border-slate-200 rounded-xl p-4 flex flex-col">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                ghostfx.json Configuration Preview
-              </span>
-              <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded">Active</span>
+          <div className="shrink-0 bg-white border border-slate-200 rounded-xl p-3 sm:p-4 flex flex-col transition-all">
+            <div className="flex justify-between items-center cursor-pointer" onClick={() => setFooterPreviewOpen(!footerPreviewOpen)}>
+              <div className="flex items-center space-x-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  ghostfx.json Configuration Preview
+                </span>
+                <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">Active</span>
+              </div>
+              <button className="text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer">
+                {footerPreviewOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
             </div>
-            <div className="flex-1 font-mono text-xs text-indigo-700 bg-slate-50 p-3 rounded-lg overflow-hidden border border-slate-100">
-              <pre className="whitespace-pre-wrap leading-tight">
+            {(footerPreviewOpen) && (
+              <div className="mt-2 h-28 font-mono text-xs text-indigo-700 bg-slate-50 p-2.5 sm:p-3 rounded-lg overflow-y-auto border border-slate-100">
+                <pre className="whitespace-pre-wrap leading-tight">
 {JSON.stringify({
   ...config,
   adminApiKey: config.adminApiKey ? (config.adminApiKey.length > 16 ? config.adminApiKey.substring(0, 16) + '...' : '***') : ''
 }, null, 2)}
-              </pre>
-            </div>
+                </pre>
+              </div>
+            )}
           </div>
         </main>
       </div>
