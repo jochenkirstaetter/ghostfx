@@ -526,7 +526,7 @@ public class MigrationEngine
                         Layout = "author",
                         BodyClass = $"author-template author-{author.Slug}",
                         IsPost = false,
-                        IsPage = true,
+                        IsPage = false,
                         IsTagPage = false,
                         IsTagsIndexPage = false,
                         IsAuthorPage = true,
@@ -537,10 +537,34 @@ public class MigrationEngine
                         FeatureImage = author.ProfileImage
                     };
 
-                    string yaml = _converter.GenerateYamlFrontmatter(authorFrontMatter);
-                    string markdownContent = yaml + $"\n# {author.Name}\n\n{author.Bio}\n";
+                    var authorPosts = publishedMetaList
+                        .Where(p => string.Equals(p.AuthorSlug, author.Slug, StringComparison.OrdinalIgnoreCase) ||
+                                    string.Equals(p.AuthorName, author.Name, StringComparison.OrdinalIgnoreCase))
+                        .OrderByDescending(p => p.Date)
+                        .ToList();
 
-                    await File.WriteAllTextAsync(authorFilePath, markdownContent);
+                    string yaml = _converter.GenerateYamlFrontmatter(authorFrontMatter);
+                    var sb = new System.Text.StringBuilder();
+                    sb.AppendLine(yaml);
+                    sb.AppendLine($"# {author.Name}");
+                    sb.AppendLine();
+                    if (!string.IsNullOrWhiteSpace(author.Bio))
+                    {
+                        sb.AppendLine(author.Bio);
+                        sb.AppendLine();
+                    }
+
+                    if (authorPosts.Count > 0)
+                    {
+                        sb.AppendLine("## Articles");
+                        sb.AppendLine();
+                        foreach (var post in authorPosts)
+                        {
+                            sb.AppendLine($"- [{post.Title}](xref:{post.Slug}) - *{post.Date:yyyy-MM-dd}*");
+                        }
+                    }
+
+                    await File.WriteAllTextAsync(authorFilePath, sb.ToString());
                     result.GeneratedFiles.Add(authorFilePath);
                 }
             }
