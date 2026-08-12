@@ -91,6 +91,12 @@ public sealed class FrontMatter
     [YamlMember(Alias = "authorFacebook")]
     public string AuthorFacebook { get; set; } = string.Empty;
 
+    [YamlMember(Alias = "website")]
+    public string Website { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "location")]
+    public string Location { get; set; } = string.Empty;
+
     [YamlMember(Alias = "authorImage")]
     public string AuthorImage { get; set; } = string.Empty;
 

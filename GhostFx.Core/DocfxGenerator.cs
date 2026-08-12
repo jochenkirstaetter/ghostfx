@@ -808,6 +808,149 @@ public static class DocfxGenerator
                                     </article>
                                     """;
                     }
+                    else if (hbsNameLower == "floating-header")
+                    {
+                        converted = """
+                                    <div class="floating-header">
+                                        <div class="floating-header-logo">
+                                            <a href="{{#_appUrl}}{{_appUrl}}{{/_appUrl}}{{^_appUrl}}{{_rel}}{{/_appUrl}}">
+                                                {{#_appFaviconPath}}
+                                                    <img src="{{_rel}}{{.}}" alt="{{_appTitle}} icon" />
+                                                {{/_appFaviconPath}}
+                                                <span>{{_appTitle}}</span>
+                                            </a>
+                                        </div>
+                                        <span class="floating-header-divider">&mdash;</span>
+                                        <div class="floating-header-title">{{#title}}{{title}}{{/title}}{{^title}}{{_appTitle}}{{/title}}</div>
+                                        <div class="floating-header-share">
+                                            <div class="floating-header-share-label">Share this {{>partials/icons/point}}</div>
+                                            <a class="floating-header-share-x" href="https://x.com/intent/post?text={{encode title}}&amp;url={{_rel}}{{slug}}.html"
+                                                target="_blank" rel="noopener noreferrer" onclick="window.open(this.href, 'share-x', 'width=550,height=450');return false;" title="Share on X">
+                                                {{>partials/icons/x}}
+                                            </a>
+                                            <a class="floating-header-share-fb" href="https://www.facebook.com/sharer/sharer.php?u={{_rel}}{{slug}}.html"
+                                                target="_blank" rel="noopener noreferrer" onclick="window.open(this.href, 'share-facebook','width=580,height=400');return false;" title="Share on Facebook">
+                                                {{>partials/icons/facebook}}
+                                            </a>
+                                            <a class="floating-header-share-bsky" href="https://bsky.app/intent/compose?text={{encode title}}%20{{_rel}}{{slug}}.html"
+                                                target="_blank" rel="noopener noreferrer" onclick="window.open(this.href, 'share-bluesky','width=580,height=420');return false;" title="Share on BlueSky">
+                                                {{>partials/icons/bluesky}}
+                                            </a>
+                                            <a class="floating-header-share-masto" href="https://mastodon.social/share?text={{encode title}}%20{{_rel}}{{slug}}.html"
+                                                target="_blank" rel="noopener noreferrer" onclick="window.open(this.href, 'share-mastodon','width=600,height=600');return false;" title="Share on Mastodon">
+                                                {{>partials/icons/mastodon}}
+                                            </a>
+                                            <a class="floating-header-share-li" href="https://www.linkedin.com/feed/?shareActive=true&amp;text={{encode title}}%20{{_rel}}{{slug}}.html"
+                                                target="_blank" rel="noopener noreferrer" onclick="window.open(this.href, 'share-linkedin','width=650,height=650');return false;" title="Share on LinkedIn">
+                                                {{>partials/icons/linkedin}}
+                                            </a>
+                                            <a class="floating-header-share-re" href="https://reddit.com/submit?url={{_rel}}{{slug}}.html&title={{encode title}}"
+                                                target="_blank" rel="noopener noreferrer" onclick="window.open(this.href, 'share-reddit','width=580,height=500');return false;" title="Share on Reddit">
+                                                {{>partials/icons/reddit}}
+                                            </a>
+                                            <a class="floating-header-share-email" href="mailto:?subject={{encode title}}&body=Check out this site: {{_rel}}{{slug}}.html" title="Share via Email">
+                                                {{>partials/icons/email}}
+                                            </a>
+                                        </div>
+                                        <progress id="reading-progress" class="progress" value="0">
+                                            <div class="progress-container">
+                                                <span class="progress-bar"></span>
+                                            </div>
+                                        </progress>
+                                    </div>
+
+                                    <script>
+                                    (function () {
+                                        function initFloatingHeader() {
+                                            var header = document.querySelector('.floating-header');
+                                            if (!header) return;
+
+                                            var progressBar = document.querySelector('#reading-progress');
+                                            var title = document.querySelector('.post-full-title') || document.querySelector('.site-title') || document.querySelector('h1');
+
+                                            try {
+                                                var rawUrl = window.location.href;
+                                                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                                                    rawUrl = 'https://jochen.kirstaetter.name' + window.location.pathname;
+                                                }
+                                                var currentUrl = encodeURIComponent(rawUrl);
+                                                var currentTitle = encodeURIComponent(document.title || (title ? title.innerText : ''));
+
+                                                var x = header.querySelector('.floating-header-share-x, .floating-header-share-tw');
+                                                if (x) x.href = 'https://x.com/intent/post?text=' + currentTitle + '&url=' + currentUrl;
+
+                                                var fb = header.querySelector('.floating-header-share-fb');
+                                                if (fb) fb.href = 'https://www.facebook.com/sharer/sharer.php?u=' + currentUrl;
+
+                                                var bsky = header.querySelector('.floating-header-share-bsky');
+                                                if (bsky) bsky.href = 'https://bsky.app/intent/compose?text=' + currentTitle + '%20' + currentUrl;
+
+                                                var masto = header.querySelector('.floating-header-share-masto');
+                                                if (masto) masto.href = 'https://mastodon.social/share?text=' + currentTitle + '%20' + currentUrl;
+
+                                                var li = header.querySelector('.floating-header-share-li');
+                                                if (li) li.href = 'https://www.linkedin.com/feed/?shareActive=true&text=' + currentTitle + '%20' + currentUrl;
+
+                                                var re = header.querySelector('.floating-header-share-re');
+                                                if (re) re.href = 'https://reddit.com/submit?url=' + currentUrl + '&title=' + currentTitle;
+
+                                                var em = header.querySelector('.floating-header-share-email');
+                                                if (em) em.href = 'mailto:?subject=' + currentTitle + '&body=Check out this site: ' + currentUrl;
+                                            } catch (e) {}
+
+                                            var ticking = false;
+
+                                            function update() {
+                                                var lastScrollY = window.scrollY || window.pageYOffset;
+                                                var lastWindowHeight = window.innerHeight;
+                                                var lastDocumentHeight = Math.max(
+                                                    document.body.scrollHeight, document.documentElement.scrollHeight,
+                                                    document.body.offsetHeight, document.documentElement.offsetHeight
+                                                );
+
+                                                var trigger = 150;
+                                                if (title) {
+                                                    var rect = title.getBoundingClientRect();
+                                                    trigger = rect.top + lastScrollY + (title.offsetHeight || 40);
+                                                }
+                                                var progressMax = lastDocumentHeight - lastWindowHeight;
+
+                                                if (lastScrollY >= trigger) {
+                                                    header.classList.add('floating-active');
+                                                } else {
+                                                    header.classList.remove('floating-active');
+                                                }
+
+                                                if (progressBar && progressMax > 0) {
+                                                    progressBar.setAttribute('max', progressMax);
+                                                    progressBar.setAttribute('value', lastScrollY);
+                                                }
+
+                                                ticking = false;
+                                            }
+
+                                            function requestTick() {
+                                                if (!ticking) {
+                                                    requestAnimationFrame(update);
+                                                }
+                                                ticking = true;
+                                            }
+
+                                            window.addEventListener('scroll', requestTick, { passive: true });
+                                            window.addEventListener('resize', requestTick, false);
+
+                                            update();
+                                        }
+
+                                        if (document.readyState === 'loading') {
+                                            document.addEventListener('DOMContentLoaded', initFloatingHeader);
+                                        } else {
+                                            initFloatingHeader();
+                                        }
+                                    })();
+                                    </script>
+                                    """;
+                    }
                 }
                 else
                 {
@@ -822,12 +965,168 @@ public static class DocfxGenerator
                         Directory.CreateDirectory(partialLayoutDir);
                         string partialLayoutPath =
                             Path.Combine(partialLayoutDir, $"{hbsNameLower}_layout.tmpl.partial");
-                        string partialContent = Regex.Replace(converted, @"^\{\{!master\([^)]+\)\}\}\s*\r?\n?", "",
-                            RegexOptions.IgnoreCase);
+
+                        string partialContent;
+                        if (hbsNameLower == "index")
+                        {
+                            partialContent = """
+                                <header class="site-home-header">
+                                    <div class="outer site-header-background {{#coverImage}}responsive-header-img{{/coverImage}}{{^coverImage}}{{#_appCoverImage}}responsive-header-img{{/_appCoverImage}}{{/coverImage}}" style="{{#coverImage}}background-image: url('{{_rel}}{{.}}');{{/coverImage}}{{^coverImage}}{{#_appCoverImage}}background-image: url('{{_rel}}{{.}}');{{/_appCoverImage}}{{/coverImage}}">
+                                        <div class="inner">
+                                            {{>partials/site-nav}}
+                                            <div class="site-header-content">
+                                                <h1 class="site-title">
+                                                    {{#_appLogoPath}}
+                                                        <img class="site-logo" src="{{_rel}}{{.}}" alt="{{#title}}{{title}}{{/title}}{{^title}}{{_appTitle}}{{/title}}" />
+                                                    {{/_appLogoPath}}
+                                                    {{^_appLogoPath}}
+                                                        {{#title}}{{title}}{{/title}}{{^title}}{{_appTitle}}{{/title}}
+                                                    {{/_appLogoPath}}
+                                                </h1>
+                                                <h2 class="site-description">{{#description}}{{description}}{{/description}}{{^description}}{{_appDescription}}{{/description}}</h2>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </header>
+
+                                <main id="site-main" class="site-main outer">
+                                    <div class="inner">
+
+                                        <div class="post-feed">
+                                            {{#posts}}
+                                                {{>partials/post-card}}
+                                            {{/posts}}
+                                            {{{conceptual}}}
+                                        </div>
+
+                                    </div>
+                                </main>
+                                """;
+                        }
+                        else if (hbsNameLower == "author")
+                        {
+                            partialContent = """
+                                <header class="site-header outer {{#image}}responsive-header-img{{/image}}{{^image}}{{#featureImage}}responsive-header-img{{/featureImage}}{{^featureImage}}{{#_appCoverImage}}responsive-header-img{{/_appCoverImage}}{{/featureImage}}{{/image}}" style="{{#image}}background-image: url('{{_rel}}{{.}}');{{/image}}{{^image}}{{#featureImage}}background-image: url('{{_rel}}{{.}}');{{/featureImage}}{{^featureImage}}{{#_appCoverImage}}background-image: url('{{_rel}}{{.}}');{{/_appCoverImage}}{{/featureImage}}{{/image}}">
+                                    <div class="inner">
+                                        {{>partials/site-nav}}
+                                        <div class="site-header-content author-header">
+                                            {{#featureImage}}
+                                                <img class="author-profile-image" src="{{_rel}}{{.}}" alt="{{title}}" />
+                                            {{/featureImage}}
+                                            <div class="author-header-content">
+                                                <h1 class="site-title">{{title}}</h1>
+                                                {{#description}}
+                                                    <h2 class="site-description author-bio">{{.}}</h2>
+                                                {{/description}}
+                                                <div class="author-meta">
+                                                    {{#location}}
+                                                        <div class="author-location"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>{{.}}</div>
+                                                    {{/location}}
+                                                    {{#website}}
+                                                        <span class="author-link"><a href="{{.}}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>{{.}}</a></span>
+                                                    {{/website}}
+                                                    {{#authorTwitter}}
+                                                        <span class="author-social-link"><a href="https://twitter.com/{{.}}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>{{.}}</a></span>
+                                                    {{/authorTwitter}}
+                                                    {{#authorFacebook}}
+                                                        <span class="author-social-link"><a href="{{.}}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z"/></svg>Facebook</a></span>
+                                                    {{/authorFacebook}}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </header>
+
+                                <main id="site-main" class="site-main outer">
+                                    <div class="inner">
+                                        <article class="post-full {{postClass}}">
+                                            <section class="post-full-content">
+                                                <div class="post-content">
+                                                    {{#posts}}
+                                                        {{>partials/post-card}}
+                                                    {{/posts}}
+                                                    {{{conceptual}}}
+                                                </div>
+                                            </section>
+                                        </article>
+                                    </div>
+                                </main>
+                                """;
+                        }
+                        else if (hbsNameLower == "tag")
+                        {
+                            partialContent = """
+                                <header class="site-header outer {{#featureImage}}responsive-header-img{{/featureImage}}{{^featureImage}}{{#_appCoverImage}}responsive-header-img{{/_appCoverImage}}{{/featureImage}}" style="{{#featureImage}}background-image: url('{{_rel}}{{.}}');{{/featureImage}}{{^featureImage}}{{#_appCoverImage}}background-image: url('{{_rel}}{{.}}');{{/_appCoverImage}}{{/featureImage}}">
+                                    <div class="inner">
+                                        {{>partials/site-nav}}
+                                        <div class="site-header-content">
+                                            <h1 class="site-title">{{title}}</h1>
+                                            <h2 class="site-description">
+                                                {{#description}}
+                                                    {{.}}
+                                                {{/description}}
+                                                {{^description}}
+                                                    A collection of posts tagged with {{title}}
+                                                {{/description}}
+                                            </h2>
+                                        </div>
+                                    </div>
+                                </header>
+
+                                <main id="site-main" class="site-main outer">
+                                    <div class="inner">
+                                        <div class="post-feed">
+                                            {{#posts}}
+                                                {{>partials/post-card}}
+                                            {{/posts}}
+                                            {{{conceptual}}}
+                                        </div>
+                                    </div>
+                                </main>
+                                """;
+                        }
+                        else if (hbsNameLower == "page")
+                        {
+                            partialContent = """
+                                <header class="site-header outer">
+                                    <div class="inner">
+                                        {{>partials/site-nav}}
+                                    </div>
+                                </header>
+
+                                <main id="site-main" class="site-main outer">
+                                    <div class="inner">
+                                        <article class="post-full {{postClass}} {{^featureImage}}no-image{{/featureImage}}">
+                                            {{#featureImage}}
+                                            <figure class="post-full-image">
+                                                <img src="{{_rel}}{{.}}" alt="{{title}}" />
+                                            </figure>
+                                            {{/featureImage}}
+
+                                            <header class="post-full-header">
+                                                <h1 class="post-full-title">{{title}}</h1>
+                                            </header>
+
+                                            <section class="post-full-content">
+                                                <div class="post-content">
+                                                    {{{conceptual}}}
+                                                </div>
+                                            </section>
+                                        </article>
+                                    </div>
+                                </main>
+                                """;
+                        }
+                        else
+                        {
+                            partialContent = Regex.Replace(converted, @"^\{\{!master\([^)]+\)\}\}\s*\r?\n?", "",
+                                RegexOptions.IgnoreCase);
+                        }
+
                         await File.WriteAllTextAsync(partialLayoutPath, partialContent, System.Text.Encoding.UTF8);
 
                         targetPath = Path.Combine(targetTemplateDir, $"{hbsNameLower}.html.primary.tmpl");
-                        converted = "{{{conceptual}}}";
+                        converted = $"{{!master(layout/_master.tmpl)}}\n{{{{>partials/{hbsNameLower}_layout}}}}";
                     }
                     else if (hbsNameLower == "error-404")
                     {
@@ -1133,6 +1432,10 @@ public static class DocfxGenerator
         if (isLayout)
         {
             result = "{{!include(/^public/.*/)}}\n{{!include(favicon.ico)}}\n{{!include(logo.svg)}}\n" + result;
+            if (!result.Contains("{{>partials/floating-header}}", StringComparison.OrdinalIgnoreCase))
+            {
+                result = Regex.Replace(result, @"(<div\s+class=[""']site-wrapper[""'][^>]*>)", "$1\n\n        {{>partials/floating-header}}\n", RegexOptions.IgnoreCase);
+            }
         }
 
         // Convert Ghost Head & Foot using partial templates

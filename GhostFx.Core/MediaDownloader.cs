@@ -29,13 +29,47 @@ public static class MediaDownloader
         string ghostUrl,
         string outputDir,
         Action<int, int, string>? onProgress = null,
-        HttpClient? customClient = null)
+        HttpClient? customClient = null,
+        List<GhostUser>? authors = null)
     {
         string cleanGhostUrl = ghostUrl.TrimEnd('/');
         string mediaDir = Path.Combine(outputDir, "content", "images");
         Directory.CreateDirectory(mediaDir);
 
         var urlToLocalPathMap = new Dictionary<string, (string RelativePath, string FullUrl, string LocalFilePath)>(StringComparer.OrdinalIgnoreCase);
+
+        if (authors != null)
+        {
+            foreach (var author in authors)
+            {
+                List<string> authorUrls = [];
+                if (!string.IsNullOrWhiteSpace(author.ProfileImage)) authorUrls.Add(author.ProfileImage);
+                if (!string.IsNullOrWhiteSpace(author.CoverImage)) authorUrls.Add(author.CoverImage);
+
+                foreach (var url in authorUrls)
+                {
+                    if (string.IsNullOrWhiteSpace(url) || url.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    string fullUrl = url;
+                    if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                        !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        fullUrl = $"{cleanGhostUrl}/{url.TrimStart('/')}";
+                    }
+
+                    string relativePath = ExtractRelativePath(url);
+                    if (string.IsNullOrWhiteSpace(relativePath)) continue;
+
+                    string localFilePath = Path.Combine(mediaDir, relativePath);
+
+                    if (!urlToLocalPathMap.ContainsKey(url))
+                    {
+                        urlToLocalPathMap[url] = (relativePath, fullUrl, localFilePath);
+                    }
+                }
+            }
+        }
 
         foreach (var post in posts)
         {
@@ -205,6 +239,34 @@ public static class MediaDownloader
                     string.Equals(post.FacebookImage, info.FullUrl, StringComparison.OrdinalIgnoreCase))
                 {
                     post.FacebookImage = relativePublishedPath;
+                }
+            }
+        }
+
+        if (authors != null)
+        {
+            foreach (var author in authors)
+            {
+                foreach (var kvp in urlToLocalPathMap)
+                {
+                    string origUrl = kvp.Key;
+                    var info = kvp.Value;
+
+                    if (!File.Exists(info.LocalFilePath)) continue;
+
+                    string relativePublishedPath = $"content/images/{info.RelativePath.Replace('\\', '/').TrimStart('/')}";
+
+                    if (string.Equals(author.ProfileImage, origUrl, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(author.ProfileImage, info.FullUrl, StringComparison.OrdinalIgnoreCase))
+                    {
+                        author.ProfileImage = relativePublishedPath;
+                    }
+
+                    if (string.Equals(author.CoverImage, origUrl, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(author.CoverImage, info.FullUrl, StringComparison.OrdinalIgnoreCase))
+                    {
+                        author.CoverImage = relativePublishedPath;
+                    }
                 }
             }
         }
