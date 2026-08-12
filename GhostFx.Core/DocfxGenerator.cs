@@ -762,11 +762,18 @@ public static class DocfxGenerator
                                         {{/image}}
 
                                         <div class="post-card-content">
+                                            <div class="post-card-content-header">
+                                                {{#primaryTag}}
+                                                    {{#tagSlug}}
+                                                        <span class="post-card-tags"><a href="{{_rel}}tags/{{.}}.html">{{primaryTag}}</a></span>
+                                                    {{/tagSlug}}
+                                                    {{^tagSlug}}
+                                                        <span class="post-card-tags">{{.}}</span>
+                                                    {{/tagSlug}}
+                                                {{/primaryTag}}
+                                            </div>
                                             <a class="post-card-content-link" href="{{_rel}}{{slug}}.html">
                                                 <header class="post-card-header">
-                                                    {{#primaryTag}}
-                                                        <span class="post-card-tags">{{.}}</span>
-                                                    {{/primaryTag}}
                                                     <h2 class="post-card-title">{{title}}</h2>
                                                 </header>
                                                 {{#excerpt}}
@@ -1942,7 +1949,7 @@ public static class DocfxGenerator
                                          <div class="post-card-content-header">
                                              {{#primaryTag}}
                                                  {{#tagSlug}}
-                                                     <span class="post-card-tags"><a href="{{_rel}}tag/{{.}}.html">{{primaryTag}}</a></span>
+                                                     <span class="post-card-tags"><a href="{{_rel}}tags/{{.}}.html">{{primaryTag}}</a></span>
                                                  {{/tagSlug}}
                                                  {{^tagSlug}}
                                                      <span class="post-card-tags">{{.}}</span>
