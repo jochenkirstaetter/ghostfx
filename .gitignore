@@ -117,3 +117,10 @@ jwt_gen.py
 _exported_templates/
 _ghost_templates/
 _site
+ghostfx-get.js
+
+# Firebase
+.firebase/
+.firebaserc
+firebase.json
+firebase-debug.log
