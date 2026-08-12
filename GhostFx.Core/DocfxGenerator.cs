@@ -1027,7 +1027,7 @@ public static class DocfxGenerator
                                                              {{/authorImage}}
                                                              <h1 class="site-title">{{title}}</h1>
                                                              {{#description}}
-                                                                 <h2 class="site-description author-bio">{{.}}</h2>
+                                                                 <h2 class="site-description">{{.}}</h2>
                                                              {{/description}}
                                                              <div class="author-meta">
                                                                  {{#location}}
@@ -1624,7 +1624,8 @@ public static class DocfxGenerator
         var tagStack = new System.Collections.Generic.Stack<string>();
 
         result = Regex.Replace(result,
-            @"\{\{\s*(#foreach|#has|#if|#unless|#is|\^is|\/foreach|\/has|\/if|\/unless|\/is)\s*([^}]*?)\s*\}\}", m =>
+            @"\{\{\s*(#foreach|#has|#if|\^if|#unless|\^unless|#is|\^is|\/foreach|\/has|\/if|\/unless|\/is)\s*([^}]*?)\s*\}\}",
+            m =>
             {
                 string marker = m.Groups[1].Value.ToLowerInvariant();
                 string arg = m.Groups[2].Value.Trim();
@@ -1673,7 +1674,12 @@ public static class DocfxGenerator
                         tagStack.Push(propertyName);
                         return "{{" + "#" + propertyName + "}}";
                     }
-                    else // #unless
+                    else if (marker == "^if")
+                    {
+                        tagStack.Push(propertyName);
+                        return "{{" + "^" + propertyName + "}}";
+                    }
+                    else // #unless or ^unless
                     {
                         tagStack.Push(propertyName);
                         return "{{" + "^" + propertyName + "}}";
