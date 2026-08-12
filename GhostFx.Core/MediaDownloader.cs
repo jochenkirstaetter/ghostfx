@@ -30,7 +30,8 @@ public static class MediaDownloader
         string outputDir,
         Action<int, int, string>? onProgress = null,
         HttpClient? customClient = null,
-        List<GhostUser>? authors = null)
+        List<GhostUser>? authors = null,
+        List<GhostTag>? tags = null)
     {
         string cleanGhostUrl = ghostUrl.TrimEnd('/');
         string mediaDir = Path.Combine(outputDir, "content", "images");
@@ -48,6 +49,36 @@ public static class MediaDownloader
 
                 foreach (var url in authorUrls)
                 {
+                    if (string.IsNullOrWhiteSpace(url) || url.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    string fullUrl = url;
+                    if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                        !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        fullUrl = $"{cleanGhostUrl}/{url.TrimStart('/')}";
+                    }
+
+                    string relativePath = ExtractRelativePath(url);
+                    if (string.IsNullOrWhiteSpace(relativePath)) continue;
+
+                    string localFilePath = Path.Combine(mediaDir, relativePath);
+
+                    if (!urlToLocalPathMap.ContainsKey(url))
+                    {
+                        urlToLocalPathMap[url] = (relativePath, fullUrl, localFilePath);
+                    }
+                }
+            }
+        }
+
+        if (tags != null)
+        {
+            foreach (var tag in tags)
+            {
+                if (!string.IsNullOrWhiteSpace(tag.FeatureImage))
+                {
+                    string url = tag.FeatureImage;
                     if (string.IsNullOrWhiteSpace(url) || url.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
                         continue;
 
@@ -266,6 +297,28 @@ public static class MediaDownloader
                         string.Equals(author.CoverImage, info.FullUrl, StringComparison.OrdinalIgnoreCase))
                     {
                         author.CoverImage = relativePublishedPath;
+                    }
+                }
+            }
+        }
+
+        if (tags != null)
+        {
+            foreach (var tag in tags)
+            {
+                foreach (var kvp in urlToLocalPathMap)
+                {
+                    string origUrl = kvp.Key;
+                    var info = kvp.Value;
+
+                    if (!File.Exists(info.LocalFilePath)) continue;
+
+                    string relativePublishedPath = $"content/images/{info.RelativePath.Replace('\\', '/').TrimStart('/')}";
+
+                    if (string.Equals(tag.FeatureImage, origUrl, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(tag.FeatureImage, info.FullUrl, StringComparison.OrdinalIgnoreCase))
+                    {
+                        tag.FeatureImage = relativePublishedPath;
                     }
                 }
             }

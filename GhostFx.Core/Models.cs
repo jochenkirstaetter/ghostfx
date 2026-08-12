@@ -195,8 +195,8 @@ public sealed class PostCardItem
     [YamlMember(Alias = "formattedDate")]
     public string FormattedDate { get; set; } = string.Empty;
 
-    [YamlMember(Alias = "featureImage")]
-    public string FeatureImage { get; set; } = string.Empty;
+    [YamlMember(Alias = "image")]
+    public string Image { get; set; } = string.Empty;
 
     [YamlMember(Alias = "excerpt")]
     public string Excerpt { get; set; } = string.Empty;
@@ -212,6 +212,9 @@ public sealed class PostCardItem
 
     [YamlMember(Alias = "primaryTag")]
     public string PrimaryTag { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "tagSlug")]
+    public string TagSlug { get; set; } = string.Empty;
 
     [YamlMember(Alias = "tagClass")]
     public string TagClass { get; set; } = string.Empty;
@@ -431,6 +434,9 @@ public class GhostTag
 
     [JsonPropertyName("description")]
     public string Description { get; set; } = string.Empty;
+
+    [JsonPropertyName("feature_image")]
+    public string? FeatureImage { get; set; }
 }
 
 public class GhostPostTagMap

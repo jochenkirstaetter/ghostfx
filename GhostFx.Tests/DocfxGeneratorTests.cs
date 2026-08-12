@@ -118,7 +118,7 @@ public class DocfxGeneratorTests : IDisposable
         Assert.Contains("{{/posts}}", converted);
         Assert.Contains("{{#tags}}", converted);
         Assert.Contains("{{/tags}}", converted);
-        Assert.Contains("{{featureImage}}", converted);
+        Assert.Contains("{{image}}", converted);
     }
 
     [Fact]

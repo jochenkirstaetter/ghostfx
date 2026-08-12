@@ -238,7 +238,7 @@ public class MigrationEngine
                 string ghostBaseUrl =
                     !string.IsNullOrWhiteSpace(config.GhostUrl) ? config.GhostUrl : "https://localhost";
                 var mediaFiles = await MediaDownloader.ProcessAndDownloadMediaAsync(allPosts, ghostBaseUrl,
-                    config.OutputDir, onProgress, authors: allUsers);
+                    config.OutputDir, onProgress, authors: allUsers, tags: allTags);
                 result.GeneratedFiles.AddRange(mediaFiles);
             }
 
@@ -540,7 +540,7 @@ public class MigrationEngine
             string indexFileName = Path.GetFileName(config.IndexFile);
             string indexPath = Path.Combine(config.OutputDir, indexFileName);
             GenerateFrontPage(indexPath, publishedMetaList, config.SiteTitle, siteDescription, siteCover,
-                config.IndexPostCount);
+                config.IndexPostCount, allTags);
             result.GeneratedFiles.Add(indexPath);
 
             // Generate subfolder Table of Contents files
@@ -670,8 +670,7 @@ public class MigrationEngine
                         FacebookTitle = metaTitle,
                         FacebookDescription = metaDescription,
                         FacebookImage = coverOrProfile,
-                        Image = author.CoverImage ?? "",
-                        FeatureImage = author.ProfileImage ?? ""
+                        Image = author.CoverImage ?? ""
                     };
 
                     var authorPosts = publishedMetaList
@@ -791,7 +790,7 @@ public class MigrationEngine
     }
 
     private static void GenerateFrontPage(string indexPath, List<BlogPostMetadata> posts, string siteTitle,
-        string? siteDescription, string? siteCoverImage, int indexPostCount = 12)
+        string? siteDescription, string? siteCoverImage, int indexPostCount = 12, List<GhostTag>? allTags = null)
     {
         var cardItems = new List<PostCardItem>();
         var recentPosts = posts.OrderByDescending(p => p.Date).Take(indexPostCount).ToList();
@@ -802,6 +801,15 @@ public class MigrationEngine
                 ? $"tag-{primaryTag.ToLowerInvariant().Replace(" ", "-").Replace("_", "-")}"
                 : "";
             string imageClass = !string.IsNullOrWhiteSpace(post.FeatureImage) ? "with-image" : "no-image";
+            string tagSlug = "";
+            if (!string.IsNullOrEmpty(primaryTag))
+            {
+                var matchedTag = allTags?.FirstOrDefault(t =>
+                    string.Equals(t.Name, primaryTag, StringComparison.OrdinalIgnoreCase));
+                tagSlug = matchedTag != null
+                    ? matchedTag.Slug
+                    : primaryTag.ToLowerInvariant().Replace(" ", "-").Replace("_", "-");
+            }
 
             cardItems.Add(new PostCardItem
             {
@@ -809,12 +817,13 @@ public class MigrationEngine
                 Slug = post.Slug,
                 Date = post.Date.ToString("yyyy-MM-dd"),
                 FormattedDate = post.Date.ToString("MMM d, yyyy"),
-                FeatureImage = post.FeatureImage,
+                Image = post.FeatureImage,
                 Excerpt = post.Excerpt,
                 AuthorName = post.AuthorName,
                 AuthorSlug = post.AuthorSlug,
                 AuthorImage = post.AuthorImage,
                 PrimaryTag = primaryTag,
+                TagSlug = tagSlug,
                 TagClass = tagClass,
                 ImageClass = imageClass
             });
@@ -1030,7 +1039,7 @@ public class MigrationEngine
             var sb = new System.Text.StringBuilder();
             sb.AppendLine("---");
             sb.AppendLine($"uid: tag-{tag.Slug}");
-            sb.AppendLine($"title: \"Tag: {tag.Name.Replace("\"", "\\\"")}\"");
+            sb.AppendLine($"title: \"{tag.Name.Replace("\"", "\\\"")}\"");
             sb.AppendLine("layout: tag");
             sb.AppendLine("isTagPage: true");
             sb.AppendLine($"bodyClass: \"tag-template tag-{tag.Slug}\"");
@@ -1039,6 +1048,14 @@ public class MigrationEngine
             {
                 sb.AppendLine(
                     $"tagDescription: \"{tag.Description.Replace("\"", "\\\"").Replace("\n", " ").Replace("\r", "")}\"");
+            }
+
+            if (!string.IsNullOrWhiteSpace(tag.FeatureImage))
+            {
+                string relTagImg = tag.FeatureImage.StartsWith("content/", StringComparison.OrdinalIgnoreCase)
+                    ? $"../{tag.FeatureImage}"
+                    : tag.FeatureImage;
+                sb.AppendLine($"image: \"{relTagImg}\"");
             }
 
             sb.AppendLine("---");

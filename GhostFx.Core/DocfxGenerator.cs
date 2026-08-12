@@ -747,7 +747,7 @@ public static class DocfxGenerator
                         converted = """
                                     <article class="post-card post {{tagClass}} {{imageClass}}">
 
-                                        {{#featureImage}}
+                                        {{#image}}
                                         <a class="post-card-image-link" href="{{_rel}}{{slug}}.html" aria-label="{{title}}">
                                             <img class="post-card-image"
                                                 srcset="{{_rel}}{{.}} 300w,
@@ -759,7 +759,7 @@ public static class DocfxGenerator
                                                 alt="{{title}}"
                                             />
                                         </a>
-                                        {{/featureImage}}
+                                        {{/image}}
 
                                         <div class="post-card-content">
                                             <a class="post-card-content-link" href="{{_rel}}{{slug}}.html">
@@ -970,152 +970,177 @@ public static class DocfxGenerator
                         if (hbsNameLower == "index")
                         {
                             partialContent = """
-                                <header class="site-home-header">
-                                    <div class="outer site-header-background {{#coverImage}}responsive-header-img{{/coverImage}}{{^coverImage}}{{#_appCoverImage}}responsive-header-img{{/_appCoverImage}}{{/coverImage}}" style="{{#coverImage}}background-image: url('{{_rel}}{{.}}');{{/coverImage}}{{^coverImage}}{{#_appCoverImage}}background-image: url('{{_rel}}{{.}}');{{/_appCoverImage}}{{/coverImage}}">
-                                        <div class="inner">
-                                            {{>partials/site-nav}}
-                                            <div class="site-header-content">
-                                                <h1 class="site-title">
-                                                    {{#_appLogoPath}}
-                                                        <img class="site-logo" src="{{_rel}}{{.}}" alt="{{#title}}{{title}}{{/title}}{{^title}}{{_appTitle}}{{/title}}" />
-                                                    {{/_appLogoPath}}
-                                                    {{^_appLogoPath}}
-                                                        {{#title}}{{title}}{{/title}}{{^title}}{{_appTitle}}{{/title}}
-                                                    {{/_appLogoPath}}
-                                                </h1>
-                                                <h2 class="site-description">{{#description}}{{description}}{{/description}}{{^description}}{{_appDescription}}{{/description}}</h2>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </header>
+                                             <header class="site-home-header">
+                                                 <div class="outer site-header-background {{#coverImage}}responsive-header-img{{/coverImage}}{{^coverImage}}{{#_appCoverImage}}responsive-header-img{{/_appCoverImage}}{{/coverImage}}" style="{{#coverImage}}background-image: url('{{_rel}}{{.}}');{{/coverImage}}{{^coverImage}}{{#_appCoverImage}}background-image: url('{{_rel}}{{.}}');{{/_appCoverImage}}{{/coverImage}}">
+                                                     <div class="inner">
+                                                         {{>partials/site-nav}}
+                                                         <div class="site-header-content">
+                                                             <h1 class="site-title">
+                                                                 {{#_appLogoPath}}
+                                                                     <img class="site-logo" src="{{_rel}}{{.}}" alt="{{#title}}{{title}}{{/title}}{{^title}}{{_appTitle}}{{/title}}" />
+                                                                 {{/_appLogoPath}}
+                                                                 {{^_appLogoPath}}
+                                                                     {{#title}}{{title}}{{/title}}{{^title}}{{_appTitle}}{{/title}}
+                                                                 {{/_appLogoPath}}
+                                                             </h1>
+                                                             <h2 class="site-description">{{#description}}{{description}}{{/description}}{{^description}}{{_appDescription}}{{/description}}</h2>
+                                                         </div>
+                                                     </div>
+                                                 </div>
+                                             </header>
 
-                                <main id="site-main" class="site-main outer">
-                                    <div class="inner">
+                                             <main id="site-main" class="site-main outer">
+                                                 <div class="inner">
 
-                                        <div class="post-feed">
-                                            {{#posts}}
-                                                {{>partials/post-card}}
-                                            {{/posts}}
-                                            {{{conceptual}}}
-                                        </div>
+                                                     <div class="post-feed">
+                                                         {{#posts}}
+                                                             {{>partials/post-card}}
+                                                         {{/posts}}
+                                                         {{{conceptual}}}
+                                                     </div>
 
-                                    </div>
-                                </main>
-                                """;
+                                                 </div>
+                                             </main>
+                                             """;
                         }
                         else if (hbsNameLower == "author")
                         {
                             partialContent = """
-                                <header class="site-header outer {{#image}}responsive-header-img{{/image}}{{^image}}{{#featureImage}}responsive-header-img{{/featureImage}}{{^featureImage}}{{#_appCoverImage}}responsive-header-img{{/_appCoverImage}}{{/featureImage}}{{/image}}" style="{{#image}}background-image: url('{{_rel}}{{.}}');{{/image}}{{^image}}{{#featureImage}}background-image: url('{{_rel}}{{.}}');{{/featureImage}}{{^featureImage}}{{#_appCoverImage}}background-image: url('{{_rel}}{{.}}');{{/_appCoverImage}}{{/featureImage}}{{/image}}">
-                                    <div class="inner">
-                                        {{>partials/site-nav}}
-                                        <div class="site-header-content author-header">
-                                            {{#featureImage}}
-                                                <img class="author-profile-image" src="{{_rel}}{{.}}" alt="{{title}}" />
-                                            {{/featureImage}}
-                                            <div class="author-header-content">
-                                                <h1 class="site-title">{{title}}</h1>
-                                                {{#description}}
-                                                    <h2 class="site-description author-bio">{{.}}</h2>
-                                                {{/description}}
-                                                <div class="author-meta">
-                                                    {{#location}}
-                                                        <div class="author-location"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>{{.}}</div>
-                                                    {{/location}}
-                                                    {{#website}}
-                                                        <span class="author-link"><a href="{{.}}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>{{.}}</a></span>
-                                                    {{/website}}
-                                                    {{#authorTwitter}}
-                                                        <span class="author-social-link"><a href="https://twitter.com/{{.}}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>{{.}}</a></span>
-                                                    {{/authorTwitter}}
-                                                    {{#authorFacebook}}
-                                                        <span class="author-social-link"><a href="{{.}}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z"/></svg>Facebook</a></span>
-                                                    {{/authorFacebook}}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </header>
+                                             <header class="site-header outer">
+                                                 <div class="inner">
+                                                     {{>partials/site-nav}}
+                                                 </div>
+                                             </header>
 
-                                <main id="site-main" class="site-main outer">
-                                    <div class="inner">
-                                        <article class="post-full {{postClass}}">
-                                            <section class="post-full-content">
-                                                <div class="post-content">
-                                                    {{#posts}}
-                                                        {{>partials/post-card}}
-                                                    {{/posts}}
-                                                    {{{conceptual}}}
-                                                </div>
-                                            </section>
-                                        </article>
-                                    </div>
-                                </main>
-                                """;
+                                             <main id="site-main" class="site-main outer">
+                                                 <div class="inner">
+                                                     <article class="post-full {{postClass}} {{^image}}no-image{{/image}}">
+                                                         {{#image}}
+                                                         <figure class="post-full-image">
+                                                             <a target="_blank" rel="noopener noreferrer nofollow" href="{{_rel}}{{.}}"><img src="{{_rel}}{{.}}" alt="{{title}}" /></a>
+                                                         </figure>
+                                                         {{/image}}
+
+                                                         <header class="post-full-header author-header">
+                                                             {{#authorImage}}
+                                                                 <img class="author-profile-image" src="{{_rel}}{{.}}" alt="{{title}}" />
+                                                             {{/authorImage}}
+                                                             <h1 class="site-title">{{title}}</h1>
+                                                             {{#description}}
+                                                                 <h2 class="site-description author-bio">{{.}}</h2>
+                                                             {{/description}}
+                                                             <div class="author-meta">
+                                                                 {{#location}}
+                                                                     <div class="author-location"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>{{.}}</div>
+                                                                 {{/location}}
+                                                                 {{#website}}
+                                                                     <span class="author-link"><a href="{{.}}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>{{.}}</a></span>
+                                                                 {{/website}}
+                                                                 {{#authorTwitter}}
+                                                                     <span class="author-social-link"><a href="https://twitter.com/{{.}}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>{{.}}</a></span>
+                                                                 {{/authorTwitter}}
+                                                                 {{#authorFacebook}}
+                                                                     <span class="author-social-link"><a href="{{.}}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z"/></svg>Facebook</a></span>
+                                                                 {{/authorFacebook}}
+                                                             </div>
+                                                         </header>
+
+                                                         <section class="post-full-content">
+                                                             <div class="post-content">
+                                                                 {{#posts}}
+                                                                     {{>partials/post-card}}
+                                                                 {{/posts}}
+                                                                 {{{conceptual}}}
+                                                             </div>
+                                                         </section>
+                                                     </article>
+                                                 </div>
+                                             </main>
+                                             """;
                         }
                         else if (hbsNameLower == "tag")
                         {
                             partialContent = """
-                                <header class="site-header outer {{#featureImage}}responsive-header-img{{/featureImage}}{{^featureImage}}{{#_appCoverImage}}responsive-header-img{{/_appCoverImage}}{{/featureImage}}" style="{{#featureImage}}background-image: url('{{_rel}}{{.}}');{{/featureImage}}{{^featureImage}}{{#_appCoverImage}}background-image: url('{{_rel}}{{.}}');{{/_appCoverImage}}{{/featureImage}}">
-                                    <div class="inner">
-                                        {{>partials/site-nav}}
-                                        <div class="site-header-content">
-                                            <h1 class="site-title">{{title}}</h1>
-                                            <h2 class="site-description">
-                                                {{#description}}
-                                                    {{.}}
-                                                {{/description}}
-                                                {{^description}}
-                                                    A collection of posts tagged with {{title}}
-                                                {{/description}}
-                                            </h2>
-                                        </div>
-                                    </div>
-                                </header>
+                                             <header class="site-header outer">
+                                                 <div class="inner">
+                                                     {{>partials/site-nav}}
+                                                 </div>
+                                             </header>
 
-                                <main id="site-main" class="site-main outer">
-                                    <div class="inner">
-                                        <div class="post-feed">
-                                            {{#posts}}
-                                                {{>partials/post-card}}
-                                            {{/posts}}
-                                            {{{conceptual}}}
-                                        </div>
-                                    </div>
-                                </main>
-                                """;
+                                             <main id="site-main" class="site-main outer">
+                                                 <div class="inner">
+                                                     <article class="post-full {{postClass}} {{^image}}{{^featureImage}}no-image{{/featureImage}}{{/image}}">
+                                                         {{#image}}
+                                                         <figure class="post-full-image">
+                                                             <a target="_blank" rel="noopener noreferrer nofollow" href="{{_rel}}{{.}}"><img src="{{_rel}}{{.}}" alt="{{title}}" /></a>
+                                                         </figure>
+                                                         {{/image}}
+                                                         {{^image}}
+                                                         {{#featureImage}}
+                                                         <figure class="post-full-image">
+                                                             <a target="_blank" rel="noopener noreferrer nofollow" href="{{_rel}}{{.}}"><img src="{{_rel}}{{.}}" alt="{{title}}" /></a>
+                                                         </figure>
+                                                         {{/featureImage}}
+                                                         {{/image}}
+
+                                                         <header class="post-full-header tag-header">
+                                                             <h1 class="site-title">{{title}}</h1>
+                                                             <h2 class="site-description">
+                                                                 {{#description}}
+                                                                     {{.}}
+                                                                 {{/description}}
+                                                                 {{^description}}
+                                                                     A collection of posts tagged with {{title}}
+                                                                 {{/description}}
+                                                             </h2>
+                                                         </header>
+
+                                                         <section class="post-full-content">
+                                                             <div class="post-content">
+                                                                 <div class="post-feed">
+                                                                     {{#posts}}
+                                                                         {{>partials/post-card}}
+                                                                     {{/posts}}
+                                                                     {{{conceptual}}}
+                                                                 </div>
+                                                             </div>
+                                                         </section>
+                                                     </article>
+                                                 </div>
+                                             </main>
+                                             """;
                         }
                         else if (hbsNameLower == "page")
                         {
                             partialContent = """
-                                <header class="site-header outer">
-                                    <div class="inner">
-                                        {{>partials/site-nav}}
-                                    </div>
-                                </header>
+                                             <header class="site-header outer">
+                                                 <div class="inner">
+                                                     {{>partials/site-nav}}
+                                                 </div>
+                                             </header>
 
-                                <main id="site-main" class="site-main outer">
-                                    <div class="inner">
-                                        <article class="post-full {{postClass}} {{^featureImage}}no-image{{/featureImage}}">
-                                            {{#featureImage}}
-                                            <figure class="post-full-image">
-                                                <img src="{{_rel}}{{.}}" alt="{{title}}" />
-                                            </figure>
-                                            {{/featureImage}}
+                                             <main id="site-main" class="site-main outer">
+                                                 <div class="inner">
+                                                     <article class="post-full {{postClass}} {{^image}}no-image{{/image}}">
+                                                         {{#image}}
+                                                         <figure class="post-full-image">
+                                                             <a target="_blank" rel="noopener noreferrer nofollow" href="{{_rel}}{{.}}"><img src="{{_rel}}{{.}}" alt="{{title}}" /></a>
+                                                         </figure>
+                                                         {{/image}}
 
-                                            <header class="post-full-header">
-                                                <h1 class="post-full-title">{{title}}</h1>
-                                            </header>
+                                                         <header class="post-full-header">
+                                                             <h1 class="post-full-title">{{title}}</h1>
+                                                         </header>
 
-                                            <section class="post-full-content">
-                                                <div class="post-content">
-                                                    {{{conceptual}}}
-                                                </div>
-                                            </section>
-                                        </article>
-                                    </div>
-                                </main>
-                                """;
+                                                         <section class="post-full-content">
+                                                             <div class="post-content">
+                                                                 {{{conceptual}}}
+                                                             </div>
+                                                         </section>
+                                                     </article>
+                                                 </div>
+                                             </main>
+                                             """;
                         }
                         else
                         {
@@ -1434,7 +1459,8 @@ public static class DocfxGenerator
             result = "{{!include(/^public/.*/)}}\n{{!include(favicon.ico)}}\n{{!include(logo.svg)}}\n" + result;
             if (!result.Contains("{{>partials/floating-header}}", StringComparison.OrdinalIgnoreCase))
             {
-                result = Regex.Replace(result, @"(<div\s+class=[""']site-wrapper[""'][^>]*>)", "$1\n\n        {{>partials/floating-header}}\n", RegexOptions.IgnoreCase);
+                result = Regex.Replace(result, @"(<div\s+class=[""']site-wrapper[""'][^>]*>)",
+                    "$1\n\n        {{>partials/floating-header}}\n", RegexOptions.IgnoreCase);
             }
         }
 
@@ -1751,7 +1777,7 @@ public static class DocfxGenerator
             RegexOptions.IgnoreCase);
 
         // Map snake_case variables to camelCase frontmatter names
-        result = Regex.Replace(result, @"\bfeature_image\b", "featureImage", RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, @"\bfeature_image\b", "image", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\bog_title\b", "ogTitle", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\bog_description\b", "ogDescription", RegexOptions.IgnoreCase);
         result = Regex.Replace(result, @"\btwitter_title\b", "twitterTitle", RegexOptions.IgnoreCase);
@@ -1894,72 +1920,72 @@ public static class DocfxGenerator
         }
 
         string postCardPath = Path.Combine(partialsDir, "post-card.tmpl.partial");
-        if (!File.Exists(postCardPath))
-        {
-            string defaultPostCard = """
-                                     <article class="post-card post {{tagClass}} {{imageClass}}">
+        string defaultPostCard = """
+                                 <article class="post-card post {{tagClass}} {{imageClass}}">
 
-                                         {{#featureImage}}
-                                         <a class="post-card-image-link" href="{{_rel}}{{slug}}.html" aria-label="{{title}}">
-                                             <img class="post-card-image"
-                                                 srcset="{{_rel}}{{featureImage}} 300w,
-                                                         {{_rel}}{{featureImage}} 600w,
-                                                         {{_rel}}{{featureImage}} 1000w,
-                                                         {{_rel}}{{featureImage}} 2000w"
-                                                 sizes="(max-width: 1000px) 400px, 700px"
-                                                 src="{{_rel}}{{featureImage}}"
-                                                 alt="{{title}}"
-                                             />
-                                         </a>
-                                         {{/featureImage}}
+                                     {{#image}}
+                                     <a class="post-card-image-link" href="{{_rel}}{{slug}}.html" aria-label="{{title}}">
+                                         <img class="post-card-image"
+                                             src="{{_rel}}{{image}}"
+                                             alt="{{title}}"
+                                         />
+                                     </a>
+                                     {{/image}}
 
-                                         <div class="post-card-content">
-                                             <a class="post-card-content-link" href="{{_rel}}{{slug}}.html">
-                                                 <header class="post-card-header">
-                                                     {{#primaryTag}}
-                                                         <span class="post-card-tags">{{.}}</span>
-                                                     {{/primaryTag}}
-                                                     <h2 class="post-card-title">{{title}}</h2>
-                                                 </header>
-                                                 {{#excerpt}}
-                                                 <section class="post-card-excerpt">
-                                                     <p>{{.}}</p>
-                                                 </section>
-                                                 {{/excerpt}}
-                                             </a>
-                                             <footer class="post-card-meta">
-                                                 <div class="post-card-byline-wrapper">
-                                                     <ul class="author-list">
-                                                     {{#authorName}}
-                                                         <li class="author-list-item">
-                                                             <div class="author-name-tooltip">
-                                                                 {{.}}
-                                                             </div>
-
-                                                             {{#authorImage}}
-                                                                 <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar">
-                                                                     <img class="author-profile-image" src="{{_rel}}{{.}}" alt="{{authorName}}" />
-                                                                 </a>
-                                                             {{else}}
-                                                                 <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar author-profile-image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></a>
-                                                             {{/authorImage}}
-                                                         </li>
-                                                     {{/authorName}}
-                                                     </ul>
-
-                                                     <div class="post-card-byline-content">
-                                                         {{#authorName}}<span><a href="{{_rel}}author/{{authorSlug}}.html">{{.}}</a></span>{{/authorName}}
-                                                         <span class="post-card-byline-date"><time datetime="{{date}}">{{formattedDate}}</time></span>
-                                                     </div>
-                                                 </div>
-                                             </footer>
-
+                                     <div class="post-card-content">
+                                         <div class="post-card-content-header">
+                                             {{#primaryTag}}
+                                                 {{#tagSlug}}
+                                                     <span class="post-card-tags"><a href="{{_rel}}tag/{{.}}.html">{{primaryTag}}</a></span>
+                                                 {{/tagSlug}}
+                                                 {{^tagSlug}}
+                                                     <span class="post-card-tags">{{.}}</span>
+                                                 {{/tagSlug}}
+                                             {{/primaryTag}}
                                          </div>
+                                         <a class="post-card-content-link" href="{{_rel}}{{slug}}.html">
+                                             <header class="post-card-header">
+                                                 <h2 class="post-card-title">{{title}}</h2>
+                                             </header>
+                                             {{#excerpt}}
+                                             <section class="post-card-excerpt">
+                                                 <p>{{.}}</p>
+                                             </section>
+                                             {{/excerpt}}
+                                         </a>
+                                         <footer class="post-card-meta">
+                                             <div class="post-card-byline-wrapper">
+                                                 <ul class="author-list">
+                                                 {{#authorName}}
+                                                     <li class="author-list-item">
+                                                         <div class="author-name-tooltip">
+                                                             {{.}}
+                                                         </div>
 
-                                     </article>
-                                     """;
-            await File.WriteAllTextAsync(postCardPath, defaultPostCard, System.Text.Encoding.UTF8);
-        }
+                                                         {{#authorImage}}
+                                                             <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar">
+                                                                 <img class="author-profile-image" src="{{_rel}}{{.}}" alt="{{authorName}}" />
+                                                             </a>
+                                                         {{/authorImage}}
+                                                         {{^authorImage}}
+                                                             <a href="{{_rel}}author/{{authorSlug}}.html" class="static-avatar author-profile-image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></a>
+                                                         {{/authorImage}}
+                                                     </li>
+                                                 {{/authorName}}
+                                                 </ul>
+
+                                                 <div class="post-card-byline-content">
+                                                     {{#authorName}}<span><a href="{{_rel}}author/{{authorSlug}}.html">{{.}}</a></span>{{/authorName}}
+                                                     <span class="post-card-byline-date"><time datetime="{{date}}">{{formattedDate}}</time></span>
+                                                 </div>
+                                             </div>
+                                         </footer>
+
+                                     </div>
+
+                                 </article>
+                                 """;
+        await File.WriteAllTextAsync(postCardPath, defaultPostCard, System.Text.Encoding.UTF8);
 
         string indexTmplPath = Path.Combine(rootDir, customTemplatePath, "index.html.primary.tmpl");
         if (!File.Exists(indexTmplPath))
@@ -2378,7 +2404,8 @@ public static class DocfxGenerator
         sb.AppendLine(
             "        <a class=\"rss-button\" href=\"https://feedly.com/i/subscription/feed/{{_appUrl}}/rss/\" title=\"RSS\" target=\"_blank\" rel=\"noreferrer noopener\"><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><circle cx=\"6.18\" cy=\"17.82\" r=\"2.18\"/><path d=\"M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z\"/></svg></a>");
         sb.AppendLine("        {{/_appUrl}}");
-        sb.AppendLine("        <div class=\"dropdown theme-dropdown\" style=\"display: inline-block; margin-left: 10px;\">");
+        sb.AppendLine(
+            "        <div class=\"dropdown theme-dropdown\" style=\"display: inline-block; margin-left: 10px;\">");
         sb.AppendLine(
             "            <a title=\"Change theme\" class=\"btn border-0 dropdown-toggle\" data-bs-toggle=\"dropdown\" aria-expanded=\"false\" style=\"color: #fff; text-decoration: none; padding: 0 5px;\">");
         sb.AppendLine("                <i class=\"bi bi-circle-half\" style=\"font-size: 1.6rem;\"></i>");
@@ -2400,7 +2427,8 @@ public static class DocfxGenerator
         sb.AppendLine("          document.addEventListener('click', function(e) {");
         sb.AppendLine("            var menu = document.querySelector('.site-nav-menu');");
         sb.AppendLine("            var btn = document.querySelector('.site-nav-hamburger');");
-        sb.AppendLine("            if (menu && menu.classList.contains('mobile-menu-active') && !menu.contains(e.target) && (!btn || !btn.contains(e.target))) {");
+        sb.AppendLine(
+            "            if (menu && menu.classList.contains('mobile-menu-active') && !menu.contains(e.target) && (!btn || !btn.contains(e.target))) {");
         sb.AppendLine("              menu.classList.remove('mobile-menu-active');");
         sb.AppendLine("            }");
         sb.AppendLine("          });");
@@ -2415,8 +2443,10 @@ public static class DocfxGenerator
         sb.AppendLine("          }");
         sb.AppendLine("          (function() {");
         sb.AppendLine("            var t = localStorage.getItem('theme');");
-        sb.AppendLine("            if (!t) { t = 'auto'; try { localStorage.setItem('theme', 'auto'); } catch (e) {} }");
-        sb.AppendLine("            var eff = t === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t;");
+        sb.AppendLine(
+            "            if (!t) { t = 'auto'; try { localStorage.setItem('theme', 'auto'); } catch (e) {} }");
+        sb.AppendLine(
+            "            var eff = t === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t;");
         sb.AppendLine("            document.documentElement.setAttribute('data-bs-theme', eff);");
         sb.AppendLine("            var icon = document.querySelector('.dropdown-toggle i.bi');");
         sb.AppendLine(
