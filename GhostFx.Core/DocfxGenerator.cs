@@ -48,10 +48,17 @@ public static class DocfxGenerator
 
                                                        <script type="module" src="./{{_rel}}public/docfx.min.js"></script>
 
-                                                       <script>
-                                                         const theme = localStorage.getItem('theme') || 'auto'
-                                                         document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
-                                                       </script>
+                                                        <script>
+                                                          (function() {
+                                                            var theme = localStorage.getItem('theme');
+                                                            if (!theme) {
+                                                              theme = 'auto';
+                                                              try { localStorage.setItem('theme', 'auto'); } catch (e) {}
+                                                            }
+                                                            var eff = theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme;
+                                                            document.documentElement.setAttribute('data-bs-theme', eff);
+                                                          })();
+                                                        </script>
 
                                                        {{#_googleAnalyticsTagId}}
                                                        <script async src="https://www.googletagmanager.com/gtag/js?id={{_googleAnalyticsTagId}}"></script>
@@ -808,60 +815,19 @@ public static class DocfxGenerator
                     {
                         targetPath = Path.Combine(targetTemplateDir, "layout", "_master.tmpl");
                     }
-                    else if (hbsNameLower == "post")
+                    else if (hbsNameLower == "post" || hbsNameLower == "page" || hbsNameLower == "tag" ||
+                             hbsNameLower == "author" || hbsNameLower == "index")
                     {
-                        targetPath = Path.Combine(targetTemplateDir, "post.html.primary.tmpl");
-                    }
-                    else if (hbsNameLower == "page")
-                    {
-                        targetPath = Path.Combine(targetTemplateDir, "page.html.primary.tmpl");
-                    }
-                    else if (hbsNameLower == "tag")
-                    {
-                        targetPath = Path.Combine(targetTemplateDir, "tag.html.primary.tmpl");
-                    }
-                    else if (hbsNameLower == "author")
-                    {
-                        targetPath = Path.Combine(targetTemplateDir, "author.html.primary.tmpl");
-                    }
-                    else if (hbsNameLower == "index")
-                    {
-                        targetPath = Path.Combine(targetTemplateDir, "index.html.primary.tmpl");
-                        converted = """
-                                    {{!master(layout/_master.tmpl)}}
+                        string partialLayoutDir = Path.Combine(targetTemplateDir, "partials");
+                        Directory.CreateDirectory(partialLayoutDir);
+                        string partialLayoutPath =
+                            Path.Combine(partialLayoutDir, $"{hbsNameLower}_layout.tmpl.partial");
+                        string partialContent = Regex.Replace(converted, @"^\{\{!master\([^)]+\)\}\}\s*\r?\n?", "",
+                            RegexOptions.IgnoreCase);
+                        await File.WriteAllTextAsync(partialLayoutPath, partialContent, System.Text.Encoding.UTF8);
 
-                                    <header class="site-home-header">
-                                        <div class="outer site-header-background {{#coverImage}}responsive-header-img{{/coverImage}}{{^coverImage}}{{#_appCoverImage}}responsive-header-img{{/_appCoverImage}}{{/coverImage}}" style="{{#coverImage}}background-image: url('{{_rel}}{{.}}');{{/coverImage}}{{^coverImage}}{{#_appCoverImage}}background-image: url('{{_rel}}{{.}}');{{/_appCoverImage}}{{/coverImage}}">
-                                            <div class="inner">
-                                                {{>partials/site-nav}}
-                                                <div class="site-header-content">
-                                                    <h1 class="site-title">
-                                                        {{#_appLogoPath}}
-                                                            <img class="site-logo" src="{{_rel}}{{.}}" alt="{{#title}}{{title}}{{/title}}{{^title}}{{_appTitle}}{{/title}}" />
-                                                        {{/_appLogoPath}}
-                                                        {{^_appLogoPath}}
-                                                            {{#title}}{{title}}{{/title}}{{^title}}{{_appTitle}}{{/title}}
-                                                        {{/_appLogoPath}}
-                                                    </h1>
-                                                    <h2 class="site-description">{{#description}}{{description}}{{/description}}{{^description}}{{_appDescription}}{{/description}}</h2>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </header>
-
-                                    <main id="site-main" class="site-main outer">
-                                        <div class="inner">
-
-                                            <div class="post-feed">
-                                                {{#posts}}
-                                                    {{>partials/post-card}}
-                                                {{/posts}}
-                                                {{{conceptual}}}
-                                            </div>
-
-                                        </div>
-                                    </main>
-                                    """;
+                        targetPath = Path.Combine(targetTemplateDir, $"{hbsNameLower}.html.primary.tmpl");
+                        converted = "{{{conceptual}}}";
                     }
                     else if (hbsNameLower == "error-404")
                     {
@@ -894,41 +860,47 @@ public static class DocfxGenerator
                 }
 
                 await File.WriteAllTextAsync(targetPath, converted, System.Text.Encoding.UTF8);
-
-                // For primary templates (excluding layout and partials), also generate a layout partial copy
-                if (!isPartial && !isLayout)
-                {
-                    string partialLayoutDir = Path.Combine(targetTemplateDir, "partials");
-                    Directory.CreateDirectory(partialLayoutDir);
-                    string partialLayoutPath = Path.Combine(partialLayoutDir, $"{hbsNameLower}_layout.tmpl.partial");
-                    // Strip the master inheritance directive to prevent layout nesting issues inside partials
-                    string partialContent = Regex.Replace(converted, @"^\{\{!master\([^)]+\)\}\}\s*\r?\n?", "",
-                        RegexOptions.IgnoreCase);
-                    await File.WriteAllTextAsync(partialLayoutPath, partialContent);
-                }
             }
 
             // Write conceptual.html.primary.tmpl layout router
             string conceptualPath = Path.Combine(targetTemplateDir, "conceptual.html.primary.tmpl");
             string conceptualContent = @"{{!master(layout/_master.tmpl)}}
-{{#isPost}}
-{{>partials/post_layout}}
-{{/isPost}}
-{{#isPage}}
-{{>partials/page_layout}}
-{{/isPage}}
+{{#isHome}}
+{{>partials/index_layout}}
+{{/isHome}}
+{{#isAuthorPage}}
+{{>partials/author_layout}}
+{{/isAuthorPage}}
 {{#isTagPage}}
 {{>partials/tag_layout}}
 {{/isTagPage}}
 {{#isTagsIndexPage}}
 {{>partials/tag_layout}}
 {{/isTagsIndexPage}}
-{{#isAuthorPage}}
-{{>partials/author_layout}}
+{{#isPost}}
+{{^isHome}}
+{{^isAuthorPage}}
+{{^isTagPage}}
+{{^isTagsIndexPage}}
+{{>partials/post_layout}}
+{{/isTagsIndexPage}}
+{{/isTagPage}}
 {{/isAuthorPage}}
-{{#isHome}}
-{{>partials/index_layout}}
 {{/isHome}}
+{{/isPost}}
+{{#isPage}}
+{{^isHome}}
+{{^isAuthorPage}}
+{{^isTagPage}}
+{{^isTagsIndexPage}}
+{{^isPost}}
+{{>partials/page_layout}}
+{{/isPost}}
+{{/isTagsIndexPage}}
+{{/isTagPage}}
+{{/isAuthorPage}}
+{{/isHome}}
+{{/isPage}}
 {{^isPost}}
 {{^isPage}}
 {{^isTagPage}}
@@ -1442,10 +1414,30 @@ public static class DocfxGenerator
             </div>
         </main>
         <script>
-            document.addEventListener('click', function(e) {
-                var a = e.target.closest('#search-results .sr-item a');
-                if (a) { a.removeAttribute('target'); }
-            });
+            (function() {
+                var cleanLink = function(a) {
+                    if (a && a.href) {
+                        a.removeAttribute('target');
+                        a.href = a.href.replace(/(\?|&)q=[^&]*(&|$)/, '$1').replace(/[\?&]$/, '');
+                    }
+                };
+                document.addEventListener('click', function(e) {
+                    var a = e.target.closest('#search-results a');
+                    if (a) { cleanLink(a); }
+                }, true);
+                var sr = document.getElementById('search-results');
+                if (sr) {
+                    new MutationObserver(function() {
+                        var links = sr.querySelectorAll('a[href*=""?q=""], a[href*=""&q=""]');
+                        for (var i = 0; i < links.length; i++) { cleanLink(links[i]); }
+                    }).observe(sr, { childList: true, subtree: true });
+                }
+                if (window.location.search.indexOf('q=') !== -1) {
+                    var cleanSearch = window.location.search.replace(/(\?|&)q=[^&]*(&|$)/, '$1').replace(/[\?&]$/, '');
+                    var cleanUrl = window.location.pathname + cleanSearch + window.location.hash;
+                    window.history.replaceState(null, '', cleanUrl);
+                }
+            })();
         </script>
         {{/_enableSearch}}");
             }
@@ -2031,18 +2023,16 @@ public static class DocfxGenerator
                 string iconLower = (link.Icon ?? "").ToLowerInvariant();
                 string iconPartial = iconLower switch
                 {
-                    "facebook" =>
-                        "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><path d=\"M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z\"/></svg>",
-                    "twitter" or "x" =>
-                        "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><path d=\"M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z\"/></svg>",
+                    "facebook" => "{{>partials/icons/facebook}}",
+                    "twitter" or "x" => "{{>partials/icons/x}}",
+                    "bluesky" or "bsky" => "{{>partials/icons/bluesky}}",
+                    "mastodon" or "masto" => "{{>partials/icons/mastodon}}",
                     "linkedin" => "{{>partials/icons/linkedin}}",
                     "youtube" => "{{>partials/icons/youtube}}",
                     "reddit" => "{{>partials/icons/reddit}}",
-                    "rss" =>
-                        "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><circle cx=\"6.18\" cy=\"17.82\" r=\"2.18\"/><path d=\"M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z\"/></svg>",
+                    "rss" => "{{>partials/icons/rss}}",
                     "email" or "mail" => "{{>partials/icons/email}}",
-                    "github" =>
-                        "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><path d=\"M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z\"/></svg>",
+                    "github" => "{{>partials/icons/github}}",
                     _ => link.Title ?? link.Icon ?? ""
                 };
                 sbSocial.AppendLine(
@@ -2053,6 +2043,8 @@ public static class DocfxGenerator
         var sb = new System.Text.StringBuilder();
         sb.AppendLine("<nav class=\"site-nav\">");
         sb.AppendLine("    <div class=\"site-nav-left\">");
+        sb.AppendLine(
+            "        <button class=\"site-nav-hamburger\" aria-label=\"Toggle menu\" onclick=\"toggleMobileNav();return false;\"><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"currentColor\"><path d=\"M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z\"/></svg></button>");
         sb.AppendLine("        {{^isHome}}");
         sb.AppendLine("            {{#_appLogoPath}}");
         sb.AppendLine(
@@ -2063,17 +2055,19 @@ public static class DocfxGenerator
             "                <a class=\"site-nav-logo\" href=\"{{#_appUrl}}{{_appUrl}}{{/_appUrl}}{{^_appUrl}}{{_rel}}{{/_appUrl}}\">{{_appTitle}}</a>");
         sb.AppendLine("            {{/_appLogoPath}}");
         sb.AppendLine("        {{/isHome}}");
-        sb.AppendLine("        <ul class=\"nav\" role=\"menu\">");
+        sb.AppendLine("        <ul class=\"nav site-nav-menu\" role=\"menu\">");
         sb.Append(sbNav.ToString());
         sb.AppendLine("        </ul>");
         sb.AppendLine("    </div>");
-        sb.AppendLine("    <div class=\"site-nav-right\">");
-        sb.AppendLine("        {{#_enableSearch}}");
-        sb.AppendLine("        <form class=\"search\" role=\"search\" id=\"search\" style=\"margin-right: 15px;\">");
+        sb.AppendLine("    {{#_enableSearch}}");
+        sb.AppendLine("    <div class=\"site-nav-center\">");
+        sb.AppendLine("        <form class=\"search\" role=\"search\" id=\"search\">");
         sb.AppendLine(
-            "            <input class=\"form-control\" id=\"search-query\" type=\"search\" disabled placeholder=\"Search\" autocomplete=\"off\" aria-label=\"Search\" style=\"border-radius: 20px; padding: 4px 12px; background: rgba(255,255,255,0.15); border: none; color: #fff;\">");
+            "            <input class=\"form-control\" id=\"search-query\" type=\"search\" disabled placeholder=\"Search\" autocomplete=\"off\" aria-label=\"Search\">");
         sb.AppendLine("        </form>");
-        sb.AppendLine("        {{/_enableSearch}}");
+        sb.AppendLine("    </div>");
+        sb.AppendLine("    {{/_enableSearch}}");
+        sb.AppendLine("    <div class=\"site-nav-right\">");
         sb.AppendLine("        <div class=\"social-links\">");
         sb.Append(sbSocial.ToString());
         sb.AppendLine("        </div>");
@@ -2081,7 +2075,7 @@ public static class DocfxGenerator
         sb.AppendLine(
             "        <a class=\"rss-button\" href=\"https://feedly.com/i/subscription/feed/{{_appUrl}}/rss/\" title=\"RSS\" target=\"_blank\" rel=\"noreferrer noopener\"><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\"><circle cx=\"6.18\" cy=\"17.82\" r=\"2.18\"/><path d=\"M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z\"/></svg></a>");
         sb.AppendLine("        {{/_appUrl}}");
-        sb.AppendLine("        <div class=\"dropdown\" style=\"display: inline-block; margin-left: 10px;\">");
+        sb.AppendLine("        <div class=\"dropdown theme-dropdown\" style=\"display: inline-block; margin-left: 10px;\">");
         sb.AppendLine(
             "            <a title=\"Change theme\" class=\"btn border-0 dropdown-toggle\" data-bs-toggle=\"dropdown\" aria-expanded=\"false\" style=\"color: #fff; text-decoration: none; padding: 0 5px;\">");
         sb.AppendLine("                <i class=\"bi bi-circle-half\" style=\"font-size: 1.6rem;\"></i>");
@@ -2096,6 +2090,17 @@ public static class DocfxGenerator
         sb.AppendLine("            </ul>");
         sb.AppendLine("        </div>");
         sb.AppendLine("        <script>");
+        sb.AppendLine("          window.toggleMobileNav = function() {");
+        sb.AppendLine("            var menu = document.querySelector('.site-nav-menu');");
+        sb.AppendLine("            if (menu) { menu.classList.toggle('mobile-menu-active'); }");
+        sb.AppendLine("          };");
+        sb.AppendLine("          document.addEventListener('click', function(e) {");
+        sb.AppendLine("            var menu = document.querySelector('.site-nav-menu');");
+        sb.AppendLine("            var btn = document.querySelector('.site-nav-hamburger');");
+        sb.AppendLine("            if (menu && menu.classList.contains('mobile-menu-active') && !menu.contains(e.target) && (!btn || !btn.contains(e.target))) {");
+        sb.AppendLine("              menu.classList.remove('mobile-menu-active');");
+        sb.AppendLine("            }");
+        sb.AppendLine("          });");
         sb.AppendLine("          function setTheme(t) {");
         sb.AppendLine("            localStorage.setItem('theme', t);");
         sb.AppendLine(
@@ -2106,7 +2111,10 @@ public static class DocfxGenerator
             "            if (icon) { icon.className = 'bi ' + (t === 'light' ? 'bi-sun' : t === 'dark' ? 'bi-moon' : 'bi-circle-half'); }");
         sb.AppendLine("          }");
         sb.AppendLine("          (function() {");
-        sb.AppendLine("            var t = localStorage.getItem('theme') || 'auto';");
+        sb.AppendLine("            var t = localStorage.getItem('theme');");
+        sb.AppendLine("            if (!t) { t = 'auto'; try { localStorage.setItem('theme', 'auto'); } catch (e) {} }");
+        sb.AppendLine("            var eff = t === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t;");
+        sb.AppendLine("            document.documentElement.setAttribute('data-bs-theme', eff);");
         sb.AppendLine("            var icon = document.querySelector('.dropdown-toggle i.bi');");
         sb.AppendLine(
             "            if (icon) { icon.className = 'bi ' + (t === 'light' ? 'bi-sun' : t === 'dark' ? 'bi-moon' : 'bi-circle-half'); }");
