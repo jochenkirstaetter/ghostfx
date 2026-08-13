@@ -16,7 +16,7 @@
       <ReadmeContent>$(ReadmeContent.Replace('&lt;div align="center"&gt;', ''))</ReadmeContent>
       <ReadmeContent>$(ReadmeContent.Replace('&lt;/div&gt;', ''))</ReadmeContent>
       <!-- Replace the HTML image tag with standard markdown image syntax referencing packed root logo -->
-      <ReadmeContent>$(ReadmeContent.Replace('&lt;img src="assets/ghostfx_logo.png" width="320" alt="GhostFx Logo" /&gt;', '![GhostFx Logo](ghostfx_logo.png)'))</ReadmeContent>
+      <ReadmeContent>$(ReadmeContent.Replace('&lt;img src="assets/ghostfx_logo.png" width="320" alt="GhostFx Logo" /&gt;', '![GhostFx Logo](https://github.com/jochenkirstaetter/ghostfx/raw/main/assets/ghostfx_logo.png)'))</ReadmeContent>
     </PropertyGroup>
 
     <!-- Write the transformed content to NuGetREADME.md -->
