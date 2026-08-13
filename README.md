@@ -5,7 +5,8 @@
   <img src="assets/ghostfx_logo.png" width="320" alt="GhostFx Logo" />
 
 
-**Live-migrate Ghost blogs & JSON exports to Git-versioned Markdown configured for DocFX static site generation.**
+**Live-migrate Ghost blogs & JSON exports to git-versioned  
+markdown files configured for DocFX static site generation.**
 
 [![.NET 10.0](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)

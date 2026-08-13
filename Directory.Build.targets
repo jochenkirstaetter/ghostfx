@@ -1,0 +1,35 @@
+<Project>
+
+  <Target Name="GenerateNuGetReadme" BeforeTargets="_GetPackageFiles" Condition="'$(PackageReadmeFile)' == 'README.md'">
+    <PropertyGroup>
+      <OriginalReadmePath>$(MSBuildThisFileDirectory)README.md</OriginalReadmePath>
+      <GeneratedReadmePath>$(IntermediateOutputPath)NuGetREADME.md</GeneratedReadmePath>
+    </PropertyGroup>
+
+    <!-- Ensure the directory exists -->
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+
+    <!-- Read original README and transform it -->
+    <PropertyGroup>
+      <ReadmeContent>$([System.IO.File]::ReadAllText('$(OriginalReadmePath)'))</ReadmeContent>
+      <!-- Remove HTML center tags -->
+      <ReadmeContent>$(ReadmeContent.Replace('&lt;div align="center"&gt;', ''))</ReadmeContent>
+      <ReadmeContent>$(ReadmeContent.Replace('&lt;/div&gt;', ''))</ReadmeContent>
+      <!-- Replace the HTML image tag with standard markdown image syntax referencing packed root logo -->
+      <ReadmeContent>$(ReadmeContent.Replace('&lt;img src="assets/ghostfx_logo.png" width="320" alt="GhostFx Logo" /&gt;', '![GhostFx Logo](ghostfx_logo.png)'))</ReadmeContent>
+    </PropertyGroup>
+
+    <!-- Write the transformed content to NuGetREADME.md -->
+    <WriteLinesToFile File="$(GeneratedReadmePath)" Lines="$(ReadmeContent)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+
+    <ItemGroup>
+      <!-- Remove the original README.md from None pack group -->
+      <None Remove="..\README.md" />
+      <None Remove="$(MSBuildProjectDirectory)\..\README.md" />
+      <None Remove="@(None)" Condition="'%(FileName)%(Extension)' == 'README.md'" />
+      <!-- Include the generated one packaged as README.md -->
+      <None Include="$(GeneratedReadmePath)" Pack="true" PackagePath="README.md" />
+    </ItemGroup>
+  </Target>
+
+</Project>
