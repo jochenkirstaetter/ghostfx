@@ -2,8 +2,7 @@
 
   # GhostFx
 
-  <img src="assets/ghostfx_logo.png" width="320" alt="GhostFx Logo" />
-
+  <img src="./assets/ghostfx_logo.png" width="320" alt="GhostFx Logo" />
 
 **Live-migrate Ghost blogs & JSON exports to git-versioned  
 markdown files configured for DocFX static site generation.**
