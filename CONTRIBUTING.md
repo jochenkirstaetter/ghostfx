@@ -11,8 +11,8 @@ Here are simple guidelines that we expect to be followed by contributors:
 
 Thanks for contributing!
 
-## Gemini Wizards (aka Contributors) ✦
+## AI Generated Code (aka Contributors) ✦
 
-<a href="https://github.com/mscraftsman/generative-ai/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=mscraftsman/generative-ai" />
+<a href="https://github.com/jochenkirstaetter/ghostfx/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=jochenkirstaetter/ghostfx" />
 </a>
