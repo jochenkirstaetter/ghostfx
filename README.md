@@ -140,19 +140,24 @@ Generated static site source files are organized under `outputDir`:
 ├── index.md
 ├── tags.md
 ├── toc.yml
-├── published/         # Published posts
-│   └── post-slug.md
-├── pages/             # Ghost pages
-│   └── page-slug.md
-├── draft/             # Draft posts
-│   └── draft-slug.md
-├── scheduled/         # Scheduled posts
-│   └── post-slug.md
+├── author/            # Ghost authors
+│   └── author-slug.md
 ├── content/
 │   └── images/        # Backwards-compatible Ghost media & brand assets
 │       └── 2024/05/sample.jpg
-└── template/
-    └── ghostfx/       # Converted DocFX modern theme overrides
+├── draft/             # Draft posts
+│   └── draft-slug.md
+├── ghostfx/           # Converted DocFX modern theme overrides
+│   └── (theme files)
+│   └── index.html.primary.tmpl
+├── pages/             # Ghost pages
+│   └── page-slug.md
+├── published/         # Published posts
+│   └── post-slug.md
+├── scheduled/         # Scheduled posts (optional)
+│   └── post-slug.md
+└── tags/              # Ghost tags
+    └── tag-slug.md
 ```
 
 ---
