@@ -17,6 +17,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="ghostfx.css" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="ReverseMarkdown" />
     <PackageReference Include="YamlDotNet" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" />

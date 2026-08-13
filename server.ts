@@ -49,6 +49,7 @@ async function startServer() {
         downloadTheme: false,
         migrateTheme: false,
         purgeTemplate: false,
+        disableAffix: false,
         themePath: '_ghost_templates/blogged-4.0.0',
         logoPath: false,
         googleAnalyticsTag: '',

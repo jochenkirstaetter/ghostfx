@@ -1,0 +1,92 @@
+/* GhostFx Default DocFX Theme Styles */
+
+/* Affix / Right Rail styling on large screens */
+@media (min-width: 1640px) {
+
+  /* Provide space for affix rail inside content/post wrapper */
+  body:not(.metadata-disable-affix) .post-full-content,
+  body:not(.metadata-disable-affix) .post-content,
+  body:not(.metadata-disable-affix) .gh-content {
+    /* padding-right: 300px !important; */
+    position: relative;
+  }
+
+  .affix {
+    position: fixed;
+    top: 140px;
+    right: 40px;
+    width: 260px;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+    font-size: 0.85rem;
+    border-left: 1px solid var(--color-border, #e5e7eb);
+    padding-left: 15px;
+    z-index: 10;
+  }
+
+  .affix h5 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-secondary, #6b7280);
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+
+  .affix nav {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .affix a {
+    color: var(--color-text-secondary, #6b7280);
+    text-decoration: none;
+    padding: 4px 0;
+    display: block;
+    border-left: 2px solid transparent;
+    padding-left: 10px;
+    margin-left: -11px;
+    transition: color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+  }
+
+  .affix a:hover {
+    color: var(--color-text-primary, #111827);
+  }
+
+  .affix .active>a {
+    color: var(--color-brand, #3b82f6);
+    border-left-color: var(--color-brand, #3b82f6);
+    font-weight: 500;
+  }
+}
+
+@media (max-width: 1199px) {
+  .affix {
+    display: none !important;
+  }
+}
+
+/* Floating Header Search styling */
+.floating-header-search {
+  flex: 1 1 auto;
+  max-width: 280px;
+  margin: 0 30px;
+  position: relative;
+}
+
+.floating-header-search input {
+  width: 100%;
+  padding: 6px 12px;
+  border-radius: var(--bs-border-radius);
+  border: 1px solid var(--color-border, #e5e7eb);
+  background-color: var(--color-bg-secondary, #f9fafb);
+  color: var(--color-text-primary, #111827);
+  outline: none;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.floating-header-search input:focus {
+  border-color: var(--color-brand, #3b82f6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}

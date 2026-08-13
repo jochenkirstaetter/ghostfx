@@ -450,7 +450,7 @@ public class DocfxGeneratorTests : IDisposable
 
         string indexPath = Path.Combine(_tempDirectory, "index.md");
         var method = typeof(MigrationEngine).GetMethod("GenerateFrontPage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        method!.Invoke(null, [indexPath, posts, "Test Site", "Description", "cover.jpg", 12]);
+        method!.Invoke(null, [indexPath, posts, "Test Site", "Description", "cover.jpg", 12, null]);
 
         Assert.True(File.Exists(indexPath));
         string content = File.ReadAllText(indexPath);
@@ -459,5 +459,56 @@ public class DocfxGeneratorTests : IDisposable
         Assert.Contains("title: Post 1", content);
         Assert.Contains("title: Post 12", content);
         Assert.DoesNotContain("title: Post 13", content);
+    }
+
+    [Fact]
+    public async Task GenerateDocfxJsonIfNotExistsAsync_SetsDisableAffix()
+    {
+        var config = new GhostFxConfig
+        {
+            OutputDir = "articles",
+            IndexFile = "index.md",
+            SiteTitle = "Test Blog",
+            DisableAffix = true
+        };
+
+        string docfxPath = await DocfxGenerator.GenerateDocfxJsonIfNotExistsAsync(_tempDirectory, config);
+
+        Assert.True(File.Exists(docfxPath));
+        string jsonContent = await File.ReadAllTextAsync(docfxPath, TestContext.Current.CancellationToken);
+
+        Assert.Contains("\"_disableAffix\": true", jsonContent);
+    }
+
+    [Fact]
+    public void ConvertHandlebarsToDocfx_HandlesAffixInjection()
+    {
+        string hbsInput = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <link rel="stylesheet" href="/assets/css/screen.css" />
+        </head>
+        <body class="home-template">
+            {{{body}}}
+        </body>
+        </html>
+        """;
+
+        string result = DocfxGenerator.ConvertHandlebarsToDocfx(hbsInput, isLayout: true);
+
+        Assert.Contains("<div class=\"affix\">", result);
+        Assert.Contains("<nav id=\"affix\"></nav>", result);
+        Assert.Contains("public/ghostfx.css", result);
+        Assert.Contains("metadata-disable-affix", result);
+    }
+
+    [Fact]
+    public async Task ReadEmbeddedGhostfxCssAsync_ReturnsValidCss()
+    {
+        var method = typeof(DocfxGenerator).GetMethod("ReadEmbeddedGhostfxCssAsync", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var css = await (Task<string>)method!.Invoke(null, null)!;
+        Assert.False(string.IsNullOrEmpty(css));
+        Assert.Contains("GhostFx Default DocFX Theme Styles", css);
     }
 }

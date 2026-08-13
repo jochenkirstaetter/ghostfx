@@ -86,6 +86,10 @@ public class Program
             name: "--purge-template",
             description: "If true, purges the template folder. If false, skips purging.");
 
+        var disableAffixOption = new Option<bool?>(
+            name: "--disable-affix",
+            description: "If true, disables the right-hand page structure rail (affix) in DocFX modern theme.");
+
         var rootCommand = new RootCommand("GhostFx: Live-migrate from Ghost to DocFx.")
         {
             // Configuration & Input Source Options
@@ -109,6 +113,7 @@ public class Program
             themePathOption,
             migrateThemeOption,
             purgeTemplateOption,
+            disableAffixOption,
 
             // Execution & Control
             yesOption,
@@ -138,6 +143,7 @@ public class Program
             var migrateThemeCli = parseResult.GetValueForOption(migrateThemeOption);
             var contentApiKeyCli = parseResult.GetValueForOption(contentApiKeyOption);
             var purgeTemplateCli = parseResult.GetValueForOption(purgeTemplateOption);
+            var disableAffixCli = parseResult.GetValueForOption(disableAffixOption);
 
             string? tempPipedFile = null;
 
@@ -192,8 +198,13 @@ public class Program
                 if (logoPathCli.HasValue) config.LogoPath = logoPathCli.Value;
                 if (!string.IsNullOrWhiteSpace(gaTag)) config.GoogleAnalyticsTag = gaTag;
                 if (migrateThemeCli.HasValue) config.MigrateTheme = migrateThemeCli.Value;
+                if (disableAffixCli.HasValue) config.DisableAffix = disableAffixCli.Value;
                 if (!string.IsNullOrWhiteSpace(contentApiKeyCli)) config.ContentApiKey = contentApiKeyCli;
                 if (purgeTemplateCli.HasValue) config.PurgeTemplate = purgeTemplateCli.Value;
+                if (autoConfirm == true && !purgeTemplateCli.HasValue)
+                {
+                    config.PurgeTemplate = true;
+                }
 
                 bool isQuiet = config.Quiet || Console.IsOutputRedirected;
                 if (Console.IsInputRedirected)
@@ -233,6 +244,7 @@ public class Program
                                 if (parsedConfig.Quiet) config.Quiet = true;
                                 config.LogoPath = parsedConfig.LogoPath;
                                 config.MigrateTheme = parsedConfig.MigrateTheme;
+                                config.DisableAffix = parsedConfig.DisableAffix;
                                 if (!string.IsNullOrWhiteSpace(parsedConfig.GoogleAnalyticsTag))
                                     config.GoogleAnalyticsTag = parsedConfig.GoogleAnalyticsTag;
                                 if (!string.IsNullOrWhiteSpace(parsedConfig.ContentApiKey))

@@ -82,6 +82,9 @@ public class GhostFxConfig
     [JsonPropertyName("migrateTheme")]
     public bool MigrateTheme { get; set; } = true;
 
+    [JsonPropertyName("disableAffix")]
+    public bool DisableAffix { get; set; } = false;
+
     [JsonPropertyName("purgeTemplate")]
     public bool? PurgeTemplate { get; set; } = null;
 

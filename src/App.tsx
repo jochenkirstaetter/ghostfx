@@ -34,6 +34,7 @@ interface GhostFxConfigData {
   siteTitle: string;
   includeDrafts: boolean;
   cleanUrls?: boolean;
+  disableAffix?: boolean;
   quiet?: boolean;
   downloadTheme: boolean;
   migrateTheme: boolean;
@@ -76,6 +77,7 @@ export default function App() {
     siteTitle: 'Get Blogged by JoKi',
     includeDrafts: true,
     cleanUrls: false,
+    disableAffix: false,
     quiet: false,
     downloadTheme: false,
     migrateTheme: false,
@@ -928,6 +930,19 @@ export default function App() {
                     />
                     <label htmlFor="cleanUrls" className="font-medium text-slate-700 cursor-pointer">
                       Clean URLs (Omit .html Extension)
+                    </label>
+                  </div>
+
+                  <div className="flex items-center space-x-2 pt-2">
+                    <input 
+                      type="checkbox" 
+                      id="disableAffix"
+                      checked={!!config.disableAffix} 
+                      onChange={e => setConfig({...config, disableAffix: e.target.checked})}
+                      className="w-4 h-4 text-indigo-600 rounded border-slate-300"
+                    />
+                    <label htmlFor="disableAffix" className="font-medium text-slate-700 cursor-pointer">
+                      Disable Page Affix (Right Rail)
                     </label>
                   </div>
 
