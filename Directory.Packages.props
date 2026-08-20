@@ -7,7 +7,7 @@
 
   <ItemGroup>
     <!-- Core Dependencies -->
-    <PackageVersion Include="ReverseMarkdown" Version="6.1.1" />
+    <PackageVersion Include="ReverseMarkdown" Version="6.2.1" />
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.22.0" />
     <PackageVersion Include="YamlDotNet" Version="18.1.0" />
 
